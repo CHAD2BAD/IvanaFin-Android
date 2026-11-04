@@ -54,6 +54,15 @@ val gitDescribe =
         .standardOutput.asText
         .getOrElse("v0.0.0")
 
+// IvanaFin: versionCode rises with every commit so launchers (e.g. Fire TV) refresh cached icons
+val gitCommitCount =
+    providers
+        .exec { commandLine("git", "rev-list", "--count", "HEAD") }
+        .standardOutput.asText
+        .get()
+        .trim()
+        .toInt()
+
 kotlin {
     compilerOptions {
         languageVersion = org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_3
@@ -75,7 +84,7 @@ configure<ApplicationExtension> {
         applicationId = "com.chad2badfin.app"
         minSdk = libs.versions.minSdk.getInt()
         targetSdk = libs.versions.targetSdk.getInt()
-        versionCode = gitTags.trim().lines().size
+        versionCode = gitCommitCount // IvanaFin (upstream: number of release tags)
         versionName = gitDescribe.trim().removePrefix("v").ifBlank { "0.0.0" }
         testInstrumentationRunner = "com.github.damontecres.wholphin.test.WholphinTestRunner"
 
