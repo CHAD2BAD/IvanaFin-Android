@@ -1,5 +1,7 @@
 package com.github.damontecres.wholphin.ui.cards
 
+import com.github.damontecres.wholphin.ui.theme.showCardBadges
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -245,7 +247,7 @@ fun ItemCardImageOverlay(
             if (watched && (watchedPercent == null || watchedPercent <= 0.0 || watchedPercent >= 100.0)) {
                 WatchedIcon(Modifier.size(24.dp))
             }
-            if (unwatchedCount > 0) {
+            if (unwatchedCount > 0 && showCardBadges()) { // IvanaFin
                 Box(
                     modifier =
                         Modifier

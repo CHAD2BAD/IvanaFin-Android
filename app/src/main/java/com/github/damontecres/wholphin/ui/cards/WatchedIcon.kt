@@ -49,7 +49,11 @@ fun WatchedIconBackground(): Color =
         AppThemeColors.BROWN,
         -> MaterialTheme.colorScheme.border.copy(alpha = 1f)
 
-        AppThemeColors.OLED_BLACK -> MaterialTheme.colorScheme.secondaryContainer
+        AppThemeColors.OLED_BLACK,
+
+        AppThemeColors.ELEGANTFIN,
+
+        -> MaterialTheme.colorScheme.secondaryContainer
     }
 
 @Composable
@@ -62,6 +66,7 @@ fun WatchedIconColor(): Color =
         AppThemeColors.ORANGE,
         AppThemeColors.BOLD_BLUE,
         AppThemeColors.OLED_BLACK,
+        AppThemeColors.ELEGANTFIN,
         AppThemeColors.RED,
         AppThemeColors.BROWN,
         -> Color.White // MaterialTheme.colorScheme.onSurface

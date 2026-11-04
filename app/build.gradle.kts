@@ -72,7 +72,7 @@ configure<ApplicationExtension> {
     compileSdk = libs.versions.compileSdk.getInt()
 
     defaultConfig {
-        applicationId = "com.github.damontecres.wholphin"
+        applicationId = "com.chad2badfin.app"
         minSdk = libs.versions.minSdk.getInt()
         targetSdk = libs.versions.targetSdk.getInt()
         versionCode = gitTags.trim().lines().size
@@ -147,7 +147,8 @@ configure<ApplicationExtension> {
             dimension = "version"
             isDefault = true
             manifestPlaceholders += mapOf(featureLeanback to false)
-            setFeatureFlag(featureUpdate, true)
+            // IvanaFin: disable upstream Wholphin self-updater
+            setFeatureFlag(featureUpdate, false)
             setFeatureFlag(featureDiscover, true)
         }
         create("appstore") {

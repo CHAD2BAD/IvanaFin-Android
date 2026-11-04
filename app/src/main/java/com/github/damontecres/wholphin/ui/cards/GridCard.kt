@@ -1,5 +1,7 @@
 package com.github.damontecres.wholphin.ui.cards
 
+import com.github.damontecres.wholphin.ui.theme.cardTitleMaxLines
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
@@ -108,7 +110,7 @@ fun GridCard(
             SlidingCardText(focused) {
                 Text(
                     text = item?.title ?: "",
-                    maxLines = 1,
+                    maxLines = cardTitleMaxLines(), // IvanaFin
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,

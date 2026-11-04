@@ -8,6 +8,7 @@ import com.github.damontecres.wholphin.preferences.AppThemeColors
 import com.github.damontecres.wholphin.ui.theme.colors.BlueThemeColors
 import com.github.damontecres.wholphin.ui.theme.colors.BoldBlueThemeColors
 import com.github.damontecres.wholphin.ui.theme.colors.BrownThemeColors
+import com.github.damontecres.wholphin.ui.theme.colors.ElegantFinThemeColors
 import com.github.damontecres.wholphin.ui.theme.colors.GreenThemeColors
 import com.github.damontecres.wholphin.ui.theme.colors.OledThemeColors
 import com.github.damontecres.wholphin.ui.theme.colors.OrangeThemeColors
@@ -27,6 +28,7 @@ fun getThemeColors(appThemeColors: AppThemeColors): ThemeColors =
         AppThemeColors.BOLD_BLUE -> BoldBlueThemeColors
         AppThemeColors.RED -> RedThemeColors
         AppThemeColors.BROWN -> BrownThemeColors
+        AppThemeColors.ELEGANTFIN -> ElegantFinThemeColors
         AppThemeColors.UNRECOGNIZED -> PurpleThemeColors
     }
 

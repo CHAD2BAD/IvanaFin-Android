@@ -1,5 +1,8 @@
 package com.github.damontecres.wholphin.ui.cards
 
+import com.github.damontecres.wholphin.ui.theme.cardTitleMaxLines
+import com.github.damontecres.wholphin.ui.theme.showCardBadges
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -139,7 +142,8 @@ fun BannerCard(
                             .align(Alignment.Center),
                 )
             }
-            if (played || cornerText != null) {
+            val showBadges = showCardBadges() // IvanaFin
+            if (played || (cornerText != null && showBadges)) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -151,7 +155,7 @@ fun BannerCard(
                     if (played && (playPercent <= 0 || playPercent >= 100)) {
                         WatchedIcon(Modifier.size(24.dp))
                     }
-                    if (cornerText != null) {
+                    if (cornerText != null && showBadges) {
                         Box(
                             modifier =
                                 Modifier
@@ -247,7 +251,7 @@ fun BannerCardWithTitle(
                 text = title ?: "",
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
+                maxLines = cardTitleMaxLines(), // IvanaFin
                 textAlign = TextAlign.Center,
                 modifier =
                     Modifier
