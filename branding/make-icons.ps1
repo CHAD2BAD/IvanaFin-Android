@@ -43,5 +43,15 @@ $by = [int](($src.Height - $bh) / 2)
 $g.DrawImage($src, (New-Object System.Drawing.Rectangle 0, 0, $W, $H), (New-Object System.Drawing.Rectangle $bx, $by, $bw, $bh), 'Pixel')
 $g.Dispose(); $bmp.Save((Join-Path $out 'ivanafin_banner.png'), [System.Drawing.Imaging.ImageFormat]::Png); $bmp.Dispose()
 
+# 3) Plain PNG launcher assets under fresh names (Fire TV's launcher draws the square icon
+#    on a tile and caches by resource, so new names force it to pick up the new picture)
+$mip = Join-Path $root 'app\src\default\res\mipmap-xhdpi'
+New-Item -ItemType Directory -Force $mip | Out-Null
+$bmp, $g = New-Canvas 192 192
+$g.DrawImage($src, (New-Object System.Drawing.Rectangle 0, 0, 192, 192), $srcRect, 'Pixel')
+$g.Dispose(); $bmp.Save((Join-Path $mip 'ivanafin_launcher.png'), [System.Drawing.Imaging.ImageFormat]::Png); $bmp.Dispose()
+Copy-Item (Join-Path $out 'ivanafin_banner.png') (Join-Path $mip 'ivanafin_tv_banner.png') -Force
+Get-ChildItem $mip | ForEach-Object { "{0} {1:N0} bytes" -f $_.Name, $_.Length }
+
 $src.Dispose()
 Get-ChildItem $out | ForEach-Object { "{0} {1:N0} bytes" -f $_.Name, $_.Length }
