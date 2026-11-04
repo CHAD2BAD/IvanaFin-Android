@@ -52,6 +52,10 @@ class SwitchSeerrViewModel
                         _state.update { it.copy(loading = LoadingState.Success) }
                     }
                 }
+            } else {
+                // IvanaFin: without the server plugin nothing ever flipped loading to Success,
+                // so the "Add Seerr server" dialog spun forever.
+                _state.update { it.copy(loading = LoadingState.Success) }
             }
         }
 
