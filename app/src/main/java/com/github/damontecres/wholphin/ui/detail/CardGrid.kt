@@ -403,7 +403,8 @@ fun <T : CardGridItem> CardGrid(
                             )
                         }
                     }
-                    if (showFooter) {
+                    // IvanaFin: Jellyfin web has no "N / total" position counter
+                    if (false && showFooter) {
                         // Footer
                         Box(
                             modifier =
