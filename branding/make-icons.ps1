@@ -32,22 +32,15 @@ $bmp, $g = New-Canvas 432 432
 $g.DrawImage($src, (New-Object System.Drawing.Rectangle 0, 0, 432, 432), $srcRect, 'Pixel')
 $g.Dispose(); $bmp.Save((Join-Path $out 'ivanafin_icon.png'), [System.Drawing.Imaging.ImageFormat]::Png); $bmp.Dispose()
 
-# 2) TV banner 640x360 (320x180dp @ xhdpi): black, rounded photo left, name right
+# 2) TV banner 640x360 (320x180dp @ xhdpi): the launcher shows apps as landscape tiles,
+#    so the photo fills the whole tile (16:9 crop, kept centred on the face)
 $W = 640; $H = 360
 $bmp, $g = New-Canvas $W $H
-$g.Clear([System.Drawing.Color]::Black)
-$pad = 40; $ph = $H - 2 * $pad
-$clip = New-RoundRect $pad $pad $ph $ph 36
-$g.SetClip($clip)
-$g.DrawImage($src, (New-Object System.Drawing.Rectangle $pad, $pad, $ph, $ph), $srcRect, 'Pixel')
-$g.ResetClip()
-$pen = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(255, 0x52, 0x52, 0x52)), 3
-$g.DrawPath($pen, $clip)
-$font = New-Object System.Drawing.Font 'Segoe UI Semibold', 52, ([System.Drawing.FontStyle]::Regular), ([System.Drawing.GraphicsUnit]::Pixel)
-$brush = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(255, 0xD1, 0xD5, 0xDB))
-$textX = $pad + $ph + 28
-$sf = New-Object System.Drawing.StringFormat; $sf.LineAlignment = 'Center'; $sf.Alignment = 'Near'
-$g.DrawString('IvanaFin', $font, $brush, (New-Object System.Drawing.RectangleF $textX, 0, ($W - $textX - 16), $H), $sf)
+$bw = $src.Width; $bh = [int]($src.Width * $H / $W)
+if ($bh -gt $src.Height) { $bh = $src.Height; $bw = [int]($src.Height * $W / $H) }
+$bx = [int][Math]::Min([Math]::Max($src.Width * $cropCenterX - $bw / 2, 0), $src.Width - $bw)
+$by = [int](($src.Height - $bh) / 2)
+$g.DrawImage($src, (New-Object System.Drawing.Rectangle 0, 0, $W, $H), (New-Object System.Drawing.Rectangle $bx, $by, $bw, $bh), 'Pixel')
 $g.Dispose(); $bmp.Save((Join-Path $out 'ivanafin_banner.png'), [System.Drawing.Imaging.ImageFormat]::Png); $bmp.Dispose()
 
 $src.Dispose()
