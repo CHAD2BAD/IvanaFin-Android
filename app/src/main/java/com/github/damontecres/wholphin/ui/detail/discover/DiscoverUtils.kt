@@ -82,3 +82,62 @@ fun needsSeerrStatusPolling(info: com.github.damontecres.wholphin.api.seerr.mode
 
 /** IvanaFin: how often the discover page re-checks Seerr while an item is on its way. */
 const val SEERR_STATUS_POLL_MS = 20_000L
+
+/**
+ * IvanaFin: "Downloading 42% · 12 min left" from Seerr's downloadStatus (Radarr/Sonarr queue),
+ * or null when nothing is downloading. Multiple items (e.g. episodes) are summed.
+ */
+fun seerrDownloadProgressText(info: com.github.damontecres.wholphin.api.seerr.model.MediaInfo?): String? {
+    val items = info?.downloadStatus.orEmpty().ifEmpty { info?.downloadStatus4k.orEmpty() }
+    if (items.isEmpty()) return null
+    val size = items.sumOf { it.propertySize ?: 0L }
+    val left = items.sumOf { it.sizeLeft ?: 0L }
+    val statuses = items.mapNotNull { it.status?.lowercase() }
+    val label =
+        when {
+            statuses.isNotEmpty() && statuses.all { it == "paused" } -> "Paused"
+            statuses.isNotEmpty() && statuses.all { it == "queued" || it == "delay" } -> "Queued"
+            statuses.any { it == "importpending" || it == "importing" } && left == 0L -> "Importing"
+            else -> "Downloading"
+        }
+    val count = if (items.size > 1) " ${items.size} files" else ""
+    if (size <= 0L) return "$label$count"
+    val pct = (((size - left).coerceAtLeast(0L) * 100) / size).coerceIn(0L, 100L)
+    val eta =
+        items
+            .mapNotNull { parseArrTimeLeftSeconds(it.timeLeft) }
+            .maxOrNull()
+            ?.takeIf { it > 0 && label == "Downloading" }
+            ?.let { " · ${formatSecondsLeft(it)} left" }
+            .orEmpty()
+    return "$label$count $pct%$eta"
+}
+
+/** Radarr/Sonarr timeLeft is "hh:mm:ss" or "d.hh:mm:ss". */
+private fun parseArrTimeLeftSeconds(timeLeft: String?): Long? {
+    if (timeLeft.isNullOrBlank()) return null
+    return try {
+        val (days, rest) =
+            if (timeLeft.contains('.') && timeLeft.indexOf('.') < timeLeft.indexOf(':')) {
+                timeLeft.substringBefore('.').toLong() to timeLeft.substringAfter('.')
+            } else {
+                0L to timeLeft
+            }
+        val parts = rest.substringBefore('.').split(':').map { it.toLong() }
+        if (parts.size != 3) return null
+        days * 86400 + parts[0] * 3600 + parts[1] * 60 + parts[2]
+    } catch (ex: NumberFormatException) {
+        null
+    }
+}
+
+private fun formatSecondsLeft(seconds: Long): String {
+    val h = seconds / 3600
+    val m = (seconds % 3600) / 60
+    return when {
+        h >= 24 -> "${h / 24}d ${h % 24}h"
+        h > 0 -> "${h}h ${m}m"
+        m > 0 -> "$m min"
+        else -> "<1 min"
+    }
+}

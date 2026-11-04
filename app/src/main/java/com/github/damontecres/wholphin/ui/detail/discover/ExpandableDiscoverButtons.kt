@@ -8,7 +8,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Text
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.FocusState
 import androidx.compose.ui.focus.focusRequester
@@ -38,10 +41,12 @@ fun ExpandableDiscoverButtons(
     buttonOnFocusChanged: (FocusState) -> Unit,
     modifier: Modifier = Modifier,
     pendingOnClick: () -> Unit = {},
+    progressText: String? = null,
 ) {
     val firstFocus = remember { FocusRequester() }
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
         contentPadding = PaddingValues(8.dp),
         modifier =
             modifier
@@ -131,6 +136,16 @@ fun ExpandableDiscoverButtons(
                         .focusRequester(firstFocus)
                         .onFocusChanged(buttonOnFocusChanged),
             )
+        }
+        // IvanaFin: live download progress from Seerr (e.g. "Downloading 42% · 12 min left")
+        if (progressText != null) {
+            item("progress") {
+                Text(
+                    text = progressText,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
         }
         if (availability == SeerrAvailability.PARTIALLY_AVAILABLE) {
             item("request_partial") {

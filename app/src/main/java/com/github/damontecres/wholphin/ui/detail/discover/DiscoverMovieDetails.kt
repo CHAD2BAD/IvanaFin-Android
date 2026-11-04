@@ -239,6 +239,7 @@ fun DiscoverMovieDetailsContent(
                         availability =
                             SeerrAvailability.from(movie.mediaInfo?.status)
                                 ?: SeerrAvailability.UNKNOWN,
+                        progressText = seerrDownloadProgressText(movie.mediaInfo),
                         requestOnClick = requestOnClick,
                         cancelOnClick = cancelOnClick,
                         moreOnClick = moreOnClick,

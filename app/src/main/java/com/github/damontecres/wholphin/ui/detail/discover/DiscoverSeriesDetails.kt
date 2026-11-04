@@ -278,6 +278,7 @@ fun DiscoverSeriesDetailsContent(
                         )
                         ExpandableDiscoverButtons(
                             availability = availability,
+                            progressText = seerrDownloadProgressText(series.mediaInfo),
                             requestOnClick = requestOnClick,
                             pendingOnClick = requestOnClick,
                             cancelOnClick = cancelOnClick,

@@ -1327,6 +1327,49 @@ components:
           type: string
         jellyfinMediaId4k:
           type: string
+        # IvanaFin: active downloads from Radarr/Sonarr's queue, used for the progress percentage
+        downloadStatus:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/DownloadingItem'
+        downloadStatus4k:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/DownloadingItem'
+    DownloadingItem:
+      type: object
+      properties:
+        mediaType:
+          type: string
+          nullable: true
+        externalId:
+          type: integer
+          nullable: true
+        size:
+          type: integer
+          format: int64
+          nullable: true
+        sizeLeft:
+          type: integer
+          format: int64
+          nullable: true
+        status:
+          type: string
+          nullable: true
+        timeLeft:
+          type: string
+          nullable: true
+        estimatedCompletionTime:
+          type: string
+          nullable: true
+        title:
+          type: string
+          nullable: true
+        downloadId:
+          type: string
+          nullable: true
     Cast:
       type: object
       properties:
