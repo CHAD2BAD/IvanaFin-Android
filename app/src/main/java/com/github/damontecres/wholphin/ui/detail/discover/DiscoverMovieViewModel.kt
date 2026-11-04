@@ -79,6 +79,18 @@ class DiscoverMovieViewModel
 
         init {
             init()
+            // IvanaFin: keep re-checking while the movie is requested/downloading so the page
+            // flips to "Go to" without having to back out and re-open it.
+            viewModelScope.launchIO {
+                while (true) {
+                    kotlinx.coroutines.delay(SEERR_STATUS_POLL_MS)
+                    val info = state.value.movie.successValue?.mediaInfo
+                    if (needsSeerrStatusPolling(info)) {
+                        fetchAndSetItem().await()
+                        updateCanCancel()
+                    }
+                }
+            }
         }
 
         private fun fetchAndSetItem(): Deferred<MovieDetails?> =

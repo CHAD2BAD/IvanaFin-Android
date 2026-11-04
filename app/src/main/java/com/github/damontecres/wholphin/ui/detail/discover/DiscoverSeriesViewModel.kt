@@ -83,6 +83,20 @@ class DiscoverSeriesViewModel
 
         init {
             init()
+            // IvanaFin: keep re-checking while the show is requested/downloading so the page
+            // updates without having to back out and re-open it.
+            viewModelScope.launchIO {
+                while (true) {
+                    kotlinx.coroutines.delay(SEERR_STATUS_POLL_MS)
+                    val info = state.value.tvSeries.successValue?.mediaInfo
+                    if (needsSeerrStatusPolling(info)) {
+                        fetchAndSetItem().await()?.let { tv ->
+                            updateSeasonStatus(tv)
+                            updateAvailability()
+                        }
+                    }
+                }
+            }
         }
 
         private fun fetchAndSetItem(): Deferred<TvDetails?> =

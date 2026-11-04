@@ -70,3 +70,15 @@ suspend fun goToButtonDiscover(
         showToast(context, msg)
     }
 }
+
+/**
+ * IvanaFin: true while a Seerr item is requested/pending/processing/partially available but not
+ * fully available yet, so the discover page keeps re-checking until the "Go to" button can show.
+ */
+fun needsSeerrStatusPolling(info: com.github.damontecres.wholphin.api.seerr.model.MediaInfo?): Boolean {
+    if (info == null || info.status == 5) return false
+    return info.status in 2..4 || !info.requests.isNullOrEmpty()
+}
+
+/** IvanaFin: how often the discover page re-checks Seerr while an item is on its way. */
+const val SEERR_STATUS_POLL_MS = 20_000L
