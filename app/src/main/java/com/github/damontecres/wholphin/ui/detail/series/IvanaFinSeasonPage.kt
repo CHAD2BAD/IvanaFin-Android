@@ -47,10 +47,20 @@ import com.github.damontecres.wholphin.ui.components.DialogItem
 import com.github.damontecres.wholphin.ui.components.DialogPopup
 import com.github.damontecres.wholphin.ui.components.LoadingPage
 import com.github.damontecres.wholphin.ui.components.ErrorMessage
-import com.github.damontecres.wholphin.ui.components.QuickDetails
 import com.github.damontecres.wholphin.ui.components.TitleOrLogo
 import com.github.damontecres.wholphin.ui.formatSeasonNumber
 import com.github.damontecres.wholphin.ui.tryRequestFocus
+import com.github.damontecres.wholphin.ui.formatDuration
+import com.github.damontecres.wholphin.ui.formatTime
+import com.github.damontecres.wholphin.ui.roundMinutes
+import com.github.damontecres.wholphin.ui.util.LocalClock
+import org.jellyfin.sdk.model.extensions.ticks
+import kotlin.time.Duration
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.filled.Star
 
 private const val COLUMNS = 4
 private val GAP = 16.dp
@@ -206,6 +216,61 @@ fun IvanaFinSeasonPage(
     }
 }
 
+/**
+ * Exactly what Jellyfin web shows under an episode title: `46m  ★ 6.5  Ends at 14:31`
+ */
+@Composable
+private fun WebEpisodeDetailsLine(episode: BaseItem) {
+    val context = LocalContext.current
+    val resources = LocalResources.current
+    val now by LocalClock.current.now
+    val style = MaterialTheme.typography.bodySmall
+    val color = MaterialTheme.colorScheme.onSurface
+    val runtime =
+        episode.data.runTimeTicks
+            ?.ticks
+            ?.roundMinutes
+            ?.takeIf { it > Duration.ZERO }
+    val remaining = episode.timeRemainingOrRuntime
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        runtime?.let {
+            Text(
+                text = resources.formatDuration(it),
+                style = style,
+                color = color,
+                maxLines = 1,
+            )
+        }
+        episode.data.communityRating?.let { rating ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Star,
+                    contentDescription = null,
+                    tint = Color(0xFF00A4DC),
+                    modifier = Modifier.padding(end = 4.dp).size(14.dp),
+                )
+                Text(text = "%.1f".format(rating), style = style, color = color, maxLines = 1)
+            }
+        }
+        remaining?.let {
+            val endsAt = now.plusSeconds(it.inWholeSeconds)
+            Text(
+                text =
+                    stringResource(
+                        R.string.ends_at,
+                        formatTime(context, endsAt),
+                    ),
+                style = style,
+                color = color,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
 private fun seasonLabel(season: BaseItem): String =
     season.name ?: season.data.indexNumber?.let { formatSeasonNumber(it) } ?: ""
 
@@ -250,11 +315,7 @@ private fun EpisodeGridItem(
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(top = 4.dp),
         )
-        QuickDetails(
-            episode.ui.quickDetails,
-            episode.timeRemainingOrRuntime,
-            textStyle = MaterialTheme.typography.bodySmall,
-        )
+        WebEpisodeDetailsLine(episode)
         episode.data.overview?.takeIf { it.isNotBlank() }?.let {
             Text(
                 text = it,

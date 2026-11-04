@@ -2,7 +2,9 @@
 # Usage: powershell -File branding\make-icons.ps1
 Add-Type -AssemblyName System.Drawing
 $root = Split-Path -Parent $PSScriptRoot
-$src  = [System.Drawing.Image]::FromFile((Join-Path $PSScriptRoot 'ivanafin-source.jpg'))
+$src  = [System.Drawing.Image]::FromFile((Join-Path $PSScriptRoot 'ivanafin-source-2.png'))
+# Horizontal centre of the square crop, as a fraction of the photo width (cat's face sits right of centre)
+$cropCenterX = 0.66
 $out  = Join-Path $root 'app\src\default\res\drawable-nodpi'
 
 function New-Canvas($w, $h) {
@@ -22,7 +24,8 @@ function New-RoundRect($x, $y, $w, $h, $r) {
 
 # Square crop of the source (it is already square; centre-crop just in case)
 $side = [Math]::Min($src.Width, $src.Height)
-$srcRect = New-Object System.Drawing.Rectangle ([int](($src.Width - $side) / 2)), ([int](($src.Height - $side) / 2)), $side, $side
+$cropX = [int][Math]::Min([Math]::Max($src.Width * $cropCenterX - $side / 2, 0), $src.Width - $side)
+$srcRect = New-Object System.Drawing.Rectangle $cropX, ([int](($src.Height - $side) / 2)), $side, $side
 
 # 1) Adaptive-icon layer: full-bleed photo, 432x432 (108dp @ xxxhdpi). Launcher masks the shape.
 $bmp, $g = New-Canvas 432 432
