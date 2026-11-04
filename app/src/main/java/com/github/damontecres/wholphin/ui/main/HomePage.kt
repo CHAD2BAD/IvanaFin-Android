@@ -39,6 +39,7 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.text.style.TextOverflow
@@ -240,6 +241,17 @@ fun HomePage(
                                 .fillMaxWidth()
                                 .padding(top = 16.dp, end = 170.dp, bottom = 4.dp),
                     ) {
+                        // IvanaFin: Seerr discover/requests, shown once Seerr is connected
+                        val seerrActive by viewModel.seerrActive.collectAsState(false)
+                        if (seerrActive) {
+                            HomeTopButton(
+                                text = stringResource(R.string.discover),
+                                icon = androidx.compose.material.icons.Icons.Default.Add,
+                                onClick = {
+                                    viewModel.navigationManager.navigateTo(Destination.Discover)
+                                },
+                            )
+                        }
                         HomeTopButton(
                             text = stringResource(R.string.search),
                             icon = androidx.compose.material.icons.Icons.Default.Search,

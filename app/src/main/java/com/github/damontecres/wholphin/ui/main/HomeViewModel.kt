@@ -70,9 +70,13 @@ class HomeViewModel
         private val userPreferencesService: UserPreferencesService,
         private val mediaManagementService: MediaManagementService,
         private val latestNextUpService: LatestNextUpService,
+        seerrService: com.github.damontecres.wholphin.services.SeerrService, // IvanaFin
     ) : ViewModel() {
         private val _state = MutableStateFlow(HomeState.EMPTY)
         val state: StateFlow<HomeState> = _state
+
+        // IvanaFin: show the Discover (Seerr) button on the home page only when Seerr is connected
+        val seerrActive = seerrService.active
 
         private var dataLoadingJob: Job? = null
 
