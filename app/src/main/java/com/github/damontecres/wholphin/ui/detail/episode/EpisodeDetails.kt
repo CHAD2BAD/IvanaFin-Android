@@ -22,8 +22,17 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.github.damontecres.wholphin.data.model.Chapter
+import com.github.damontecres.wholphin.data.model.Person
+import com.github.damontecres.wholphin.ui.Cards
+import com.github.damontecres.wholphin.ui.cards.ChapterRow
+import com.github.damontecres.wholphin.ui.cards.ItemRow
+import com.github.damontecres.wholphin.ui.cards.PersonRow
+import com.github.damontecres.wholphin.ui.cards.SeasonCard
+import org.jellyfin.sdk.model.api.BaseItemKind
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.github.damontecres.wholphin.R
 import com.github.damontecres.wholphin.data.ChosenStreams
@@ -172,6 +181,15 @@ fun EpisodeDetails(
                 onConfirmDelete = { viewModel.deleteItem(ep) },
                 onChooseVersion = { contextActions.onChooseVersion.invoke(ep, it) },
                 modifier = modifier,
+                // IvanaFin: web episode rows
+                people = state.people,
+                guestCast = state.guestCast,
+                chapters = state.chapters,
+                moreFromSeason = state.moreFromSeason,
+                onClickPerson = {
+                    viewModel.navigateTo(Destination.MediaItem(it.id, BaseItemKind.PERSON))
+                },
+                onClickItem = { viewModel.navigateTo(Destination.MediaItem(it)) }, // IvanaFin: episode page
             )
         }
     }
@@ -215,6 +233,12 @@ fun EpisodeDetails(
 
 private const val HEADER_ROW = 0
 
+// IvanaFin: web episode rows
+private const val SEASON_ROW = HEADER_ROW + 1
+private const val PEOPLE_ROW = SEASON_ROW + 1
+private const val GUEST_ROW = PEOPLE_ROW + 1
+private const val CHAPTER_ROW = GUEST_ROW + 1
+
 @Composable
 fun EpisodeDetailsContent(
     preferences: UserPreferences,
@@ -229,11 +253,17 @@ fun EpisodeDetailsContent(
     onConfirmDelete: () -> Unit,
     onChooseVersion: (MediaSourceInfo) -> Unit,
     modifier: Modifier = Modifier,
+    people: List<Person> = emptyList(),
+    guestCast: List<Person> = emptyList(),
+    chapters: List<Chapter> = emptyList(),
+    moreFromSeason: List<BaseItem> = emptyList(),
+    onClickPerson: (Person) -> Unit = {},
+    onClickItem: (BaseItem) -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var position by rememberInt(0)
-    val focusRequesters = remember { List(1) { FocusRequester() } }
+    val focusRequesters = remember { List(CHAPTER_ROW + 1) { FocusRequester() } }
     val dto = ep.data
     val resumePosition = dto.userData?.playbackPositionTicks?.ticks ?: Duration.ZERO
 
@@ -303,6 +333,86 @@ fun EpisodeDetailsContent(
                                 .focusRequester(focusRequesters[HEADER_ROW]),
                     )
                         },
+                    )
+                }
+            }
+            // IvanaFin: Jellyfin web order - More from <season>, Cast & Crew, Guest Stars, Scenes
+            if (moreFromSeason.isNotEmpty()) {
+                item {
+                    ItemRow(
+                        title = stringResource(R.string.more_from_value, dto.seasonName ?: ""),
+                        items = moreFromSeason,
+                        onClickItem = { _, item ->
+                            position = SEASON_ROW
+                            onClickItem.invoke(item)
+                        },
+                        onLongClickItem = { _, _ -> },
+                        cardContent = { _, item, mod, onClick, onLongClick ->
+                            SeasonCard(
+                                item = item,
+                                onClick = onClick,
+                                onLongClick = onLongClick,
+                                modifier = mod,
+                                showImageOverlay = true,
+                                imageHeight = Cards.heightEpisode,
+                                imageWidth = Dp.Unspecified,
+                            )
+                        },
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .focusRequester(focusRequesters[SEASON_ROW]),
+                    )
+                }
+            }
+            if (people.isNotEmpty()) {
+                item {
+                    PersonRow(
+                        title = R.string.cast_and_crew,
+                        people = people,
+                        onClick = {
+                            position = PEOPLE_ROW
+                            onClickPerson.invoke(it)
+                        },
+                        onLongClick = { _, _ -> },
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .focusRequester(focusRequesters[PEOPLE_ROW]),
+                    )
+                }
+            }
+            if (guestCast.isNotEmpty()) {
+                item {
+                    PersonRow(
+                        title = R.string.guest_stars_title,
+                        people = guestCast,
+                        onClick = {
+                            position = GUEST_ROW
+                            onClickPerson.invoke(it)
+                        },
+                        onLongClick = { _, _ -> },
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .focusRequester(focusRequesters[GUEST_ROW]),
+                    )
+                }
+            }
+            if (chapters.isNotEmpty()) {
+                item {
+                    ChapterRow(
+                        title = R.string.scenes_title,
+                        chapters = chapters,
+                        onClick = {
+                            position = CHAPTER_ROW
+                            playOnClick.invoke(it.position)
+                        },
+                        onLongClick = {},
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .focusRequester(focusRequesters[CHAPTER_ROW]),
                     )
                 }
             }

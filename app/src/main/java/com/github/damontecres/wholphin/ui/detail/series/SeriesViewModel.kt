@@ -242,7 +242,7 @@ class SeriesViewModel
                                 .getNextUp(seriesId = seriesId, fields = ItemRowFields, limit = 1)
                                 .content.items
                                 .firstOrNull()
-                        _state.update { it.copy(nextUp = nextUp?.let { BaseItem(it, false) }) }
+                        _state.update { it.copy(nextUp = nextUp?.let { BaseItem(it, false).let { ep -> ep.copy(destinationOverride = Destination.MediaItem(ep)) } }) }
                     }
                     if (state.value.similar.isEmpty()) {
                         viewModelScope.launchIO {

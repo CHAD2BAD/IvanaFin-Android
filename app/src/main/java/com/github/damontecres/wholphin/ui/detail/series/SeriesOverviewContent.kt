@@ -71,6 +71,7 @@ import kotlinx.coroutines.launch
 import org.jellyfin.sdk.model.api.MediaSourceInfo
 import org.jellyfin.sdk.model.api.PersonKind
 import kotlin.time.Duration
+import org.jellyfin.sdk.model.extensions.ticks
 
 @Composable
 fun SeriesOverviewContent(
@@ -297,7 +298,14 @@ fun SeriesOverviewContent(
                                                 }
                                             }.onKeyEvent {
                                                 if (episode != null && isPlayKeyUp(it)) {
-                                                    onClick.invoke(episode)
+                                                    // IvanaFin: Play key plays directly (OK opens the episode page)
+                                                    epPosition = episodeIndex
+                                                    playOnClick.invoke(
+                                                        episode.data.userData
+                                                            ?.playbackPositionTicks
+                                                            ?.ticks
+                                                            ?: Duration.ZERO,
+                                                    )
                                                     return@onKeyEvent true
                                                 }
                                                 return@onKeyEvent false

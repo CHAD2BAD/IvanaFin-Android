@@ -68,6 +68,7 @@ fun CollectionFolderTv(
     TabbedPage(
         itemId = destination.itemId.toString(),
         tabs = tabs,
+        alwaysStartOn = 1, // IvanaFin: always open the full Library tab
         modifier = modifier,
         showTabs = showHeader,
     ) { tabIndex, tabDetails ->

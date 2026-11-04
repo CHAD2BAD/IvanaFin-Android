@@ -222,18 +222,11 @@ fun SeriesOverview(
                         it.copy(episodeRowIndex = episodeIndex)
                     }
                 },
+                // IvanaFin: like Jellyfin web, selecting an episode opens its page
+                // (the remote's Play key still plays it directly - see SeriesOverviewContent)
                 onClick = {
                     rowFocused = EPISODE_ROW
-                    val resumePosition =
-                        it.data.userData
-                            ?.playbackPositionTicks
-                            ?.ticks ?: Duration.ZERO
-                    viewModel.navigateTo(
-                        Destination.Playback(
-                            it.id,
-                            resumePosition.inWholeMilliseconds,
-                        ),
-                    )
+                    viewModel.navigateTo(Destination.MediaItem(it)) // IvanaFin: episode page, not the season screen
                 },
                 onLongClick = { ep ->
                     showContextMenu =

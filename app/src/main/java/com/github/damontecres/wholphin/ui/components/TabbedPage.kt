@@ -47,12 +47,14 @@ class TabViewModel
         private val backdropService: BackdropService,
         @param:Assisted private val itemId: String,
         @param:Assisted private val tabCount: Int,
+        @param:Assisted private val alwaysStartOn: Int?, // IvanaFin
     ) : ViewModel() {
         @AssistedFactory
         interface Factory {
             fun create(
                 itemId: String,
                 tabCount: Int,
+                alwaysStartOn: Int?,
             ): TabViewModel
         }
 
@@ -65,7 +67,10 @@ class TabViewModel
         init {
             viewModelScope.launchIO {
                 val startingTab =
-                    if (shouldRememberTabs()) {
+                    if (alwaysStartOn != null) {
+                        // IvanaFin: e.g. libraries always open on the full "Library" tab
+                        alwaysStartOn.coerceIn(0..<tabCount)
+                    } else if (shouldRememberTabs()) {
                         Timber.v("Getting remembered tab for %s", itemId)
                         try {
                             rememberedTabService
@@ -123,10 +128,11 @@ fun TabbedPage(
     tabs: List<TabDetails>,
     modifier: Modifier = Modifier,
     showTabs: Boolean = true,
+    alwaysStartOn: Int? = null, // IvanaFin: ignore remembered tab and start here
     viewModel: TabViewModel =
         hiltViewModel<TabViewModel, TabViewModel.Factory>(
             key = "$itemId-${tabs.size}",
-            creationCallback = { it.create(itemId, tabs.size) },
+            creationCallback = { it.create(itemId, tabs.size, alwaysStartOn) },
         ),
     tabContent: @Composable (Int, TabDetails) -> Unit,
 ) {

@@ -41,6 +41,12 @@ import org.jellyfin.sdk.api.client.extensions.userLibraryApi
 import org.jellyfin.sdk.model.api.MediaStreamType
 import timber.log.Timber
 import java.util.UUID
+import com.github.damontecres.wholphin.data.model.Chapter
+import com.github.damontecres.wholphin.data.model.Person
+import com.github.damontecres.wholphin.services.PeopleFavorites
+import com.github.damontecres.wholphin.ui.ItemRowFields
+import org.jellyfin.sdk.api.client.extensions.tvShowsApi
+import org.jellyfin.sdk.model.api.PersonKind
 
 @HiltViewModel(assistedFactory = EpisodeViewModel.Factory::class)
 class EpisodeViewModel
@@ -58,6 +64,7 @@ class EpisodeViewModel
         private val userPreferencesService: UserPreferencesService,
         private val backdropService: BackdropService,
         private val mediaManagementService: MediaManagementService,
+        private val peopleFavorites: PeopleFavorites, // IvanaFin
         @Assisted val itemId: UUID,
     ) : ViewModel() {
         @AssistedFactory
@@ -115,6 +122,7 @@ class EpisodeViewModel
                         )
                     }
                     backdropService.submit(item)
+                    loadWebRows(item)
                 } catch (ex: CancellationException) {
                     throw ex
                 } catch (ex: Exception) {
@@ -122,6 +130,36 @@ class EpisodeViewModel
                     _state.update { it.copy(episode = DataLoadingState.Error(ex)) }
                 }
             }
+
+        /**
+         * IvanaFin: data for Jellyfin web's episode rows -
+         * Cast & Crew, Guest Cast, Scenes, More from <season>
+         */
+        private fun loadWebRows(item: BaseItem) {
+            viewModelScope.launchIO {
+                val people = peopleFavorites.getPeopleFor(item)
+                _state.update {
+                    it.copy(
+                        people = people.filter { p -> p.type != PersonKind.GUEST_STAR },
+                        guestCast = people.filter { p -> p.type == PersonKind.GUEST_STAR },
+                        chapters = Chapter.fromDto(item.data),
+                    )
+                }
+            }
+            val seriesId = item.data.seriesId
+            val seasonId = item.data.seasonId
+            if (seriesId != null && seasonId != null) {
+                viewModelScope.launchIO {
+                    val episodes =
+                        api.tvShowsApi
+                            .getEpisodes(seriesId = seriesId, seasonId = seasonId, fields = ItemRowFields)
+                            .content.items
+                            .filter { it.id != item.id }
+                            .map { BaseItem(it, false).let { ep -> ep.copy(destinationOverride = Destination.MediaItem(ep)) } }
+                    _state.update { it.copy(moreFromSeason = episodes) }
+                }
+            }
+        }
 
         fun setWatched(
             itemId: UUID,
@@ -216,4 +254,9 @@ class EpisodeViewModel
 data class EpisodeState(
     val episode: DataLoadingState<BaseItem> = DataLoadingState.Pending,
     val chosenStreams: ChosenStreams? = null,
+    // IvanaFin: Jellyfin web episode rows
+    val people: List<Person> = emptyList(),
+    val guestCast: List<Person> = emptyList(),
+    val chapters: List<Chapter> = emptyList(),
+    val moreFromSeason: List<BaseItem> = emptyList(),
 )
