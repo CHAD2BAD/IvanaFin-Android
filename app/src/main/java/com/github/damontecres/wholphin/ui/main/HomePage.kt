@@ -226,6 +226,12 @@ fun HomePage(
                 showLogo = preferences.appPreferences.interfacePreferences.showLogos,
                 showViewMore = true,
                 onClickViewMore = onClickViewMore,
+                // IvanaFin: like Jellyfin web, no big focused-item preview - rows start at the top
+                headerComposable = {
+                    androidx.compose.foundation.layout.Spacer(
+                        Modifier.height(24.dp),
+                    )
+                },
                 modifier = modifier,
             )
             overviewDialog?.let { info ->
