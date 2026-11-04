@@ -143,17 +143,31 @@ class SeriesViewModel
                 }
                 backdropService.submit(series)
 
-                val seasonsDeferred = getSeasons(series, seasonEpisodeIds?.seasonNumber)
+                // IvanaFin: opening a show goes straight to a season (Prime-style)
+                val startIds =
+                    if (seriesPageType == SeriesPageType.OVERVIEW && seasonEpisodeIds == null) {
+                        resolveStartSeason()
+                    } else {
+                        seasonEpisodeIds
+                    }
+                if (seriesPageType == SeriesPageType.OVERVIEW) {
+                    viewModelScope.launchIO {
+                        val people = peopleFavorites.getPeopleFor(series)
+                        _state.update { it.copy(people = people) }
+                    }
+                }
+
+                val seasonsDeferred = getSeasons(series, startIds?.seasonNumber)
 
                 val episodeListDeferred =
                     if (seriesPageType == SeriesPageType.OVERVIEW) {
                         viewModelScope.async(WholphinDispatchers.IO) {
-                            if (seasonEpisodeIds != null) {
+                            if (startIds != null) {
                                 loadEpisodesInternal(
-                                    seasonEpisodeIds.seasonId,
-                                    seasonEpisodeIds.seasonNumber,
-                                    seasonEpisodeIds.episodeId,
-                                    seasonEpisodeIds.episodeNumber,
+                                    startIds.seasonId,
+                                    startIds.seasonNumber,
+                                    startIds.episodeId,
+                                    startIds.episodeNumber,
                                 )
                             } else {
                                 seasonsDeferred.await().firstOrNull()?.let {
@@ -183,13 +197,13 @@ class SeriesViewModel
                     }
                 Timber.v("Done")
 
-                if (seriesPageType == SeriesPageType.OVERVIEW && seasonEpisodeIds != null) {
+                if (seriesPageType == SeriesPageType.OVERVIEW && startIds != null) {
                     viewModelScope.launchIO {
                         val index =
                             (seasons as? ApiRequestPager<*>)?.let {
                                 findIndexByNumberOrIdFast(
-                                    targetNum = seasonEpisodeIds.seasonNumber,
-                                    targetId = seasonEpisodeIds.seasonId,
+                                    targetNum = startIds.seasonNumber,
+                                    targetId = startIds.seasonId,
                                     list = it,
                                     parentId = null,
                                     parentIndex = null,
@@ -201,7 +215,7 @@ class SeriesViewModel
                         }
                     }
                     viewModelScope.launchIO {
-                        val extras = extrasService.getExtras(seasonEpisodeIds.seasonId)
+                        val extras = extrasService.getExtras(startIds.seasonId)
                         _state.update { it.copy(extras = extras) }
                     }
                 }
@@ -291,7 +305,7 @@ class SeriesViewModel
                                 deletedItem.item.id,
                                 seriesId,
                             )
-                            val seasons = getSeasons(series, seasonEpisodeIds?.seasonNumber).await()
+                            val seasons = getSeasons(series, startIds?.seasonNumber).await()
                             _state.update { it.copy(seasons = seasons) }
                         }
                     }.catch { ex ->
@@ -299,6 +313,32 @@ class SeriesViewModel
                     }.launchIn(viewModelScope)
             }
         }
+
+        /**
+         * IvanaFin: the season to open a show on - the season of the user's next-up episode
+         * (in progress or next after the last watched), otherwise the first regular season.
+         */
+        private suspend fun resolveStartSeason(): SeasonEpisodeIds? =
+            try {
+                val nextUp =
+                    api.tvShowsApi
+                        .getNextUp(seriesId = seriesId, limit = 1)
+                        .content.items
+                        .firstOrNull()
+                val nextSeasonId = nextUp?.seasonId
+                if (nextUp != null && nextSeasonId != null) {
+                    SeasonEpisodeIds(nextSeasonId, nextUp.parentIndexNumber, nextUp.id, nextUp.indexNumber)
+                } else {
+                    val seasons = api.tvShowsApi.getSeasons(seriesId).content.items
+                    val first = seasons.firstOrNull { (it.indexNumber ?: 0) >= 1 } ?: seasons.firstOrNull()
+                    first?.let { SeasonEpisodeIds(it.id, it.indexNumber, null, null) }
+                }
+            } catch (ex: CancellationException) {
+                throw ex
+            } catch (ex: Exception) {
+                Timber.e(ex, "Could not resolve start season for %s", seriesId)
+                null
+            }
 
         fun onResumePage() {
             state.value.series.successValue?.let { item ->
@@ -334,7 +374,7 @@ class SeriesViewModel
                         includeItemTypes = listOf(BaseItemKind.SEASON),
                         sortBy = listOf(ItemSortBy.INDEX_NUMBER),
                         sortOrder = listOf(SortOrder.ASCENDING),
-                        enableUserData = seriesPageType == SeriesPageType.DETAILS,
+                        enableUserData = true, // IvanaFin: season page shows season watched/favourite
                         fields =
                             if (seriesPageType == SeriesPageType.DETAILS) {
                                 listOf(
@@ -344,6 +384,7 @@ class SeriesViewModel
                             } else {
                                 listOf(
                                     ItemFields.CAN_DELETE,
+                                    ItemFields.OVERVIEW, // IvanaFin: season description on season page
                                 )
                             },
                     )
@@ -457,6 +498,8 @@ class SeriesViewModel
                             .content
                             .let(::BaseItem)
                     _state.update { it.copy(series = DataLoadingState.Success(series)) }
+                    // IvanaFin: season page shows season watched/favourite state
+                    (state.value.seasons as? ApiRequestPager<*>)?.refresh()
                     viewModelScope.launchIO {
                         val people = peopleFavorites.getPeopleFor(series)
                         _state.update { it.copy(people = people) }
@@ -491,6 +534,10 @@ class SeriesViewModel
         ) = viewModelScope.launch(WholphinDispatchers.IO + ExceptionHandler()) {
             setWatched(seasonId, played, null)
             updateSeries()
+            // IvanaFin: refresh the episode ticks on the season page
+            state.value.seasons.getOrNull(position.value.seasonTabIndex)?.let {
+                if (it.id == seasonId) loadEpisodes(it.id, it.indexNumber)
+            }
         }
 
         fun setWatchedSeries(played: Boolean) =

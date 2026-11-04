@@ -193,42 +193,33 @@ fun SeriesOverview(
                 }
             }
 
-            SeriesOverviewContent(
+            // IvanaFin: Jellyfin-web-style season page with a Prime-style season dropdown
+            IvanaFinSeasonPage(
                 preferences = preferences,
                 series = st.data,
                 seasons = state.seasons,
                 episodes = state.episodes,
-                chosenStreams = chosenStreams,
-                peopleInEpisode = state.peopleInEpisode.people,
-                seasonExtras = state.extras,
-                position = position,
-                firstItemFocusRequester = firstItemFocusRequester,
-                episodeRowFocusRequester = episodeRowFocusRequester,
-                castCrewRowFocusRequester = castCrewRowFocusRequester,
-                guestStarRowFocusRequester = guestStarRowFocusRequester,
-                extrasRowFocusRequester = extrasRowFocusRequester,
+                people = state.people,
+                selectedSeasonIndex = position.seasonTabIndex,
+                focusedEpisodeIndex = position.episodeRowIndex,
+                episodeFocusRequester = episodeRowFocusRequester,
                 onChangeSeason = { index ->
                     if (index != position.seasonTabIndex) {
                         state.seasons.getOrNull(index)?.let { season ->
                             viewModel.loadEpisodes(season.id, season.indexNumber)
-                            viewModel.position.update {
-                                SeriesOverviewPosition(index, 0)
-                            }
+                            viewModel.position.update { SeriesOverviewPosition(index, 0) }
                         }
                     }
                 },
                 onFocusEpisode = { episodeIndex ->
-                    viewModel.position.update {
-                        it.copy(episodeRowIndex = episodeIndex)
-                    }
-                },
-                // IvanaFin: like Jellyfin web, selecting an episode opens its page
-                // (the remote's Play key still plays it directly - see SeriesOverviewContent)
-                onClick = {
                     rowFocused = EPISODE_ROW
-                    viewModel.navigateTo(Destination.MediaItem(it)) // IvanaFin: episode page, not the season screen
+                    viewModel.position.update { it.copy(episodeRowIndex = episodeIndex) }
                 },
-                onLongClick = { ep ->
+                onPlayEpisode = { ep ->
+                    rowFocused = EPISODE_ROW
+                    viewModel.navigateTo(Destination.Playback(ep.id, ep.resumeMs))
+                },
+                onEpisodeMenu = { ep ->
                     showContextMenu =
                         ContextMenu.ForBaseItem(
                             fromLongClick = true,
@@ -242,68 +233,10 @@ fun SeriesOverview(
                             actions = contextActions,
                         )
                 },
-                playOnClick = { resume ->
-                    rowFocused = EPISODE_ROW
-                    episodeList?.getOrNull(position.episodeRowIndex)?.let {
-                        viewModel.release()
-                        viewModel.navigateTo(
-                            Destination.Playback(
-                                it.id,
-                                resume.inWholeMilliseconds,
-                            ),
-                        )
-                    }
+                onPlayNextEpisode = { viewModel.playNextUp() },
+                onClickPerson = {
+                    viewModel.navigateTo(Destination.MediaItem(it.id, BaseItemKind.PERSON))
                 },
-                watchOnClick = {
-                    episodeList?.getOrNull(position.episodeRowIndex)?.let {
-                        val played = it.data.userData?.played ?: false
-                        viewModel.setWatched(it.id, !played, position.episodeRowIndex)
-                    }
-                },
-                favoriteOnClick = {
-                    episodeList?.getOrNull(position.episodeRowIndex)?.let {
-                        val favorite = it.data.userData?.isFavorite ?: false
-                        viewModel.setFavorite(it.id, !favorite, position.episodeRowIndex)
-                    }
-                },
-                moreOnClick = {
-                    episodeList?.getOrNull(position.episodeRowIndex)?.let { ep ->
-                        showContextMenu =
-                            ContextMenu.ForBaseItem(
-                                fromLongClick = false,
-                                item = ep,
-                                chosenStreams = chosenStreams,
-                                showGoTo = false,
-                                showStreamChoices = true,
-                                canDelete = viewModel.canDelete(ep, preferences.appPreferences),
-                                canRemoveContinueWatching = false,
-                                canRemoveNextUp = false,
-                                actions = contextActions,
-                            )
-                    }
-                },
-                overviewOnClick = {
-                    episodeList?.getOrNull(position.episodeRowIndex)?.let {
-                        overviewDialog = ItemDetailsDialogInfo(it)
-                    }
-                },
-                personOnClick = {
-                    rowFocused =
-                        if (it.type == PersonKind.GUEST_STAR) GUEST_STAR_ROW else CAST_AND_CREW_ROW
-                    viewModel.navigateTo(
-                        Destination.MediaItem(
-                            it.id,
-                            BaseItemKind.PERSON,
-                        ),
-                    )
-                },
-                onClickExtra = { _, extra ->
-                    rowFocused = EXTRAS_ROW
-                    viewModel.navigateTo(extra.destination)
-                },
-                canDelete = { viewModel.canDelete(it, preferences.appPreferences) },
-                onConfirmDelete = viewModel::deleteItem,
-                onChooseVersion = contextActions.onChooseVersion,
                 modifier = modifier,
             )
         }

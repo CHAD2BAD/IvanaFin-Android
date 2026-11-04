@@ -146,10 +146,13 @@ fun DestinationContent(
         is Destination.MediaItem -> {
             when (destination.type) {
                 BaseItemKind.SERIES -> {
-                    SeriesDetails(
-                        preferences,
-                        destination,
-                        modifier,
+                    // IvanaFin: Prime-style - opening a show goes straight to its season page
+                    // (next-up season, else season 1) instead of the series landing page
+                    SeriesOverview(
+                        preferences = preferences,
+                        destination = Destination.SeriesOverview(destination.itemId, BaseItemKind.SERIES),
+                        initialSeasonEpisode = null,
+                        modifier = modifier,
                     )
                 }
 

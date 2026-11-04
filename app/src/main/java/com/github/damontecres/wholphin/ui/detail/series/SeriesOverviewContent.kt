@@ -209,117 +209,7 @@ fun SeriesOverviewContent(
                     modifier = Modifier.fillMaxWidth(.6f),
                 )
 
-//                key(position.seasonTabIndex) {
-                when (val eps = episodes) {
-                    EpisodeList.Loading -> {
-                        LoadingPage()
-                    }
-
-                    is EpisodeList.Error -> {
-                        ErrorMessage(eps.message, eps.exception)
-                    }
-
-                    is EpisodeList.Success -> {
-                        if (requestFocusAfterSeason) {
-                            // Changing seasons, so move focus once the new episodes are loaded
-                            LaunchedEffect(Unit) {
-                                firstItemFocusRequester.tryRequestFocus()
-                                requestFocusAfterSeason = false
-                            }
-                        }
-                        val state = rememberLazyListState(position.episodeRowIndex)
-                        var epPosition by rememberInt(position.episodeRowIndex)
-                        LazyRow(
-                            state = state,
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            contentPadding = PaddingValues(horizontal = 16.dp),
-                            modifier =
-                                Modifier
-                                    .focusRestorer(episodeRowFocusRequester)
-//                                    .focusRequester(episodeRowFocusRequester)
-                                    .onFocusChanged {
-                                        cardRowHasFocus = it.hasFocus
-                                    },
-                        ) {
-                            itemsIndexed(eps.episodes) { episodeIndex, episode ->
-                                val interactionSource = remember { MutableInteractionSource() }
-                                if (interactionSource.collectIsFocusedAsState().value) {
-                                    onFocusEpisode.invoke(episodeIndex)
-                                }
-                                BannerCard(
-                                    name = episode?.name,
-                                    item = episode,
-                                    aspectRatio =
-                                        episode
-                                            ?.aspectRatio
-                                            ?.coerceAtLeast(AspectRatios.FOUR_THREE)
-                                            ?: (AspectRatios.WIDE),
-                                    cornerText = episode?.ui?.episodeCornerText,
-                                    played = episode?.data?.userData?.played ?: false,
-                                    playPercent =
-                                        episode?.data?.userData?.playedPercentage
-                                            ?: 0.0,
-                                    onClick = {
-                                        epPosition = episodeIndex
-                                        if (episode != null) onClick.invoke(episode)
-                                    },
-                                    onLongClick = {
-                                        epPosition = episodeIndex
-                                        if (episode != null) onLongClick.invoke(episode)
-                                    },
-                                    modifier =
-                                        Modifier
-                                            .ifElse(
-                                                episodeIndex == position.episodeRowIndex,
-                                                Modifier
-                                                    .focusRequester(firstItemFocusRequester),
-                                            ).ifElse(
-                                                episodeIndex == epPosition,
-                                                Modifier.focusRequester(episodeRowFocusRequester),
-                                            ).background(
-                                                if (episodeIndex != position.episodeRowIndex) {
-                                                    Color.Black
-                                                } else {
-                                                    Color.Transparent
-                                                },
-                                                shape = RoundedCornerShape(8.dp),
-                                            ).graphicsLayer {
-                                                alpha =
-                                                    if (episodeIndex != position.episodeRowIndex) {
-                                                        dimming
-                                                    } else {
-                                                        1f
-                                                    }
-                                            }.onFocusChanged {
-                                                if (it.isFocused) {
-                                                    scope.launch {
-                                                        bringIntoViewRequester.bringIntoView()
-                                                    }
-                                                }
-                                            }.onKeyEvent {
-                                                if (episode != null && isPlayKeyUp(it)) {
-                                                    // IvanaFin: Play key plays directly (OK opens the episode page)
-                                                    epPosition = episodeIndex
-                                                    playOnClick.invoke(
-                                                        episode.data.userData
-                                                            ?.playbackPositionTicks
-                                                            ?.ticks
-                                                            ?: Duration.ZERO,
-                                                    )
-                                                    return@onKeyEvent true
-                                                }
-                                                return@onKeyEvent false
-                                            },
-                                    interactionSource = interactionSource,
-                                    cardHeight = 120.dp,
-                                    useSeriesForPrimary = false,
-                                )
-                            }
-                        }
-                    }
-//                    }
-                }
-
+                // IvanaFin: episode buttons above the grid so they're reachable without scrolling
                 focusedEpisode?.let { ep ->
                     FocusedEpisodeFooter(
                         preferences = preferences,
@@ -347,6 +237,90 @@ fun SeriesOverviewContent(
                                 .padding(top = 4.dp)
                                 .fillMaxWidth(),
                     )
+                }
+
+//                key(position.seasonTabIndex) {
+                when (val eps = episodes) {
+                    EpisodeList.Loading -> {
+                        LoadingPage()
+                    }
+
+                    is EpisodeList.Error -> {
+                        ErrorMessage(eps.message, eps.exception)
+                    }
+
+                    is EpisodeList.Success -> {
+                        if (requestFocusAfterSeason) {
+                            // Changing seasons, so move focus once the new episodes are loaded
+                            LaunchedEffect(Unit) {
+                                firstItemFocusRequester.tryRequestFocus()
+                                requestFocusAfterSeason = false
+                            }
+                        }
+                        var epPosition by rememberInt(position.episodeRowIndex)
+                        // IvanaFin: grid of episodes (like Jellyfin web) with name & number under
+                        // each. OK = play, hold OK = episode page.
+                        androidx.compose.foundation.layout.FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier =
+                                Modifier
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                                    .focusRestorer(episodeRowFocusRequester)
+                                    .onFocusChanged {
+                                        cardRowHasFocus = it.hasFocus
+                                    },
+                        ) {
+                            eps.episodes.forEachIndexed { episodeIndex, episode ->
+                                val interactionSource = remember { MutableInteractionSource() }
+                                if (interactionSource.collectIsFocusedAsState().value) {
+                                    onFocusEpisode.invoke(episodeIndex)
+                                }
+                                com.github.damontecres.wholphin.ui.cards.BannerCardWithTitle(
+                                    title = episode?.name,
+                                    subtitle =
+                                        episode?.data?.indexNumber?.let {
+                                            androidx.compose.ui.res.stringResource(R.string.episode_n, it)
+                                        },
+                                    item = episode,
+                                    aspectRatio = AspectRatios.WIDE,
+                                    played = episode?.data?.userData?.played ?: false,
+                                    playPercent =
+                                        episode?.data?.userData?.playedPercentage
+                                            ?: 0.0,
+                                    onClick = {
+                                        epPosition = episodeIndex
+                                        if (episode != null) onClick.invoke(episode)
+                                    },
+                                    onLongClick = {
+                                        epPosition = episodeIndex
+                                        if (episode != null) onLongClick.invoke(episode)
+                                    },
+                                    modifier =
+                                        Modifier
+                                            .ifElse(
+                                                episodeIndex == position.episodeRowIndex,
+                                                Modifier
+                                                    .focusRequester(firstItemFocusRequester),
+                                            ).ifElse(
+                                                episodeIndex == epPosition,
+                                                Modifier.focusRequester(episodeRowFocusRequester),
+                                            ).onKeyEvent {
+                                                if (episode != null && isPlayKeyUp(it)) {
+                                                    epPosition = episodeIndex
+                                                    onClick.invoke(episode)
+                                                    return@onKeyEvent true
+                                                }
+                                                return@onKeyEvent false
+                                            },
+                                    interactionSource = interactionSource,
+                                    cardHeight = 108.dp,
+                                    useSeriesForPrimary = false,
+                                )
+                            }
+                        }
+                    }
+//                    }
                 }
             }
 
