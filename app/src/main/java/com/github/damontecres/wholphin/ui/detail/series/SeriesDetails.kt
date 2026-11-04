@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Text
 import com.github.damontecres.wholphin.R
 import com.github.damontecres.wholphin.data.ExtrasItem
 import com.github.damontecres.wholphin.data.model.BaseItem
@@ -187,6 +188,7 @@ fun SeriesDetails(
                 preferences = preferences,
                 series = series,
                 seasons = state.seasons,
+                nextUp = state.nextUp,
                 trailers = state.trailers,
                 extras = state.extras,
                 people = state.people,
@@ -319,6 +321,7 @@ private const val TRAILER_ROW = PEOPLE_ROW + 1
 private const val EXTRAS_ROW = TRAILER_ROW + 1
 private const val SIMILAR_ROW = EXTRAS_ROW + 1
 private const val DISCOVER_ROW = SIMILAR_ROW + 1
+private const val NEXT_UP_ROW = DISCOVER_ROW + 1 // IvanaFin
 
 @Composable
 fun SeriesDetailsContent(
@@ -348,13 +351,14 @@ fun SeriesDetailsContent(
     discoverSeries: DiscoverItem?,
     onClickDiscoverSeries: () -> Unit,
     modifier: Modifier = Modifier,
+    nextUp: BaseItem? = null, // IvanaFin
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
 
     var position by rememberInt()
-    val focusRequesters = remember { List(DISCOVER_ROW + 1) { FocusRequester() } }
+    val focusRequesters = remember { List(NEXT_UP_ROW + 1) { FocusRequester() } }
     val playFocusRequester = remember { FocusRequester() }
     RequestOrRestoreFocus(focusRequesters.getOrNull(position))
 
@@ -382,7 +386,8 @@ fun SeriesDetailsContent(
                                 .fillMaxWidth()
                                 .bringIntoViewRequester(bringIntoViewRequester)
                                 .padding(top = HeaderUtils.topPadding, bottom = 16.dp),
-                    )
+                        // IvanaFin: buttons sit under the info line, like Jellyfin web
+                        buttons = {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         modifier =
@@ -505,10 +510,44 @@ fun SeriesDetailsContent(
                             )
                         }
                     }
+                        },
+                    )
+                }
+                // IvanaFin: web "Next Up" section above the seasons
+                nextUp?.let { episode ->
+                    item {
+                        ItemRow(
+                            title = stringResource(R.string.next_up),
+                            items = listOf(episode),
+                            onClickItem = { index, item ->
+                                position = NEXT_UP_ROW
+                                onClickItem.invoke(index, item)
+                            },
+                            onLongClickItem = { index, item ->
+                                position = NEXT_UP_ROW
+                                onLongClickItem.invoke(index, item)
+                            },
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .focusRequester(focusRequesters[NEXT_UP_ROW]),
+                            cardContent = @Composable { index, item, mod, onClick, onLongClick ->
+                                SeasonCard(
+                                    item = item,
+                                    onClick = onClick,
+                                    onLongClick = onLongClick,
+                                    imageHeight = Cards.heightEpisode,
+                                    imageWidth = Dp.Unspecified,
+                                    showImageOverlay = true,
+                                    modifier = mod,
+                                )
+                            },
+                        )
+                    }
                 }
                 item {
                     ItemRow(
-                        title = stringResource(R.string.tv_seasons) + " (${seasons.size})",
+                        title = stringResource(R.string.tv_seasons), // IvanaFin: web shows no count
                         items = seasons,
                         onClickItem = { index, item ->
                             position = SEASONS_ROW
@@ -538,6 +577,7 @@ fun SeriesDetailsContent(
                 if (people.isNotEmpty()) {
                     item {
                         PersonRow(
+                            title = R.string.cast_and_crew, // IvanaFin: web label
                             people = people,
                             onClick = {
                                 position = PEOPLE_ROW
@@ -654,9 +694,11 @@ fun SeriesDetailsHeader(
     overviewOnClick: () -> Unit,
     bringIntoViewRequester: BringIntoViewRequester,
     modifier: Modifier = Modifier,
+    buttons: @Composable () -> Unit = {}, // IvanaFin
 ) {
     val scope = rememberCoroutineScope()
     val dto = series.data
+    // IvanaFin: Jellyfin web order - logo, misc info, buttons, tagline, overview, details group
     Column(
         verticalArrangement = Arrangement.spacedBy(4.dp),
         modifier = modifier,
@@ -678,16 +720,21 @@ fun SeriesDetailsHeader(
                 null,
                 Modifier.padding(start = HeaderUtils.startPadding),
             )
-            dto.studios?.let {
-                val studios = remember { series.studioNames }
-                GenreText(
-                    studios,
-                    textStyle = MaterialTheme.typography.bodyLarge,
+        }
+        Column(modifier = Modifier.padding(top = 12.dp, bottom = 12.dp)) {
+            buttons()
+        }
+        Column(
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.fillMaxWidth(.60f),
+        ) {
+            dto.taglines?.firstOrNull()?.let { tagline ->
+                Text(
+                    text = tagline,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                     modifier = Modifier.padding(start = HeaderUtils.startPadding),
                 )
-            }
-            dto.genres?.letNotEmpty {
-                GenreText(it, Modifier.padding(start = HeaderUtils.startPadding, bottom = 4.dp))
             }
             dto.overview?.let { overview ->
                 OverviewText(
@@ -705,6 +752,11 @@ fun SeriesDetailsHeader(
                         },
                 )
             }
+            // IvanaFin: web .itemDetailsGroup
+            com.github.damontecres.wholphin.ui.detail.IvanaFinDetailsGroup(
+                item = dto,
+                modifier = Modifier.padding(start = HeaderUtils.startPadding, top = 8.dp),
+            )
         }
     }
 }

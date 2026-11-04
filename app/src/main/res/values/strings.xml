@@ -2,6 +2,15 @@
     <string name="app_name" translatable="false">IvanaFin</string>
     <string name="app_name_long" translatable="false">IvanaFin</string>
     <string name="my_media">My Media</string>
+    <!-- IvanaFin: Jellyfin web detail page labels -->
+    <string name="detail_director">Director</string>
+    <string name="detail_directors">Directors</string>
+    <string name="detail_writer">Writer</string>
+    <string name="detail_writers">Writers</string>
+    <string name="detail_studio">Studio</string>
+    <string name="detail_studios">Studios</string>
+    <string name="detail_genre">Genre</string>
+    <string name="detail_genres">Genres</string>
 
     <string name="about">About</string>
     <string name="active_recordings">Active Recordings</string>
@@ -72,7 +81,7 @@
     <string name="mark_unwatched">Mark as unwatched</string>
     <string name="mark_watched">Mark as watched</string>
     <string name="max_bitrate">Max bitrate</string>
-    <string name="more_like_this">More like this</string>
+    <string name="more_like_this">More Like This</string>
     <string name="more">More</string>
     <string name="movies_title">Movies</string>
     <string name="name">Name</string>
@@ -196,7 +205,7 @@
     <string name="official_rating">Parental Rating</string>
     <string name="runtime_sort">Runtime</string>
 
-    <string name="extras_title">Extras</string>
+    <string name="extras_title">Special Features</string>
     <string name="other_extras_title">Other</string>
     <string name="behind_the_scenes_title">Behind the Scenes</string>
     <string name="theme_songs_title">Theme Songs</string>

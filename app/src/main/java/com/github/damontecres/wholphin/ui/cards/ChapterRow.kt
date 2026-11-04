@@ -24,13 +24,14 @@ fun ChapterRow(
     onClick: (Chapter) -> Unit,
     modifier: Modifier = Modifier,
     onLongClick: ((Chapter) -> Unit)? = null,
+    @androidx.annotation.StringRes title: Int = R.string.chapters, // IvanaFin
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier,
     ) {
         Text(
-            text = stringResource(R.string.chapters),
+            text = stringResource(title),
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(start = 8.dp),

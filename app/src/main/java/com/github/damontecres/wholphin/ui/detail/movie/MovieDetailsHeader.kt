@@ -6,33 +6,30 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import com.github.damontecres.wholphin.R
 import com.github.damontecres.wholphin.data.ChosenStreams
 import com.github.damontecres.wholphin.data.model.BaseItem
 import com.github.damontecres.wholphin.preferences.UserPreferences
-import com.github.damontecres.wholphin.ui.components.GenreText
 import com.github.damontecres.wholphin.ui.components.HeaderUtils
 import com.github.damontecres.wholphin.ui.components.OverviewText
 import com.github.damontecres.wholphin.ui.components.QuickDetails
 import com.github.damontecres.wholphin.ui.components.TitleOrLogo
 import com.github.damontecres.wholphin.ui.components.VideoStreamDetails
-import com.github.damontecres.wholphin.ui.isNotNullOrBlank
-import com.github.damontecres.wholphin.ui.letNotEmpty
+import com.github.damontecres.wholphin.ui.detail.IvanaFinDetailsGroup
 import com.github.damontecres.wholphin.util.ExceptionHandler
 import kotlinx.coroutines.launch
-import org.jellyfin.sdk.model.api.PersonKind
 
+/**
+ * IvanaFin: laid out in Jellyfin web item-page order:
+ * logo -> misc info -> buttons -> track info -> tagline -> overview -> details group
+ */
 @Composable
 fun MovieDetailsHeader(
     preferences: UserPreferences,
@@ -41,9 +38,9 @@ fun MovieDetailsHeader(
     bringIntoViewRequester: BringIntoViewRequester,
     overviewOnClick: () -> Unit,
     modifier: Modifier = Modifier,
+    buttons: @Composable () -> Unit = {},
 ) {
     val dto = movie.data
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     Column(
         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -68,19 +65,25 @@ fun MovieDetailsHeader(
                 movie.timeRemainingOrRuntime,
                 Modifier.padding(start = HeaderUtils.startPadding),
             )
+        }
 
-            dto.genres?.letNotEmpty {
-                GenreText(it, Modifier.padding(start = HeaderUtils.startPadding))
-            }
+        // Web: .mainDetailButtons directly under the misc info
+        Column(modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)) {
+            buttons()
+        }
 
+        Column(
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.fillMaxWidth(.60f),
+        ) {
+            // Web: track selections (version / video / audio / subtitles)
             VideoStreamDetails(
                 chosenStreams = chosenStreams,
                 numberOfVersions = movie.data.mediaSourceCount ?: 0,
                 modifier =
                     Modifier.padding(
                         start = HeaderUtils.startPadding,
-                        top = 4.dp,
-                        bottom = 16.dp,
+                        bottom = 12.dp,
                     ),
             )
             dto.taglines?.firstOrNull()?.let { tagline ->
@@ -110,23 +113,11 @@ fun MovieDetailsHeader(
                 )
             }
 
-            val directorName =
-                remember(movie.data.people) {
-                    movie.data.people
-                        ?.filter { it.type == PersonKind.DIRECTOR && it.name.isNotNullOrBlank() }
-                        ?.joinToString(", ") { it.name!! }
-                        ?.takeIf { it.isNotNullOrBlank() }
-                }
-
-            directorName
-                ?.let {
-                    Text(
-                        text = stringResource(R.string.directed_by, it),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(start = HeaderUtils.startPadding),
-                    )
-                }
+            // Web: .itemDetailsGroup - Director(s), Writer(s), Studio(s), Genre(s)
+            IvanaFinDetailsGroup(
+                item = dto,
+                modifier = Modifier.padding(start = HeaderUtils.startPadding, top = 8.dp),
+            )
         }
     }
 }

@@ -263,7 +263,8 @@ fun EpisodeDetailsContent(
                             Modifier
                                 .fillMaxWidth()
                                 .padding(top = HeaderUtils.topPadding, bottom = 16.dp),
-                    )
+                        // IvanaFin: buttons sit under the info line, like Jellyfin web
+                        buttons = {
                     ExpandablePlayButtons(
                         title = ep.title ?: "",
                         resumePosition = resumePosition,
@@ -299,8 +300,9 @@ fun EpisodeDetailsContent(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .padding(bottom = 16.dp)
                                 .focusRequester(focusRequesters[HEADER_ROW]),
+                    )
+                        },
                     )
                 }
             }

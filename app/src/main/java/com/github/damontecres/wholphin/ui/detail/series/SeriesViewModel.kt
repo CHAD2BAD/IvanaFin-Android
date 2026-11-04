@@ -235,6 +235,15 @@ class SeriesViewModel
                         val extras = extrasService.getExtras(series.id)
                         _state.update { it.copy(extras = extras) }
                     }
+                    // IvanaFin: Jellyfin web shows a "Next Up" section on series pages
+                    viewModelScope.launchIO {
+                        val nextUp =
+                            api.tvShowsApi
+                                .getNextUp(seriesId = seriesId, fields = ItemRowFields, limit = 1)
+                                .content.items
+                                .firstOrNull()
+                        _state.update { it.copy(nextUp = nextUp?.let { BaseItem(it, false) }) }
+                    }
                     if (state.value.similar.isEmpty()) {
                         viewModelScope.launchIO {
                             val similar =
@@ -891,4 +900,5 @@ data class SeriesState(
     val discovered: List<DiscoverItem> = emptyList(),
     val discoverSeries: DiscoverItem? = null,
     val chosenStreams: ChosenStreams? = null,
+    val nextUp: BaseItem? = null, // IvanaFin
 )

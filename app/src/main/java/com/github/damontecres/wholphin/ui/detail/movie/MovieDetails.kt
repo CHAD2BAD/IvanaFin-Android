@@ -343,7 +343,8 @@ fun MovieDetailsContent(
                             Modifier
                                 .fillMaxWidth()
                                 .padding(top = HeaderUtils.topPadding, bottom = 16.dp),
-                    )
+                        // IvanaFin: buttons sit under the info line, like Jellyfin web
+                        buttons = {
                     ExpandablePlayButtons(
                         title = movie.title ?: "",
                         resumePosition = resumePosition,
@@ -382,14 +383,16 @@ fun MovieDetailsContent(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .padding(bottom = 16.dp)
                                 .focusRequester(focusRequesters[HEADER_ROW]),
+                    )
+                        },
                     )
                 }
             }
             state.people.letNotEmpty { people ->
                 item {
                     PersonRow(
+                        title = R.string.cast_and_crew, // IvanaFin: web label
                         people = people,
                         onClick = {
                             position = PEOPLE_ROW
@@ -406,22 +409,7 @@ fun MovieDetailsContent(
                     )
                 }
             }
-            state.chapters.letNotEmpty { chapters ->
-                item {
-                    ChapterRow(
-                        chapters = chapters,
-                        onClick = {
-                            position = CHAPTER_ROW
-                            playOnClick.invoke(it.position)
-                        },
-                        onLongClick = {},
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .focusRequester(focusRequesters[CHAPTER_ROW]),
-                    )
-                }
-            }
+            // IvanaFin: web order is Cast & Crew -> Special Features -> Scenes -> More Like This
             state.extras.letNotEmpty { extras ->
                 item {
                     ExtrasRow(
@@ -435,6 +423,23 @@ fun MovieDetailsContent(
                             Modifier
                                 .fillMaxWidth()
                                 .focusRequester(focusRequesters[EXTRAS_ROW]),
+                    )
+                }
+            }
+            state.chapters.letNotEmpty { chapters ->
+                item {
+                    ChapterRow(
+                        title = R.string.scenes_title, // IvanaFin: web label
+                        chapters = chapters,
+                        onClick = {
+                            position = CHAPTER_ROW
+                            playOnClick.invoke(it.position)
+                        },
+                        onLongClick = {},
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .focusRequester(focusRequesters[CHAPTER_ROW]),
                     )
                 }
             }
