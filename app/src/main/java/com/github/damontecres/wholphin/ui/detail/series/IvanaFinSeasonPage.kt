@@ -64,6 +64,7 @@ import androidx.compose.material.icons.filled.Star
 
 private const val COLUMNS = 4
 private val GAP = 16.dp
+private val HEADER_BUTTON_WIDTH = 220.dp // IvanaFin: season + play-next buttons the same size
 
 /**
  * IvanaFin: the season page, modelled on Jellyfin web's season page (centred logo, season name,
@@ -81,6 +82,7 @@ fun IvanaFinSeasonPage(
     selectedSeasonIndex: Int,
     focusedEpisodeIndex: Int,
     episodeFocusRequester: FocusRequester,
+    playNextFocusRequester: FocusRequester,
     onChangeSeason: (Int) -> Unit,
     onFocusEpisode: (Int) -> Unit,
     onPlayEpisode: (BaseItem) -> Unit,
@@ -115,19 +117,43 @@ fun IvanaFinSeasonPage(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         ) {
-            if (season != null) {
-                Button(onClick = { showSeasonPicker = true }) {
-                    Text(text = seasonLabel(season), style = MaterialTheme.typography.titleMedium)
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+            // Keys keep the Play button the same node when the season button appears once
+            // seasons load, so it keeps the initial focus
+            androidx.compose.runtime.key("season") {
+                if (season != null) {
+                    Button(
+                        onClick = { showSeasonPicker = true },
+                        modifier = Modifier.width(HEADER_BUTTON_WIDTH),
+                    ) {
+                        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                        Text(
+                            text = seasonLabel(season),
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                        )
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                    }
                 }
             }
-            Button(onClick = onPlayNextEpisode) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null)
-                Text(
-                    text = stringResource(R.string.play_next_episode),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(start = 6.dp),
-                )
+            androidx.compose.runtime.key("playNext") {
+                Button(
+                    onClick = onPlayNextEpisode,
+                    modifier =
+                        Modifier
+                            .width(HEADER_BUTTON_WIDTH)
+                            .focusRequester(playNextFocusRequester),
+                ) {
+                    androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                    Icon(Icons.Default.PlayArrow, contentDescription = null)
+                    Text(
+                        text = stringResource(R.string.play_next_episode),
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        modifier = Modifier.padding(start = 6.dp),
+                    )
+                    androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                }
             }
         }
         // Web: season overview, full width

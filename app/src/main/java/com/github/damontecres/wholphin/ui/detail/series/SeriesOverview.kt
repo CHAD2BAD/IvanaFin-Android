@@ -102,7 +102,9 @@ fun SeriesOverview(
     var showPlaylistDialog by remember { mutableStateOf<UUID?>(null) }
     val playlistState by playlistViewModel.playlistState.collectAsState()
 
-    var rowFocused by rememberInt()
+    // IvanaFin: a show opens with "Play next episode" focused
+    var rowFocused by rememberInt(PLAY_NEXT_ROW)
+    val playNextFocusRequester = remember { FocusRequester() }
 
     val contextActions =
         remember {
@@ -177,6 +179,7 @@ fun SeriesOverview(
         is DataLoadingState.Success<BaseItem> -> {
             RequestOrRestoreFocus(
                 when (rowFocused) {
+                    PLAY_NEXT_ROW -> playNextFocusRequester
                     EPISODE_ROW -> episodeRowFocusRequester
                     CAST_AND_CREW_ROW -> castCrewRowFocusRequester
                     GUEST_STAR_ROW -> guestStarRowFocusRequester
@@ -203,6 +206,7 @@ fun SeriesOverview(
                 selectedSeasonIndex = position.seasonTabIndex,
                 focusedEpisodeIndex = position.episodeRowIndex,
                 episodeFocusRequester = episodeRowFocusRequester,
+                playNextFocusRequester = playNextFocusRequester,
                 onChangeSeason = { index ->
                     if (index != position.seasonTabIndex) {
                         state.seasons.getOrNull(index)?.let { season ->
@@ -279,6 +283,7 @@ fun SeriesOverview(
     }
 }
 
+private const val PLAY_NEXT_ROW = -1 // IvanaFin
 private const val EPISODE_ROW = 0
 private const val CAST_AND_CREW_ROW = EPISODE_ROW + 1
 private const val GUEST_STAR_ROW = CAST_AND_CREW_ROW + 1
