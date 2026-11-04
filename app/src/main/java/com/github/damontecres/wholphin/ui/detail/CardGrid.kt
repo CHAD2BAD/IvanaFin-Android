@@ -445,7 +445,8 @@ fun <T : CardGridItem> CardGrid(
                         }
                         ?: letters[0]
                 }
-            if (showLetterButtons && pager.isNotEmpty()) {
+            // IvanaFin: no A-Z jump bar and no space reserved for it (user choice)
+            if (false && showLetterButtons && pager.isNotEmpty()) {
                 AlphabetButtons(
                     letters = letters,
                     currentLetter = currentLetter,
@@ -456,7 +457,7 @@ fun <T : CardGridItem> CardGrid(
                     // Add end padding to push away from edge
                     letterClicked = jumpToLetter,
                 )
-            } else {
+            } else if (false) {
                 // Spacer ensures card sizes do not change if the alphabet buttons are not shown
                 Spacer(
                     Modifier

@@ -1,5 +1,8 @@
 package com.github.damontecres.wholphin.ui.nav
 
+import com.github.damontecres.wholphin.ui.components.TimeDisplay
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -86,16 +89,22 @@ fun ApplicationContent(
                             modifier = Modifier.fillMaxSize(),
                         )
                     } else if (user != null && server != null) {
-                        NavDrawer(
-                            destination = key,
-                            preferences = preferences,
-                            user = user,
-                            server = server,
-                            drawerState = drawerState,
-                            navDrawerListState = navDrawerListState,
-                            onClearBackdrop = viewModel::clearBackdrop,
-                            modifier = Modifier.fillMaxSize(),
-                        )
+                        // IvanaFin: no left nav menu (user choice) - libraries are reached from the
+                        // home page; Search & Settings are buttons at the top of the home page
+                        androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxSize()) {
+                            DestinationContent(
+                                destination = key,
+                                preferences = preferences,
+                                onClearBackdrop = viewModel::clearBackdrop,
+                                modifier =
+                                    Modifier
+                                        .fillMaxSize()
+                                        .padding(start = 32.dp, end = 16.dp),
+                            )
+                            if (preferences.appPreferences.interfacePreferences.showClock) {
+                                TimeDisplay()
+                            }
+                        }
                     } else {
                         ErrorMessage("Trying to go to $key without a user logged in", null)
                     }

@@ -39,6 +39,8 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
@@ -227,10 +229,36 @@ fun HomePage(
                 showViewMore = true,
                 onClickViewMore = onClickViewMore,
                 // IvanaFin: like Jellyfin web, no big focused-item preview - rows start at the top
+                // IvanaFin: with no side menu, Search & Settings live top-right (left of the clock)
                 headerComposable = {
-                    androidx.compose.foundation.layout.Spacer(
-                        Modifier.height(24.dp),
-                    )
+                    androidx.compose.foundation.layout.Row(
+                        horizontalArrangement =
+                            androidx.compose.foundation.layout.Arrangement
+                                .spacedBy(12.dp, androidx.compose.ui.Alignment.End),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = 16.dp, end = 170.dp, bottom = 4.dp),
+                    ) {
+                        HomeTopButton(
+                            text = stringResource(R.string.search),
+                            icon = androidx.compose.material.icons.Icons.Default.Search,
+                            onClick = {
+                                viewModel.navigationManager.navigateTo(Destination.Search())
+                            },
+                        )
+                        HomeTopButton(
+                            text = stringResource(R.string.settings),
+                            icon = androidx.compose.material.icons.Icons.Default.Settings,
+                            onClick = {
+                                viewModel.navigationManager.navigateTo(
+                                    Destination.Settings(
+                                        com.github.damontecres.wholphin.ui.preferences.PreferenceScreenOption.BASIC,
+                                    ),
+                                )
+                            },
+                        )
+                    }
                 },
                 modifier = modifier,
             )
@@ -765,4 +793,24 @@ fun HomePageViewMoreCard(
         size = DpSize(height = viewOptions.heightDp.dp, width = Dp.Unspecified),
         showTitle = viewOptions.showTitles,
     )
+}
+
+/** IvanaFin: small labelled button for the top of the home page (Search / Settings) */
+@Composable
+private fun HomeTopButton(
+    text: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+) {
+    androidx.tv.material3.Button(
+        onClick = onClick,
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+    ) {
+        androidx.tv.material3.Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
+        androidx.tv.material3.Text(
+            text = text,
+            style = androidx.tv.material3.MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(start = 6.dp),
+        )
+    }
 }
