@@ -43,6 +43,7 @@ import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.exception.InvalidStatusException
 import org.jellyfin.sdk.api.client.extensions.liveTvApi
 import org.jellyfin.sdk.api.client.extensions.userLibraryApi
+import org.jellyfin.sdk.api.client.extensions.userViewsApi
 import org.jellyfin.sdk.model.DateTime
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemDtoQueryResult
@@ -534,6 +535,23 @@ class HomeDataService
                             showViewMore = it.size >= limit,
                         )
                     }
+                }
+
+                // IvanaFin: web "My Media" - user views honour the web library order & My Media excludes
+                is HomeRowConfig.MyMedia -> {
+                    api.userViewsApi
+                        .getUserViews(userId = userDto.id)
+                        .content.items
+                        .map { BaseItem(it, false) }
+                        .let {
+                            Success(
+                                ResStringProvider(R.string.my_media),
+                                it,
+                                row.viewOptions,
+                                rowType = row,
+                                showViewMore = false,
+                            )
+                        }
                 }
 
                 is HomeRowConfig.Recordings -> {

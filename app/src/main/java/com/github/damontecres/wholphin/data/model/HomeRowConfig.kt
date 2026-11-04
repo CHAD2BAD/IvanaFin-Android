@@ -122,6 +122,17 @@ sealed interface HomeRowConfig {
     }
 
     /**
+     * IvanaFin: the user's libraries as tiles, like Jellyfin web's "My Media" section
+     */
+    @Serializable
+    @SerialName("IvanaFinMyMedia")
+    data class MyMedia(
+        override val viewOptions: HomeRowViewOptions = HomeRowViewOptions.myMediaDefault,
+    ) : HomeRowConfig {
+        override fun updateViewOptions(viewOptions: HomeRowViewOptions): MyMedia = this.copy(viewOptions = viewOptions)
+    }
+
+    /**
      * Currently recording
      */
     @Serializable
@@ -260,6 +271,15 @@ data class HomeRowViewOptions(
     val episodeImageType: ViewOptionImageType = ViewOptionImageType.PRIMARY,
 ) {
     companion object {
+        // IvanaFin: wide library tiles with names underneath, like web "My Media"
+        val myMediaDefault =
+            HomeRowViewOptions(
+                heightDp = Cards.HEIGHT_EPISODE,
+                aspectRatio = AspectRatio.WIDE,
+                showTitles = true,
+                useSeries = false,
+            )
+
         val genreDefault =
             HomeRowViewOptions(
                 heightDp = Cards.HEIGHT_EPISODE,

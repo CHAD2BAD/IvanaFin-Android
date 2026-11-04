@@ -250,6 +250,15 @@ class HomeSettingsService
                         serverPluginApi.fetchHomePageSettings()
                     }
             }
+
+            // IvanaFin: before Wholphin's built-in default, follow the user's Jellyfin web home layout
+            if (settings.second == null) {
+                Timber.v("loadInOrder: web config")
+                settings = HomePageSettingsSource.WEB_CONFIG to
+                    tryLoad {
+                        parseFromWebConfig(userId)?.asHomePageSettings()
+                    }
+            }
             return settings
         }
 
@@ -341,13 +350,17 @@ class HomeSettingsService
                         it.itemId in config.latestItemsExcludes
                     }
 
-            return if (customPrefs.isNotEmpty()) {
+            // IvanaFin: sections the user never changed aren't stored; use Jellyfin web's defaults
+            return run {
                 var id = 0
                 val rowConfigs =
                     (0..9)
                         .mapNotNull { idx ->
                             val sectionType =
-                                HomeSectionType.fromString(customPrefs["homesection$idx"]?.lowercase())
+                                HomeSectionType.fromString(
+                                    (customPrefs["homesection$idx"] ?: WEB_DEFAULT_HOME_SECTIONS.getOrNull(idx))
+                                        ?.lowercase(),
+                                )
                             Timber.v(
                                 "sectionType=$sectionType, %s",
                                 customPrefs["homesection$idx"]?.lowercase(),
@@ -402,8 +415,17 @@ class HomeSettingsService
                                         null
                                     }
 
+                                    // IvanaFin: web "My Media"
                                     HomeSectionType.SMALL_LIBRARY_TILES,
                                     HomeSectionType.LIBRARY_BUTTONS,
+                                    -> {
+                                        HomeRowConfigDisplay(
+                                            id = id++,
+                                            title = ResStringProvider(R.string.my_media),
+                                            config = HomeRowConfig.MyMedia(),
+                                        )
+                                    }
+
                                     HomeSectionType.NONE,
                                     null,
                                     -> {
@@ -435,8 +457,6 @@ class HomeSettingsService
                             }
                         }.flatten()
                 HomePageResolvedSettings(userId, HomePageSettingsSource.WEB_CONFIG, rowConfigs)
-            } else {
-                null
             }
         }
 
@@ -528,6 +548,14 @@ class HomeSettingsService
                             ResStringProvider(formatTypeName(config.kind)),
                         )
                     HomeRowConfigDisplay(id, name, config)
+                }
+
+                is HomeRowConfig.MyMedia -> {
+                    HomeRowConfigDisplay(
+                        id = id,
+                        title = ResStringProvider(R.string.my_media),
+                        config,
+                    )
                 }
 
                 is HomeRowConfig.Recordings -> {
@@ -635,12 +663,30 @@ data class HomePageResolvedSettings(
     }
 }
 
+/**
+ * IvanaFin: Jellyfin web's default home sections (jellyfin-web homesections getDefaultSection),
+ * used for any `homesectionN` the user never changed.
+ */
+private val WEB_DEFAULT_HOME_SECTIONS =
+    listOf(
+        "smalllibrarytiles",
+        "resume",
+        "resumeaudio",
+        "resumebook",
+        "livetv",
+        "nextup",
+        "latestmedia",
+        "none",
+        "none",
+        "none",
+    )
+
 // https://github.com/jellyfin/jellyfin/blob/v10.11.6/src/Jellyfin.Database/Jellyfin.Database.Implementations/Enums/HomeSectionType.cs
 enum class HomeSectionType(
     val serialName: String,
 ) {
     NONE("none"),
-    SMALL_LIBRARY_TILES("smalllibrarytitles"),
+    SMALL_LIBRARY_TILES("smalllibrarytiles"), // IvanaFin: was misspelt "smalllibrarytitles"
     LIBRARY_BUTTONS("librarybuttons"),
     ACTIVE_RECORDINGS("activerecordings"),
     RESUME("resume"),

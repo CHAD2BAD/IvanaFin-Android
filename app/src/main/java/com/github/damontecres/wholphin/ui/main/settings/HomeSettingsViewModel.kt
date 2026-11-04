@@ -764,6 +764,11 @@ class HomeSettingsViewModel
                                     it.config.updateViewOptions(preset.tvLibrary)
                                 }
 
+                                // IvanaFin: library tiles keep their own wide layout
+                                is HomeRowConfig.MyMedia -> {
+                                    it.config
+                                }
+
                                 is Suggestions -> {
                                     val collectionType = getCollectionType(it.config.parentId)
                                     val viewOptions = preset.getByCollectionType(collectionType)
