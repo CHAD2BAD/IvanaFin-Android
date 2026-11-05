@@ -71,6 +71,7 @@ fun CollectionFolderTv(
         alwaysStartOn = 1, // IvanaFin: always open the full Library tab
         modifier = modifier,
         showTabs = showHeader,
+        tabBarVisible = false, // IvanaFin: library view only, no Recommended/Genres/etc tabs
     ) { tabIndex, tabDetails ->
         when (tabIndex) {
             // Recommended

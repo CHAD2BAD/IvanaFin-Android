@@ -41,3 +41,8 @@ fun androidx.compose.ui.Modifier.cardTitleMarquee(focused: Boolean): androidx.co
 @Composable
 @ReadOnlyComposable
 fun useGlassDialogs(): Boolean = isElegantFin
+
+/** Library grids: no random / play all / shuffle buttons (sort, filter and view options only). */
+@Composable
+@ReadOnlyComposable
+fun showLibraryActionButtons(): Boolean = !isElegantFin

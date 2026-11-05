@@ -10,6 +10,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.runtime.Composable
@@ -128,6 +129,7 @@ fun TabbedPage(
     tabs: List<TabDetails>,
     modifier: Modifier = Modifier,
     showTabs: Boolean = true,
+    tabBarVisible: Boolean = true, // IvanaFin: false = no tab bar, only the selected tab
     alwaysStartOn: Int? = null, // IvanaFin: ignore remembered tab and start here
     viewModel: TabViewModel =
         hiltViewModel<TabViewModel, TabViewModel.Factory>(
@@ -145,6 +147,7 @@ fun TabbedPage(
         isShowClock = isShowClock,
         modifier = modifier,
         showTabs = showTabs,
+        tabBarVisible = tabBarVisible,
         tabContent = tabContent,
     )
 }
@@ -157,6 +160,7 @@ fun TabbedPage(
     isShowClock: Boolean,
     modifier: Modifier = Modifier,
     showTabs: Boolean = true,
+    tabBarVisible: Boolean = true,
     tabContent: @Composable (Int, TabDetails) -> Unit,
 ) {
     val endPadding =
@@ -175,14 +179,21 @@ fun TabbedPage(
             enter = expandVertically(),
             exit = shrinkVertically(),
         ) {
-            TabRow(
-                selectedTabIndex = selectedTabIndex,
-                modifier =
-                    Modifier
-                        .padding(top = 16.dp, bottom = 16.dp, end = endPadding),
-                tabs = tabs,
-                onClick = updateSelectedTabIndex,
-            )
+            if (tabBarVisible) {
+                TabRow(
+                    selectedTabIndex = selectedTabIndex,
+                    modifier =
+                        Modifier
+                            .padding(top = 16.dp, bottom = 16.dp, end = endPadding),
+                    tabs = tabs,
+                    onClick = updateSelectedTabIndex,
+                )
+            } else {
+                // IvanaFin: keep the content clear of the clock
+                androidx.compose.foundation.layout.Spacer(
+                    Modifier.height(8.dp), // just room for a focused (enlarged) poster
+                )
+            }
         }
         selectedTabIndex.let { tabIndex ->
             if (tabIndex in tabs.indices) {

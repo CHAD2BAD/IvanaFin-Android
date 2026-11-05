@@ -1,5 +1,6 @@
 package com.github.damontecres.wholphin.ui.components
 
+import com.github.damontecres.wholphin.ui.theme.showLibraryActionButtons
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
@@ -296,7 +297,7 @@ fun CollectionFolderHeader(
     randomButtonFocusRequester: FocusRequester = remember { FocusRequester() },
 ) {
     AnimatedVisibility(
-        showHeader,
+        showHeader && (showLibraryActionButtons() || showTitle), // IvanaFin: no sort/filter/view row
         enter = expandVertically(),
         exit = shrinkVertically(),
         modifier = modifier,
@@ -304,6 +305,7 @@ fun CollectionFolderHeader(
         val focusRequester = remember { FocusRequester() }
         Column(
             verticalArrangement = Arrangement.spacedBy(8.dp),
+            // IvanaFin: room below the buttons so a focused (enlarged) poster doesn't touch them
             modifier = Modifier.fillMaxWidth(),
         ) {
             if (showTitle) {
@@ -312,12 +314,12 @@ fun CollectionFolderHeader(
             val endPadding =
                 16.dp + if (sortAndDirection.sort == ItemSortBy.SORT_NAME) 24.dp else 0.dp
 
-            Row(
+            if (showLibraryActionButtons()) Row( // IvanaFin: no sort/filter/view buttons
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier =
                     Modifier
-                        .padding(start = 16.dp, end = endPadding)
+                        .padding(start = if (showLibraryActionButtons()) 16.dp else 0.dp, end = endPadding) // IvanaFin: line up with the posters
                         .fillMaxWidth(),
             ) {
                 Row(
@@ -363,7 +365,7 @@ fun CollectionFolderHeader(
 
                 Spacer(Modifier.weight(1f))
 
-                Row(
+                if (showLibraryActionButtons()) Row( // IvanaFin
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier,

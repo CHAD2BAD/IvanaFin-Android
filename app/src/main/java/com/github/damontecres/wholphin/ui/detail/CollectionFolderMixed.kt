@@ -59,6 +59,7 @@ fun CollectionFolderMixed(
         alwaysStartOn = 0, // always open the full Library tab
         modifier = modifier,
         showTabs = showHeader,
+        tabBarVisible = false, // IvanaFin: library view only, no Recommended/Genres/etc tabs
     ) { tabIndex, tabDetails ->
         when (tabIndex) {
             // Library

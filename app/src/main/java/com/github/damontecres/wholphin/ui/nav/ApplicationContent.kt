@@ -102,7 +102,11 @@ fun ApplicationContent(
                                         .padding(start = 32.dp, end = 16.dp),
                             )
                             if (preferences.appPreferences.interfacePreferences.showClock) {
-                                TimeDisplay()
+                                // IvanaFin: no clock on library grids (posters fill the screen)
+                                val isLibrary =
+                                    key is Destination.MediaItem &&
+                                        (key.type == org.jellyfin.sdk.model.api.BaseItemKind.COLLECTION_FOLDER || key.type == org.jellyfin.sdk.model.api.BaseItemKind.USER_VIEW)
+                                if (!isLibrary) TimeDisplay()
                             }
                         }
                     } else {
