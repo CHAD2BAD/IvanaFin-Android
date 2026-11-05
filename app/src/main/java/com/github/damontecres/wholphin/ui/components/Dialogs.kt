@@ -4,6 +4,7 @@ import android.content.res.Resources
 import android.view.KeyEvent
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -424,14 +425,21 @@ fun BasicDialog(
         onDismissRequest = onDismissRequest,
         properties = properties,
     ) {
+        val glass = com.github.damontecres.wholphin.ui.theme.useGlassDialogs() // IvanaFin
         Box(
             modifier =
-                Modifier
-                    .shadow(elevation = elevation, shape = RoundedCornerShape(8.dp))
-                    .background(
-                        MaterialTheme.colorScheme.surfaceColorAtElevation(elevation),
-                        shape = RoundedCornerShape(8.dp),
-                    ),
+                if (glass) {
+                    Modifier
+                        .background(Color.Black, shape = RoundedCornerShape(16.dp))
+                        .border(1.dp, Color.White.copy(alpha = .12f), RoundedCornerShape(16.dp))
+                } else {
+                    Modifier
+                        .shadow(elevation = elevation, shape = RoundedCornerShape(8.dp))
+                        .background(
+                            MaterialTheme.colorScheme.surfaceColorAtElevation(elevation),
+                            shape = RoundedCornerShape(8.dp),
+                        )
+                },
         ) {
             content()
         }

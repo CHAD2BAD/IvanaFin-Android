@@ -36,3 +36,8 @@ fun useDynamicBackdropColors(): Boolean = !isElegantFin
 @Composable
 fun androidx.compose.ui.Modifier.cardTitleMarquee(focused: Boolean): androidx.compose.ui.Modifier =
     if (cardTitleMaxLines() > 1) this else enableMarquee(focused)
+
+/** ElegantFin pop-ups: black glass panel with a faint outline and rounder corners. */
+@Composable
+@ReadOnlyComposable
+fun useGlassDialogs(): Boolean = isElegantFin

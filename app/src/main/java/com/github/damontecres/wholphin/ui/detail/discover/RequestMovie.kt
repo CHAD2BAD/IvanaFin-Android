@@ -132,7 +132,8 @@ fun RequestMovie(
                     request4kEnabled = request4kEnabled,
                     movie = movie,
                     onSubmit = onSubmit,
-                    modifier = modifier.focusRequester(focusRequester),
+                    modifier = modifier,
+                    initialFocus = focusRequester, // IvanaFin
                 )
             }
         }
@@ -147,6 +148,7 @@ private fun RequestMovieWithOptions(
     movie: MovieDetails,
     onSubmit: (MovieRequest) -> Unit,
     modifier: Modifier = Modifier,
+    initialFocus: FocusRequester = remember { FocusRequester() },
 ) {
     var is4k by remember { mutableStateOf(!requestEnabled) }
     var profile by remember(is4k) {
@@ -169,70 +171,51 @@ private fun RequestMovieWithOptions(
     }
     val profiles = remember(is4k, data) { if (is4k) data.profiles4k else data.profiles }
     val folders = remember(is4k, data) { if (is4k) data.rootFolders4k else data.rootFolders }
+    // IvanaFin: same layout as the season request dialog - title + Request at the top,
+    // quality profile tile (selected on open), root folder always the default.
     Column(
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier.fillMaxWidth(),
     ) {
-        Text(
-            text = movie.title + " (${movie.releaseDate ?: ""})",
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        LazyColumn(
-            contentPadding = PaddingValues(vertical = 8.dp),
-            modifier = Modifier,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            item {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
+            Text(
+                text = movie.title + (movie.releaseDate?.take(4)?.let { " ($it)" } ?: ""),
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+            )
+            Button(
+                onClick = {
+                    onSubmit.invoke(MovieRequest(data, movie.id, is4k, profile?.id, folder?.path))
+                },
+                modifier = if (profiles.isEmpty()) Modifier.focusRequester(initialFocus) else Modifier,
+            ) {
+                Text(text = stringResource(R.string.request))
+            }
+        }
+        if (requestEnabled && request4kEnabled) {
+            RequestSwitchRow(
+                label = stringResource(R.string.request_4k),
+                checked = is4k,
+                onClick = { is4k = !is4k },
+            )
+        }
+        if (profiles.isNotEmpty()) {
+            profile?.let {
+                ChooseProfile(
+                    selectedProfile = it,
+                    profiles = profiles,
+                    onClickProfile = { profile = it },
+                    asTile = true,
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 8.dp),
-                ) {
-                    if (requestEnabled && request4kEnabled) {
-                        ClickSwitch(
-                            label = stringResource(R.string.request_4k),
-                            checked = is4k,
-                            onClick = { is4k = !is4k },
-                        )
-                    }
-                    Button(
-                        onClick = {
-                            onSubmit.invoke(MovieRequest(data, movie.id, is4k, profile?.id, folder?.path))
-                        },
-                    ) {
-                        Text(
-                            text = stringResource(R.string.submit),
-                        )
-                    }
-                }
-            }
-
-            if (profiles.isNotEmpty()) {
-                profile?.let {
-                    item {
-                        ChooseProfile(
-                            selectedProfile = it,
-                            profiles = profiles,
-                            onClickProfile = { profile = it },
-                            modifier = Modifier,
-                        )
-                    }
-                }
-            }
-            if (folders.isNotEmpty()) {
-                folder?.let {
-                    item {
-                        ChooseFolder(
-                            selectedFolder = it,
-                            folders = folders,
-                            onClickFolder = { folder = it },
-                            modifier = Modifier,
-                        )
-                    }
-                }
+                            .focusRequester(initialFocus),
+                )
             }
         }
     }
@@ -244,10 +227,29 @@ fun ChooseProfile(
     profiles: List<SeerrProfile>,
     onClickProfile: (SeerrProfile) -> Unit,
     modifier: Modifier = Modifier,
+    asTile: Boolean = false,
 ) {
     val defaultStr = stringResource(R.string.is_default)
     val qualityProfileStr = stringResource(R.string.quality_profile)
     var showProfileDialog by remember { mutableStateOf(false) }
+    if (asTile) {
+        // IvanaFin: same outlined tile as the season grid
+        SeasonTile(
+            name = qualityProfileStr,
+            subtitle = if (selectedProfile.default) "${selectedProfile.name} ($defaultStr)" else selectedProfile.name,
+            checked = false,
+            enabled = true,
+            status = null,
+            onClick = { showProfileDialog = true },
+            modifier = modifier,
+            trailing = {
+                Text(
+                    text = stringResource(R.string.fa_caret_down),
+                    fontFamily = com.github.damontecres.wholphin.ui.FontAwesome,
+                )
+            },
+        )
+    } else
     ListItem(
         selected = false,
         headlineContent = {

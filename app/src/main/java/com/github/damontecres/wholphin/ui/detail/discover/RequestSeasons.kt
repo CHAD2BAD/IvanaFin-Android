@@ -1,7 +1,29 @@
 package com.github.damontecres.wholphin.ui.detail.discover
 
 import android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import com.github.damontecres.wholphin.ui.ifElse
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.unit.sp
+import androidx.tv.material3.Border
+import androidx.tv.material3.LocalContentColor
+import com.github.damontecres.wholphin.ui.FontAwesome
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -58,6 +80,7 @@ data class RequestSeason(
     val editable: Boolean,
 )
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RequestSeasons(
     id: Int,
@@ -68,6 +91,7 @@ fun RequestSeasons(
     requestEnabled: Boolean,
     request4kEnabled: Boolean,
     onSubmit: (TvRequest) -> Unit,
+    initialFocus: FocusRequester = remember { FocusRequester() },
     modifier: Modifier = Modifier,
 ) {
     var is4k by remember { mutableStateOf(!requestEnabled) }
@@ -140,127 +164,122 @@ fun RequestSeasons(
         )
     }
 
+    // IvanaFin: everything on one screen - title + Request at the top, quality profile,
+    // then all seasons as a grid of tiles. Root folder is always the default (not shown).
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier,
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier,
-        )
-        LazyColumn(
-            modifier = Modifier,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            item {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                ) {
-                    if (requestEnabled && request4kEnabled) {
-                        ClickSwitch(
-                            label = stringResource(R.string.request_4k),
-                            checked = is4k,
-                            onClick = { is4k = !is4k },
-                        )
-                    }
-                    Button(
-                        onClick = ::submit,
-                        enabled = selectedSeasons.isNotEmpty(),
-                    ) {
-                        Text(
-                            text = stringResource(R.string.submit),
-                        )
-                    }
-                }
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+            )
+            Button(
+                onClick = ::submit,
+                enabled = selectedSeasons.isNotEmpty(),
+            ) {
+                Text(text = stringResource(R.string.request))
             }
-            if (profiles.isNotEmpty()) {
-                profile?.let {
-                    item {
-                        ChooseProfile(
-                            selectedProfile = it,
-                            profiles = profiles,
-                            onClickProfile = { profile = it },
-                            modifier = Modifier,
-                        )
-                    }
-                }
-            }
-            if (folders.isNotEmpty()) {
-                folder?.let {
-                    item {
-                        ChooseFolder(
-                            selectedFolder = it,
-                            folders = folders,
-                            onClickFolder = { folder = it },
-                            modifier = Modifier,
-                        )
-                    }
-                }
-            }
-            item {
-                HorizontalDivider()
-            }
-            item {
-                Text(
-                    text = stringResource(R.string.tv_seasons),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                val isSelected = selectedSeasons.containsAll(allSeasonNumbers)
-                ClickSwitch(
-                    label = stringResource(R.string.select_all),
-                    checked = isSelected,
-                    onClick = {
-                        if (isSelected) {
-                            selectedSeasons.removeAll(allSeasonNumbers)
-                        } else {
-                            selectedSeasons.addAll(allSeasonNumbers)
-                        }
-                    },
+        }
+        if (requestEnabled && request4kEnabled) {
+            RequestSwitchRow(
+                label = stringResource(R.string.request_4k),
+                checked = is4k,
+                onClick = { is4k = !is4k },
+            )
+        }
+        if (profiles.isNotEmpty()) {
+            profile?.let {
+                ChooseProfile(
+                    selectedProfile = it,
+                    profiles = profiles,
+                    onClickProfile = { profile = it },
+                    asTile = true,
+                    modifier = Modifier.fillMaxWidth().focusRequester(initialFocus),
                 )
             }
-            itemsIndexed(seasons) { index, season ->
+        }
+        HorizontalDivider()
+        BoxWithConstraints(modifier = Modifier.weight(1f, fill = false)) {
+        val tileWidth = (maxWidth - 16.dp) / 3
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                text = stringResource(R.string.tv_seasons),
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+            )
+            val isSelected = allSeasonNumbers.isNotEmpty() && selectedSeasons.containsAll(allSeasonNumbers)
+            SeasonTile(
+                name = stringResource(R.string.select_all),
+                subtitle = null,
+                checked = isSelected,
+                enabled = allSeasonNumbers.isNotEmpty(),
+                status = null,
+                onClick = {
+                    if (isSelected) {
+                        selectedSeasons.removeAll(allSeasonNumbers)
+                    } else {
+                        selectedSeasons.addAll(allSeasonNumbers)
+                    }
+                },
+                modifier = Modifier.width(tileWidth),
+            )
+        }
+        // Centred rows so a short last row stays symmetrical
+        FlowRow(
+            maxItemsInEachRow = 3,
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 4.dp),
+        ) {
+            seasons.forEach { season ->
                 val seasonNumber = season.season.seasonNumber
                 val checked = seasonNumber in selectedSeasons || seasonNumber in availableSeasons
-                SeasonListItem(
-                    season = season,
+                val specials = stringResource(R.string.ivanafin_specials)
+                SeasonTile(
+                    name =
+                        when (seasonNumber) {
+                            null -> season.season.name ?: ""
+                            0 -> specials
+                            else -> formatSeasonNumber(seasonNumber)
+                        },
+                    subtitle =
+                        season.season.episodeCount?.let {
+                            "$it " + stringResource(R.string.episodes)
+                        },
                     checked = checked,
+                    enabled = season.editable,
+                    status = season.availability,
                     onClick = {
-                        if (checked) {
+                        if (seasonNumber in selectedSeasons) {
                             selectedSeasons.remove(seasonNumber)
                         } else {
                             seasonNumber?.let { selectedSeasons.add(it) }
                         }
                     },
-                    modifier = Modifier,
+                    modifier =
+                        Modifier
+                            .width(tileWidth)
+                            .ifElse(profiles.isEmpty() && season == seasons.firstOrNull { it.editable }, Modifier.focusRequester(initialFocus)),
                 )
             }
-            if (seasons.size > 3) {
-                item {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp),
-                    ) {
-                        Button(
-                            onClick = ::submit,
-                            enabled = selectedSeasons.isNotEmpty(),
-                        ) {
-                            Text(
-                                text = stringResource(R.string.submit),
-                            )
-                        }
-                    }
-                }
-            }
+        }
+        }
         }
     }
 }
@@ -276,11 +295,15 @@ fun SeasonListItem(
         enabled = season.editable,
         selected = false,
         headlineContent = {
+            // IvanaFin: Seerr sends bare numbers as names; show "Specials" / "Season N"
+            val specials = stringResource(R.string.ivanafin_specials)
             Text(
                 text =
-                    season.season.name
-                        ?: season.season.seasonNumber?.let { formatSeasonNumber(it) }
-                        ?: "",
+                    when (val n = season.season.seasonNumber) {
+                        null -> season.season.name ?: ""
+                        0 -> specials
+                        else -> formatSeasonNumber(n)
+                    },
             )
         },
         supportingContent = {
@@ -291,7 +314,28 @@ fun SeasonListItem(
                 )
             }
         },
-        leadingContent = {
+        // IvanaFin: no leading slot (it indented the names); status icon sits beside the switch
+        trailingContent = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                SeasonStatusIcon(season)
+                Switch(
+                    checked = checked,
+                    onCheckedChange = {
+                        onClick.invoke()
+                    },
+                )
+            }
+        },
+        onClick = onClick,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun SeasonStatusIcon(season: RequestSeason) {
             when (season.availability) {
                 SeerrAvailability.UNKNOWN,
                 SeerrAvailability.DELETED,
@@ -317,16 +361,24 @@ fun SeasonListItem(
                     //                    BlocklistedIndicator()
                 }
             }
-        },
+}
+
+/** IvanaFin: label left, switch right - lines up with [SeasonListItem]. */
+@Composable
+fun RequestSwitchRow(
+    label: String,
+    checked: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    ListItem(
+        selected = false,
+        headlineContent = { Text(text = label) },
         trailingContent = {
-            Row {
-                Switch(
-                    checked = checked,
-                    onCheckedChange = {
-                        onClick.invoke()
-                    },
-                )
-            }
+            Switch(
+                checked = checked,
+                onCheckedChange = { onClick.invoke() },
+            )
         },
         onClick = onClick,
         modifier = modifier,
@@ -425,8 +477,8 @@ fun RequestSeasonsDialog(
                     onSubmit = onSubmit,
                     modifier =
                         Modifier
-                            .padding(16.dp)
-                            .focusRequester(focusRequester),
+                            .padding(16.dp),
+                    initialFocus = focusRequester, // IvanaFin: open with Quality profile selected
                 )
             }
         }
@@ -483,5 +535,114 @@ fun RequestSeasonsPreview() {
             onSubmit = { },
             modifier = Modifier.width(400.dp),
         )
+    }
+}
+
+/**
+ * IvanaFin: compact season toggle for the request grid. Name + episode count on the left,
+ * a tick circle (or the availability icon for seasons that can't be requested) on the right.
+ */
+@Composable
+fun SeasonTile(
+    name: String,
+    subtitle: String?,
+    checked: Boolean,
+    enabled: Boolean,
+    status: SeerrAvailability?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    val shape = RoundedCornerShape(12.dp)
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        shape = ClickableSurfaceDefaults.shape(shape),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
+        border =
+            ClickableSurfaceDefaults.border(
+                border = Border(BorderStroke(1.dp, Color.White.copy(alpha = .18f)), shape = shape),
+                focusedBorder = Border(BorderStroke(2.dp, Color.White), shape = shape),
+            ),
+        colors =
+            ClickableSurfaceDefaults.colors(
+                containerColor = if (checked) Color.White.copy(alpha = .16f) else Color.Transparent,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                focusedContainerColor = MaterialTheme.colorScheme.inverseSurface,
+                focusedContentColor = contentColorFor(MaterialTheme.colorScheme.inverseSurface),
+                pressedContainerColor = MaterialTheme.colorScheme.inverseSurface,
+                pressedContentColor = contentColorFor(MaterialTheme.colorScheme.inverseSurface),
+                disabledContainerColor = Color.Transparent,
+                disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = .5f),
+            ),
+        modifier = modifier.height(56.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                )
+                subtitle?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                    )
+                }
+            }
+            if (trailing != null) {
+                trailing()
+            } else if (!enabled && status != null) {
+                SeasonStatusIconFor(status)
+            } else {
+                val content = LocalContentColor.current
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier =
+                        Modifier
+                            .size(22.dp)
+                            .then(
+                                if (checked) {
+                                    Modifier.background(content, CircleShape)
+                                } else {
+                                    Modifier.border(1.5.dp, content.copy(alpha = .6f), CircleShape)
+                                },
+                            ),
+                ) {
+                    if (checked) {
+                        Text(
+                            text = stringResource(R.string.fa_check),
+                            fontFamily = FontAwesome,
+                            fontSize = 11.sp,
+                            color =
+                                if (content.luminance() > .5f) Color.Black else Color.White,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SeasonStatusIconFor(status: SeerrAvailability) {
+    when (status) {
+        SeerrAvailability.PENDING,
+        SeerrAvailability.PROCESSING,
+        -> PendingIndicator()
+
+        SeerrAvailability.PARTIALLY_AVAILABLE -> PartiallyAvailableIndicator()
+
+        SeerrAvailability.AVAILABLE -> AvailableIndicator()
+
+        else -> {}
     }
 }
