@@ -286,6 +286,7 @@ fun HomePage(
                     header = topButtons,
                     launchFocus = searchFocus,
                     firstTileFocus = firstTileFocus,
+                    randomBackdrop = { library -> viewModel.randomLibraryBackdrop(library.id) },
                     modifier = modifier,
                 )
             } else {

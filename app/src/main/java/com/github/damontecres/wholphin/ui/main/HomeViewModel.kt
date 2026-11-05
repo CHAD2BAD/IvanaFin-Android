@@ -49,6 +49,7 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import org.jellyfin.sdk.api.client.exception.InvalidStatusException
 import org.jellyfin.sdk.model.api.BaseItemKind
+import org.jellyfin.sdk.api.client.extensions.itemsApi
 import timber.log.Timber
 import java.util.UUID
 import javax.inject.Inject
@@ -71,12 +72,35 @@ class HomeViewModel
         private val mediaManagementService: MediaManagementService,
         private val latestNextUpService: LatestNextUpService,
         seerrService: com.github.damontecres.wholphin.services.SeerrService, // IvanaFin
+        private val api: org.jellyfin.sdk.api.client.ApiClient, // IvanaFin: random library backdrops
     ) : ViewModel() {
         private val _state = MutableStateFlow(HomeState.EMPTY)
         val state: StateFlow<HomeState> = _state
 
         // IvanaFin: show the Discover (Seerr) button on the home page only when Seerr is connected
         val seerrActive = seerrService.active
+
+        /** IvanaFin: a random movie or series with a backdrop from [libraryId], for the home tiles. */
+        suspend fun randomLibraryBackdrop(libraryId: java.util.UUID): BaseItem? =
+            try {
+                    api.itemsApi
+                        .getItems(
+                            org.jellyfin.sdk.model.api.request.GetItemsRequest(
+                                userId = serverRepository.currentUser?.id,
+                                parentId = libraryId,
+                                recursive = true,
+                                includeItemTypes = listOf(BaseItemKind.MOVIE, BaseItemKind.SERIES),
+                                imageTypes = listOf(org.jellyfin.sdk.model.api.ImageType.BACKDROP),
+                                sortBy = listOf(org.jellyfin.sdk.model.api.ItemSortBy.RANDOM),
+                                limit = 1,
+                            ),
+                        ).content.items
+                        .firstOrNull()
+                        ?.let { BaseItem(it, false) }
+            } catch (ex: Exception) {
+                Timber.w(ex, "Could not get a random backdrop for %s", libraryId)
+                null
+            }
 
         private var dataLoadingJob: Job? = null
 

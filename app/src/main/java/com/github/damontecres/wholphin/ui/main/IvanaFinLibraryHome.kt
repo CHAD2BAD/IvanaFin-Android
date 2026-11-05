@@ -35,6 +35,17 @@ import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.crossfade
+import androidx.compose.foundation.background
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import kotlinx.coroutines.launch
 import com.github.damontecres.wholphin.data.model.BaseItem
 import com.github.damontecres.wholphin.ui.LocalImageUrlService
 import com.github.damontecres.wholphin.ui.tryRequestFocus
@@ -52,7 +63,29 @@ fun IvanaFinLibraryHome(
     modifier: Modifier = Modifier,
     launchFocus: FocusRequester? = null,
     firstTileFocus: FocusRequester = remember { FocusRequester() },
+    randomBackdrop: (suspend (BaseItem) -> BaseItem?)? = null,
 ) {
+    // A fresh random backdrop per library every time Home comes back on screen.
+    // Missing key = still loading; null value = none found (falls back to the library image).
+    val backdrops = remember { mutableStateMapOf<java.util.UUID, BaseItem?>() }
+    var visit by remember { mutableIntStateOf(0) }
+    LifecycleResumeEffect(Unit) {
+        visit++
+        onPauseOrDispose { }
+    }
+    if (randomBackdrop != null) {
+        LaunchedEffect(visit, libraries) {
+            libraries.forEach { library ->
+                launch {
+                    val item = randomBackdrop(library)
+                    // keep the previous picture if this lookup failed
+                    if (item != null || !backdrops.containsKey(library.id)) {
+                        backdrops[library.id] = item
+                    }
+                }
+            }
+        }
+    }
     // -1 = nothing opened yet (fresh launch): select launchFocus (Search). After opening a
     // library and coming back, that library's tile is selected again.
     var focusedIndex by rememberSaveable { mutableStateOf(-1) }
@@ -92,6 +125,8 @@ fun IvanaFinLibraryHome(
                             val index = rowIndex * columns + columnIndex
                             LibraryTile(
                                 library = library,
+                                backdropItem = backdrops[library.id],
+                                backdropLoaded = backdrops.containsKey(library.id),
                                 width = tileWidth,
                                 height = tileHeight,
                                 onClick = {
@@ -118,20 +153,41 @@ private fun LibraryTile(
     height: Dp,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    backdropItem: BaseItem? = null,
+    backdropLoaded: Boolean = true,
 ) {
     val imageUrlService = LocalImageUrlService.current
     val density = LocalDensity.current
+    val context = LocalContext.current
+    val fillWidth = with(density) { width.roundToPx() }
+    val fillHeight = with(density) { height.roundToPx() }
+    val backdropUrl =
+        remember(backdropItem, fillWidth, fillHeight) {
+            backdropItem?.let {
+                imageUrlService.getItemImageUrl(
+                    it,
+                    ImageType.BACKDROP,
+                    fillWidth = fillWidth,
+                    fillHeight = fillHeight,
+                )
+            }
+        }
     val imageUrl =
-        remember(library, width, height) {
+        remember(library, fillWidth, fillHeight) {
             library.imageUrlOverride
                 ?: imageUrlService.getItemImageUrl(
                     library,
                     ImageType.PRIMARY,
-                    fillWidth = with(density) { width.roundToPx() },
-                    fillHeight = with(density) { height.roundToPx() },
+                    fillWidth = fillWidth,
+                    fillHeight = fillHeight,
                 )
         }
     var imageError by remember(imageUrl) { mutableStateOf(false) }
+    var backdropError by remember(backdropUrl) { mutableStateOf(false) }
+    val showBackdrop = backdropUrl != null && !backdropError
+    // While the random backdrop is loading, show just the name on black (no flash of the old art)
+    val showLibraryImage = !showBackdrop && backdropLoaded
+    val displayName = ivanaFinLibraryDisplayName(library.name)
     val shape = RoundedCornerShape(16.dp)
     Card(
         onClick = onClick,
@@ -142,10 +198,48 @@ private fun LibraryTile(
             CardDefaults.border(
                 focusedBorder = Border(BorderStroke(1.5.dp, Color.White), shape = shape),
             ),
+        colors = CardDefaults.colors(containerColor = Color.Black),
         modifier = modifier.size(width, height),
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            if (!imageError && imageUrl != null) {
+            if (showBackdrop || !showLibraryImage) {
+                if (showBackdrop) {
+                    AsyncImage(
+                        model =
+                            ImageRequest
+                                .Builder(context)
+                                .data(backdropUrl)
+                                .crossfade(true)
+                                .build(),
+                        contentDescription = library.name,
+                        contentScale = ContentScale.Crop,
+                        onError = { backdropError = true },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                    // Darken the picture a little so the name stays readable
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = .35f)),
+                    )
+                }
+                Text(
+                    text = displayName,
+                    style =
+                        // long names (e.g. "Movies (Alternative Format)") get a smaller size so they fit on 2 lines
+                        (if (displayName.length > 14) MaterialTheme.typography.displaySmall else MaterialTheme.typography.displayMedium).copy(
+                            fontWeight = FontWeight.Bold,
+                            shadow = Shadow(Color.Black.copy(alpha = .8f), Offset(0f, 2f), blurRadius = 16f),
+                        ),
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    modifier =
+                        Modifier
+                            .align(Alignment.Center)
+                            .padding(horizontal = 24.dp),
+                )
+            } else if (!imageError && imageUrl != null) {
                 AsyncImage(
                     model = imageUrl,
                     contentDescription = library.name,
@@ -155,7 +249,7 @@ private fun LibraryTile(
                 )
             } else {
                 Text(
-                    text = library.name ?: "",
+                    text = displayName,
                     style = MaterialTheme.typography.displaySmall,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.align(Alignment.Center),
@@ -164,3 +258,10 @@ private fun LibraryTile(
         }
     }
 }
+
+/** IvanaFin: names shown on the home tiles (the server keeps its own names). */
+private fun ivanaFinLibraryDisplayName(name: String?): String =
+    when (name) {
+        "Movies (Alternative Format)" -> "Movies (Special)"
+        else -> name ?: ""
+    }
