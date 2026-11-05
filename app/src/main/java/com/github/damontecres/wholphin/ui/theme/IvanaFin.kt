@@ -68,3 +68,17 @@ fun gridCardFocusedTextGap(): androidx.compose.ui.unit.Dp =
 @Composable
 @ReadOnlyComposable
 fun useLibraryGridHome(): Boolean = isElegantFin
+
+/**
+ * IvanaFin: libraries already loaded by Home, so opening one from the home tiles doesn't have to
+ * fetch the library item again before it can start loading the posters.
+ */
+object IvanaFinLibraryCache {
+    private val items = java.util.concurrent.ConcurrentHashMap<java.util.UUID, com.github.damontecres.wholphin.data.model.BaseItem>()
+
+    fun put(libraries: List<com.github.damontecres.wholphin.data.model.BaseItem>) {
+        libraries.forEach { items[it.id] = it }
+    }
+
+    fun get(id: java.util.UUID): com.github.damontecres.wholphin.data.model.BaseItem? = items[id]
+}

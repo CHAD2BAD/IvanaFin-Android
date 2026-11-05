@@ -1,5 +1,7 @@
 package com.github.damontecres.wholphin.ui.main
 
+import com.github.damontecres.wholphin.ui.main.tileBackdropUrl
+import com.github.damontecres.wholphin.ui.main.tileBackdropRequest
 import com.github.damontecres.wholphin.ui.theme.useLibraryGridHome
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.focusGroup
@@ -240,6 +242,8 @@ fun HomePage(
                                 text = stringResource(R.string.discover),
                                 icon = androidx.compose.material.icons.Icons.Default.Add,
                                 onClick = {
+                                    viewModel.swapTileBackdropsAfterLeaving()
+                                viewModel.homeLastOpenedIndex.intValue = -1 // come back to Search
                                     viewModel.navigationManager.navigateTo(Destination.Discover)
                                 },
                                 modifier = downToFirstTile,
@@ -249,6 +253,8 @@ fun HomePage(
                             text = stringResource(R.string.search),
                             icon = androidx.compose.material.icons.Icons.Default.Search,
                             onClick = {
+                                viewModel.swapTileBackdropsAfterLeaving()
+                                viewModel.homeLastOpenedIndex.intValue = -1 // come back to Search
                                 viewModel.navigationManager.navigateTo(Destination.Search())
                             },
                             modifier = downToFirstTile.focusRequester(searchFocus),
@@ -257,6 +263,8 @@ fun HomePage(
                             text = stringResource(R.string.settings),
                             icon = androidx.compose.material.icons.Icons.Default.Settings,
                             onClick = {
+                                viewModel.swapTileBackdropsAfterLeaving()
+                                viewModel.homeLastOpenedIndex.intValue = -1 // come back to Search
                                 viewModel.navigationManager.navigateTo(
                                     Destination.Settings(
                                         com.github.damontecres.wholphin.ui.preferences.PreferenceScreenOption.BASIC,
@@ -276,17 +284,39 @@ fun HomePage(
                                 ?.takeIf { it.rowType is HomeRowConfig.MyMedia }
                                 ?.items
                         }?.filterNotNull()
+                        ?.also {
+                            com.github.damontecres.wholphin.ui.theme.IvanaFinLibraryCache.put(it)
+                            viewModel.lastHomeLibraries = it
+                        }
+                        ?: viewModel.lastHomeLibraries // keep the tiles up while Home reloads
                 }
+            val tileBackdrops by viewModel.tileBackdrops.collectAsState()
+            val imageUrlService = com.github.damontecres.wholphin.ui.LocalImageUrlService.current
+            val context = androidx.compose.ui.platform.LocalContext.current
             if (useLibraryGridHome() && !libraries.isNullOrEmpty()) {
                 IvanaFinLibraryHome(
                     libraries = libraries,
+                    lastOpenedIndex = viewModel.homeLastOpenedIndex.intValue,
+                    consumeSelectionRestore = viewModel::consumeHomeSelectionRestore,
                     onClickLibrary = { index, item ->
+                        viewModel.homeLastOpenedIndex.intValue = index
+                        viewModel.swapTileBackdropsAfterLeaving()
                         viewModel.navigationManager.navigateTo(item.destination())
                     },
                     header = topButtons,
                     launchFocus = searchFocus,
                     firstTileFocus = firstTileFocus,
-                    randomBackdrop = { library -> viewModel.randomLibraryBackdrop(library.id) },
+                    backdrops = tileBackdrops,
+                    onShown = {
+                        viewModel.prepareTileBackdrops(libraries.map { it.id }) { item ->
+                            // download the next picture into the image cache now, while Home is showing
+                            tileBackdropUrl(imageUrlService, item)?.let { url ->
+                                coil3.SingletonImageLoader
+                                    .get(context)
+                                    .execute(tileBackdropRequest(context, url))
+                            }
+                        }
+                    },
                     modifier = modifier,
                 )
             } else {

@@ -16,6 +16,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,38 +64,39 @@ fun IvanaFinLibraryHome(
     modifier: Modifier = Modifier,
     launchFocus: FocusRequester? = null,
     firstTileFocus: FocusRequester = remember { FocusRequester() },
-    randomBackdrop: (suspend (BaseItem) -> BaseItem?)? = null,
+    // Backdrop per library (missing key = still loading; null = none, use the library image).
+    backdrops: Map<java.util.UUID, BaseItem?> = emptyMap(),
+    // Home shown: prepare the next set in the background (the swap is triggered on navigation).
+    onShown: () -> Unit = {},
+    // index of the library last opened from Home (kept by the caller across visits), -1 = none
+    lastOpenedIndex: Int = -1,
+    // returns true only the first time it is called per visit to Home
+    consumeSelectionRestore: () -> Boolean = { true },
 ) {
-    // A fresh random backdrop per library every time Home comes back on screen.
-    // Missing key = still loading; null value = none found (falls back to the library image).
-    val backdrops = remember { mutableStateMapOf<java.util.UUID, BaseItem?>() }
-    var visit by remember { mutableIntStateOf(0) }
+    val libraryIds = remember(libraries) { libraries.map { it.id } }
+    val currentOnShown by rememberUpdatedState(onShown)
+    // Bumped every time Home comes (back) on screen, to re-run the focus choice below
+    var shownCount by remember { mutableIntStateOf(0) }
+    // Keyed on Unit, not the library list: Home refreshes its data in the background after a
+    // return, and re-running this would yank the selection back after the user had moved.
     LifecycleResumeEffect(Unit) {
-        visit++
+        shownCount++
+        currentOnShown()
         onPauseOrDispose { }
     }
-    if (randomBackdrop != null) {
-        LaunchedEffect(visit, libraries) {
-            libraries.forEach { library ->
-                launch {
-                    val item = randomBackdrop(library)
-                    // keep the previous picture if this lookup failed
-                    if (item != null || !backdrops.containsKey(library.id)) {
-                        backdrops[library.id] = item
-                    }
-                }
-            }
-        }
-    }
-    // -1 = nothing opened yet (fresh launch): select launchFocus (Search). After opening a
-    // library and coming back, that library's tile is selected again.
-    var focusedIndex by rememberSaveable { mutableStateOf(-1) }
+    // lastOpenedIndex < 0 = nothing opened yet (fresh launch): select launchFocus (Search).
+    // After opening a library and coming back, that library's tile is selected again.
+    val currentLastOpened by rememberUpdatedState(lastOpenedIndex)
     val focusRequesters =
         remember(libraries.size, firstTileFocus) {
             List(libraries.size) { if (it == 0) firstTileFocus else FocusRequester() }
         }
-    LaunchedEffect(libraries.size) {
-        val tile = focusRequesters.getOrNull(focusedIndex)
+    LaunchedEffect(shownCount) {
+        // let the returning screen lay out first, then move the selection
+        kotlinx.coroutines.delay(50)
+        // only once per visit: later rebuilds (data refreshes) must not move the selection
+        if (!consumeSelectionRestore()) return@LaunchedEffect
+        val tile = focusRequesters.getOrNull(currentLastOpened)
         if (tile != null) {
             tile.tryRequestFocus()
         } else if (launchFocus?.tryRequestFocus() != true) {
@@ -130,13 +132,11 @@ fun IvanaFinLibraryHome(
                                 width = tileWidth,
                                 height = tileHeight,
                                 onClick = {
-                                    focusedIndex = index
                                     onClickLibrary.invoke(index, library)
                                 },
                                 modifier =
                                     Modifier
                                         .focusRequester(focusRequesters[index])
-                                        .onFocusChanged { if (it.isFocused) focusedIndex = index },
                             )
                         }
                     }
@@ -162,15 +162,8 @@ private fun LibraryTile(
     val fillWidth = with(density) { width.roundToPx() }
     val fillHeight = with(density) { height.roundToPx() }
     val backdropUrl =
-        remember(backdropItem, fillWidth, fillHeight) {
-            backdropItem?.let {
-                imageUrlService.getItemImageUrl(
-                    it,
-                    ImageType.BACKDROP,
-                    fillWidth = fillWidth,
-                    fillHeight = fillHeight,
-                )
-            }
+        remember(backdropItem) {
+            backdropItem?.let { tileBackdropUrl(imageUrlService, it) }
         }
     val imageUrl =
         remember(library, fillWidth, fillHeight) {
@@ -205,12 +198,7 @@ private fun LibraryTile(
             if (showBackdrop || !showLibraryImage) {
                 if (showBackdrop) {
                     AsyncImage(
-                        model =
-                            ImageRequest
-                                .Builder(context)
-                                .data(backdropUrl)
-                                .crossfade(true)
-                                .build(),
+                        model = remember(backdropUrl) { tileBackdropRequest(context, backdropUrl!!) },
                         contentDescription = library.name,
                         contentScale = ContentScale.Crop,
                         onError = { backdropError = true },
@@ -265,3 +253,34 @@ private fun ivanaFinLibraryDisplayName(name: String?): String =
         // (renamed on the server instead: "Movies (Alternative Format)" is now "Movies (Special)")
         else -> name ?: ""
     }
+
+/**
+ * Backdrop URL for a home tile. Fixed size so the URL the tile shows is exactly the one that was
+ * preloaded into the image cache (preloaded pictures then appear instantly).
+ */
+fun tileBackdropUrl(
+    imageUrlService: com.github.damontecres.wholphin.services.ImageUrlService,
+    item: BaseItem,
+): String? =
+    imageUrlService.getItemImageUrl(
+        item,
+        ImageType.BACKDROP,
+        fillWidth = 1280,
+        fillHeight = 720,
+    )
+
+/**
+ * The one image request used for tile backdrops, both to preload and to show - same URL, size
+ * and cache key, so a preloaded picture is a memory-cache hit and appears instantly.
+ */
+fun tileBackdropRequest(
+    context: android.content.Context,
+    url: String,
+): ImageRequest =
+    ImageRequest
+        .Builder(context)
+        .data(url)
+        .memoryCacheKey(url)
+        .size(coil3.size.Size.ORIGINAL)
+        .crossfade(true)
+        .build()

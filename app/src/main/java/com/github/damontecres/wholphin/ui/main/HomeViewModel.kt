@@ -80,6 +80,64 @@ class HomeViewModel
         // IvanaFin: show the Discover (Seerr) button on the home page only when Seerr is connected
         val seerrActive = seerrService.active
 
+        /**
+         * IvanaFin: backdrops shown on the home library tiles. The NEXT set is fetched (and its
+         * images preloaded) while Home is on screen, and only swapped in when Home is left, so a
+         * return to Home shows new pictures straight away with no visible change-over.
+         */
+        val tileBackdrops = MutableStateFlow<Map<java.util.UUID, BaseItem?>>(emptyMap())
+
+        /** IvanaFin: home tile last opened, so coming back selects it again (-1 = none yet). */
+        val homeLastOpenedIndex = androidx.compose.runtime.mutableIntStateOf(-1)
+
+        /** IvanaFin: true until the selection has been restored once for this visit to Home. */
+        private var restoreHomeSelection = true
+
+        fun consumeHomeSelectionRestore(): Boolean = restoreHomeSelection.also { restoreHomeSelection = false }
+
+        /** IvanaFin: last library list, so the tiles stay on screen while Home reloads its rows. */
+        var lastHomeLibraries: List<BaseItem>? = null
+        private var nextTileBackdrops: Map<java.util.UUID, BaseItem?>? = null
+        private var tileBackdropJob: Job? = null
+
+        /** Home is on screen: make sure a next set is being prepared (first visit: show one now). */
+        fun prepareTileBackdrops(
+            libraryIds: List<java.util.UUID>,
+            preload: suspend (BaseItem) -> Unit,
+        ) {
+            if (libraryIds.isEmpty() || tileBackdropJob?.isActive == true || nextTileBackdrops != null) return
+            tileBackdropJob =
+                viewModelScope.launchIO {
+                    suspend fun pick() =
+                        libraryIds
+                            .map { id -> async { id to randomLibraryBackdrop(id) } }
+                            .awaitAll()
+                            .toMap()
+                    if (tileBackdrops.value.isEmpty()) {
+                        tileBackdrops.value = pick()
+                    }
+                    val next = pick()
+                    next.values.filterNotNull().forEach { preload(it) }
+                    nextTileBackdrops = next
+                }
+        }
+
+        /** Home is being left: swap in the prepared set once the screen change has finished. */
+        fun swapTileBackdropsAfterLeaving() {
+            restoreHomeSelection = true // leaving Home: restore the selection once on return
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(800)
+                swapTileBackdrops()
+            }
+        }
+
+        private fun swapTileBackdrops() {
+            val next = nextTileBackdrops ?: return
+            nextTileBackdrops = null
+            // keep the current picture for any library whose lookup failed
+            tileBackdrops.update { current -> current + next.filterValues { it != null } }
+        }
+
         /** IvanaFin: a random movie or series with a backdrop from [libraryId], for the home tiles. */
         suspend fun randomLibraryBackdrop(libraryId: java.util.UUID): BaseItem? =
             try {

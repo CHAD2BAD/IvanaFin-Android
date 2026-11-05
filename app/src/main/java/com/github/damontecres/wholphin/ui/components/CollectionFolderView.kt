@@ -1,5 +1,6 @@
 package com.github.damontecres.wholphin.ui.components
 
+import kotlin.time.Duration.Companion.seconds
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -167,6 +168,8 @@ class CollectionFolderViewModel
                 try {
                     val item =
                         itemId.toUUIDOrNull()?.let {
+                            // IvanaFin: reuse the library item Home already loaded (saves a round trip)
+                            com.github.damontecres.wholphin.ui.theme.IvanaFinLibraryCache.get(it) ?:
                             api.userLibraryApi
                                 .getItem(it)
                                 .content
@@ -1020,7 +1023,8 @@ fun CollectionFolderViewContent(
             DataLoadingState.Loading,
             DataLoadingState.Pending,
             -> {
-                LoadingPage(Modifier.fillMaxSize())
+                // IvanaFin: plain black for quick loads; the wheel only appears if it takes over a second
+                DelayedLoadingPage(Modifier.fillMaxSize(), delay = 1.seconds)
             }
 
             is DataLoadingState.Error -> {
@@ -1087,7 +1091,7 @@ fun CollectionFolderViewContent(
                         DataLoadingState.Loading,
                         DataLoadingState.Pending,
                         -> {
-                            LoadingPage(Modifier.fillMaxSize())
+                            DelayedLoadingPage(Modifier.fillMaxSize(), delay = 1.seconds) // IvanaFin
                         }
 
                         is DataLoadingState.Success<List<BaseItem?>> -> {
