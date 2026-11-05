@@ -10,8 +10,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <application
-        android:icon="@mipmap/ivanafin_launcher"
-        android:roundIcon="@mipmap/ivanafin_launcher"
+        android:icon="@mipmap/ivanafin_launcher_wide"
+        android:roundIcon="@mipmap/ivanafin_launcher_wide"
         android:banner="@drawable/ivanafin_firetv_banner"
         tools:replace="android:icon,android:banner">
         <activity
