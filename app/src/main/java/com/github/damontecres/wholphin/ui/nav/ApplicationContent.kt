@@ -106,7 +106,8 @@ fun ApplicationContent(
                                 val isLibrary =
                                     key is Destination.MediaItem &&
                                         (key.type == org.jellyfin.sdk.model.api.BaseItemKind.COLLECTION_FOLDER || key.type == org.jellyfin.sdk.model.api.BaseItemKind.USER_VIEW)
-                                if (!isLibrary) TimeDisplay()
+                                // IvanaFin: no clock anywhere while browsing (user choice)
+                                if (!isLibrary && !com.github.damontecres.wholphin.ui.theme.useLibraryGridHome()) TimeDisplay()
                             }
                         }
                     } else {
