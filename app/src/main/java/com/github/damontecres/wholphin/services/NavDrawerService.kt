@@ -1,6 +1,5 @@
 package com.github.damontecres.wholphin.services
 
-import com.github.damontecres.wholphin.ui.theme.isIvanaFinHiddenLibrary
 import android.content.Context
 import com.github.damontecres.wholphin.data.ServerPreferencesDao
 import com.github.damontecres.wholphin.data.ServerRepository
@@ -156,7 +155,6 @@ class NavDrawerService
             val libraries =
                 userViews
                     .filter { it.collectionType in supportedCollectionTypes || it.id in recordingFolders }
-                    .filterNot { it.isIvanaFinHiddenLibrary() } // IvanaFin
                     .map {
                         Library(
                             itemId = it.id,

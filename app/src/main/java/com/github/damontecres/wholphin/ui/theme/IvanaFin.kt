@@ -49,13 +49,6 @@ fun useGlassDialogs(): Boolean = isElegantFin
 fun showLibraryActionButtons(): Boolean = !isElegantFin
 
 /**
- * Libraries hidden in IvanaFin (still on the server for Jellyfin web): the JellyBridge "Discover"
- * library duplicates the app's own Seerr Discover page.
- */
-fun org.jellyfin.sdk.model.api.BaseItemDto.isIvanaFinHiddenLibrary(): Boolean =
-    collectionType == null && name.equals("Discover", ignoreCase = true)
-
-/**
  * Gap between a focused (enlarged) grid poster and its title. Negative = the title slides further
  * down than the default, so the white focus outline doesn't cut into it. Unfocused gap is unchanged.
  */
