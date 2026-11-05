@@ -1,6 +1,7 @@
 package com.github.damontecres.wholphin.ui.theme
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.dp
 import com.github.damontecres.wholphin.ui.enableMarquee
 import androidx.compose.runtime.ReadOnlyComposable
 import com.github.damontecres.wholphin.preferences.AppThemeColors
@@ -53,3 +54,12 @@ fun showLibraryActionButtons(): Boolean = !isElegantFin
  */
 fun org.jellyfin.sdk.model.api.BaseItemDto.isIvanaFinHiddenLibrary(): Boolean =
     collectionType == null && name.equals("Discover", ignoreCase = true)
+
+/**
+ * Gap between a focused (enlarged) grid poster and its title. Negative = the title slides further
+ * down than the default, so the white focus outline doesn't cut into it. Unfocused gap is unchanged.
+ */
+@Composable
+@ReadOnlyComposable
+fun gridCardFocusedTextGap(): androidx.compose.ui.unit.Dp =
+    if (isElegantFin) (-6).dp else 4.dp

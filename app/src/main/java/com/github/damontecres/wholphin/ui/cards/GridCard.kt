@@ -1,5 +1,6 @@
 package com.github.damontecres.wholphin.ui.cards
 
+import com.github.damontecres.wholphin.ui.theme.gridCardFocusedTextGap
 import com.github.damontecres.wholphin.ui.theme.cardTitleMarquee
 import com.github.damontecres.wholphin.ui.theme.cardTitleMaxLines
 
@@ -108,7 +109,7 @@ fun GridCard(
             )
         }
         AnimatedVisibility(showTitle) {
-            SlidingCardText(focused) {
+            SlidingCardText(focused, spaceBetweenFocused = gridCardFocusedTextGap()) { // IvanaFin
                 Text(
                     text = item?.title ?: "",
                     maxLines = cardTitleMaxLines(), // IvanaFin
