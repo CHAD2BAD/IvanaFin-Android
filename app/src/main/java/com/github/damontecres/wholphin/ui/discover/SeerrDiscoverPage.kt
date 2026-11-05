@@ -448,7 +448,7 @@ fun SeerrDiscoverPage(
             modifier =
                 Modifier
                     .padding(
-                        top = HeaderUtils.topPadding,
+                        top = HeaderUtils.topPadding - 48.dp, // IvanaFin: room for 2-line card titles
                         // Intentionally no bottom padding because of tabs
                         bottom = 0.dp,
                         start = HeaderUtils.startPadding,
@@ -503,7 +503,7 @@ fun SeerrDiscoverPage(
             LocalBringIntoViewSpec provides ScrollToTopBringIntoViewSpec(spaceAbovePx),
         ) {
             LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(32.dp), // IvanaFin: next row stays below the screen edge
                 contentPadding = PaddingValues(bottom = 40.dp), // IvanaFin: rows line up with the header like Home
                 modifier =
                     Modifier
