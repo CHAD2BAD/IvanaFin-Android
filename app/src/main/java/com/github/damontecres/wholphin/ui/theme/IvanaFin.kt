@@ -46,3 +46,10 @@ fun useGlassDialogs(): Boolean = isElegantFin
 @Composable
 @ReadOnlyComposable
 fun showLibraryActionButtons(): Boolean = !isElegantFin
+
+/**
+ * Libraries hidden in IvanaFin (still on the server for Jellyfin web): the JellyBridge "Discover"
+ * library duplicates the app's own Seerr Discover page.
+ */
+fun org.jellyfin.sdk.model.api.BaseItemDto.isIvanaFinHiddenLibrary(): Boolean =
+    collectionType == null && name.equals("Discover", ignoreCase = true)

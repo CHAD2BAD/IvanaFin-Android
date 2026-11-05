@@ -1,5 +1,6 @@
 package com.github.damontecres.wholphin.services
 
+import com.github.damontecres.wholphin.ui.theme.isIvanaFinHiddenLibrary
 import androidx.core.net.toUri
 import com.github.damontecres.wholphin.R
 import com.github.damontecres.wholphin.data.ServerRepository
@@ -542,6 +543,7 @@ class HomeDataService
                     api.userViewsApi
                         .getUserViews(userId = userDto.id)
                         .content.items
+                        .filterNot { it.isIvanaFinHiddenLibrary() }
                         .map { BaseItem(it, false) }
                         .let {
                             Success(

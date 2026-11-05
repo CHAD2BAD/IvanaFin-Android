@@ -1,5 +1,6 @@
 package com.github.damontecres.wholphin.ui.components
 
+import com.github.damontecres.wholphin.ui.AspectRatio
 import com.github.damontecres.wholphin.ui.theme.showLibraryActionButtons
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -101,7 +102,8 @@ fun CollectionFolderViewScope.CollectionFolderGrid(
                 cardContent = { details ->
                     cardContent.invoke(this@CollectionFolderGrid, details)
                 },
-                columns = viewOptions.columns,
+                // IvanaFin: poster libraries are always 5 across (no view-options button any more)
+                columns = if (!showLibraryActionButtons() && viewOptions.aspectRatio == AspectRatio.TALL) 5 else viewOptions.columns,
                 spacing = viewOptions.spacing.dp,
                 bringIntoViewSpec =
                     remember(viewOptions, density) {

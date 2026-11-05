@@ -191,7 +191,7 @@ fun TabbedPage(
             } else {
                 // IvanaFin: keep the content clear of the clock
                 androidx.compose.foundation.layout.Spacer(
-                    Modifier.height(8.dp), // just room for a focused (enlarged) poster
+                    Modifier.height(20.dp), // room for a focused (enlarged) poster + a small margin
                 )
             }
         }
