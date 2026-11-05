@@ -262,6 +262,6 @@ private fun LibraryTile(
 /** IvanaFin: names shown on the home tiles (the server keeps its own names). */
 private fun ivanaFinLibraryDisplayName(name: String?): String =
     when (name) {
-        "Movies (Alternative Format)" -> "Movies (Special)"
+        // (renamed on the server instead: "Movies (Alternative Format)" is now "Movies (Special)")
         else -> name ?: ""
     }
