@@ -50,7 +50,9 @@ New-Item -ItemType Directory -Force $mip | Out-Null
 $bmp, $g = New-Canvas 192 192
 $g.DrawImage($src, (New-Object System.Drawing.Rectangle 0, 0, 192, 192), $srcRect, 'Pixel')
 $g.Dispose(); $bmp.Save((Join-Path $mip 'ivanafin_launcher.png'), [System.Drawing.Imaging.ImageFormat]::Png); $bmp.Dispose()
-Copy-Item (Join-Path $out 'ivanafin_banner.png') (Join-Path $mip 'ivanafin_tv_banner.png') -Force
+$dxh = Join-Path $root 'app\src\default\res\drawable-xhdpi'
+New-Item -ItemType Directory -Force $dxh | Out-Null
+Copy-Item (Join-Path $out 'ivanafin_banner.png') (Join-Path $dxh 'ivanafin_firetv_banner.png') -Force
 Get-ChildItem $mip | ForEach-Object { "{0} {1:N0} bytes" -f $_.Name, $_.Length }
 
 $src.Dispose()
