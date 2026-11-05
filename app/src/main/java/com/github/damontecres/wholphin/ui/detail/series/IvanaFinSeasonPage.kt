@@ -105,10 +105,10 @@ fun IvanaFinSeasonPage(
     ) {
         // Header (web: centred logo, season name, buttons)
         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
+            // IvanaFin: no fixed-width box, so the logo (drawn at the box's start) sits truly centred
             TitleOrLogo(
                 item = series,
                 showLogo = preferences.appPreferences.interfacePreferences.showLogos,
-                modifier = Modifier.fillMaxWidth(.45f),
             )
         }
         // User choice: just the season dropdown and "Play next episode", centred under the logo
