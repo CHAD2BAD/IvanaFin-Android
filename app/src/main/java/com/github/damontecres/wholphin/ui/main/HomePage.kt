@@ -1,5 +1,6 @@
 package com.github.damontecres.wholphin.ui.main
 
+import com.github.damontecres.wholphin.ui.theme.useLibraryGridHome
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
@@ -216,30 +217,16 @@ fun HomePage(
                     }
                 }
 
-            HomePageContent(
-                homeRows = homeRows,
-                position = position,
-                onFocusPosition = onFocusPosition,
-                onClickItem = onClickItem,
-                onLongClickItem = onLongClickItem,
-                onClickPlay = onClickPlay,
-                loadingState = refreshing,
-                showClock = preferences.appPreferences.interfacePreferences.showClock,
-                onUpdateBackdrop = viewModel::updateBackdrop,
-                showLogo = preferences.appPreferences.interfacePreferences.showLogos,
-                showViewMore = true,
-                onClickViewMore = onClickViewMore,
-                // IvanaFin: like Jellyfin web, no big focused-item preview - rows start at the top
-                // IvanaFin: with no side menu, Search & Settings live top-right (left of the clock)
-                headerComposable = {
+            // IvanaFin: with no side menu, Discover, Search & Settings live top-right (left of the clock)
+            val topButtons: @Composable () -> Unit = {
                     androidx.compose.foundation.layout.Row(
                         horizontalArrangement =
                             androidx.compose.foundation.layout.Arrangement
-                                .spacedBy(12.dp, androidx.compose.ui.Alignment.End),
+                                .spacedBy(12.dp, androidx.compose.ui.Alignment.CenterHorizontally), // IvanaFin: centred over the library grid
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .padding(top = 16.dp, end = 170.dp, bottom = 4.dp),
+                                .padding(top = 16.dp, end = 16.dp, bottom = 4.dp),
                     ) {
                         // IvanaFin: Seerr discover/requests, shown once Seerr is connected
                         val seerrActive by viewModel.seerrActive.collectAsState(false)
@@ -271,9 +258,45 @@ fun HomePage(
                             },
                         )
                     }
-                },
+            }
+            // IvanaFin: home is just the libraries as a grid of big tiles (user only uses these)
+            val libraries =
+                remember(homeRows) {
+                    homeRows
+                        .firstNotNullOfOrNull { row ->
+                            (row as? HomeRowLoadingState.Success)
+                                ?.takeIf { it.rowType is HomeRowConfig.MyMedia }
+                                ?.items
+                        }?.filterNotNull()
+                }
+            if (useLibraryGridHome() && !libraries.isNullOrEmpty()) {
+                IvanaFinLibraryHome(
+                    libraries = libraries,
+                    onClickLibrary = { index, item ->
+                        viewModel.navigationManager.navigateTo(item.destination())
+                    },
+                    header = topButtons,
+                    modifier = modifier,
+                )
+            } else {
+            HomePageContent(
+                homeRows = homeRows,
+                position = position,
+                onFocusPosition = onFocusPosition,
+                onClickItem = onClickItem,
+                onLongClickItem = onLongClickItem,
+                onClickPlay = onClickPlay,
+                loadingState = refreshing,
+                showClock = preferences.appPreferences.interfacePreferences.showClock,
+                onUpdateBackdrop = viewModel::updateBackdrop,
+                showLogo = preferences.appPreferences.interfacePreferences.showLogos,
+                showViewMore = true,
+                onClickViewMore = onClickViewMore,
+                // IvanaFin: like Jellyfin web, no big focused-item preview - rows start at the top
+                headerComposable = { topButtons() },
                 modifier = modifier,
             )
+            }
             overviewDialog?.let { info ->
                 ItemDetailsDialog(
                     info = info,

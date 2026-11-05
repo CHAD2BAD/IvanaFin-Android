@@ -63,3 +63,8 @@ fun org.jellyfin.sdk.model.api.BaseItemDto.isIvanaFinHiddenLibrary(): Boolean =
 @ReadOnlyComposable
 fun gridCardFocusedTextGap(): androidx.compose.ui.unit.Dp =
     if (isElegantFin) (-6).dp else 4.dp
+
+/** Home = only the libraries as big tiles (no Continue watching / Next up / Recently added rows). */
+@Composable
+@ReadOnlyComposable
+fun useLibraryGridHome(): Boolean = isElegantFin
