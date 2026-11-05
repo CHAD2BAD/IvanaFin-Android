@@ -35,6 +35,7 @@ fun OverviewText(
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
     textBoxHeight: Dp = maxLines * 20.dp,
     enabled: Boolean = true,
+    textStyle: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyMedium, // IvanaFin
 ) {
     val context = LocalContext.current
     val isFocused = interactionSource.collectIsFocusedAsState().value
@@ -60,7 +61,7 @@ fun OverviewText(
     ) {
         Text(
             text = overview,
-            style = MaterialTheme.typography.bodyMedium,
+            style = textStyle,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = maxLines,
             overflow = TextOverflow.Ellipsis,

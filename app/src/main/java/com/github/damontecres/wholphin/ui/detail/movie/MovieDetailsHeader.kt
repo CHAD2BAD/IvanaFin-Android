@@ -1,5 +1,6 @@
 package com.github.damontecres.wholphin.ui.detail.movie
 
+import com.github.damontecres.wholphin.ui.theme.compactDetailHeader
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -76,22 +77,28 @@ fun MovieDetailsHeader(
             verticalArrangement = Arrangement.spacedBy(4.dp),
             modifier = Modifier.fillMaxWidth(.60f),
         ) {
+            // IvanaFin: compact (web-like) header = fewer words on screen
+            val compact = compactDetailHeader()
             // Web: track selections (version / video / audio / subtitles)
-            VideoStreamDetails(
-                chosenStreams = chosenStreams,
-                numberOfVersions = movie.data.mediaSourceCount ?: 0,
-                modifier =
-                    Modifier.padding(
-                        start = HeaderUtils.startPadding,
-                        bottom = 12.dp,
-                    ),
-            )
+            if (!compact) {
+                VideoStreamDetails(
+                    chosenStreams = chosenStreams,
+                    numberOfVersions = movie.data.mediaSourceCount ?: 0,
+                    modifier =
+                        Modifier.padding(
+                            start = HeaderUtils.startPadding,
+                            bottom = 12.dp,
+                        ),
+                )
+            }
             dto.taglines?.firstOrNull()?.let { tagline ->
                 Text(
                     text = tagline,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = if (compact) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodyLarge,
                     fontStyle = FontStyle.Italic,
-                    modifier = Modifier.padding(start = HeaderUtils.startPadding),
+                    maxLines = if (compact) 1 else Int.MAX_VALUE,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(start = HeaderUtils.startPadding, top = if (compact) 8.dp else 0.dp),
                 )
             }
 
@@ -99,7 +106,13 @@ fun MovieDetailsHeader(
             dto.overview?.let { overview ->
                 OverviewText(
                     overview = overview,
-                    maxLines = 3,
+                    maxLines = if (compact) 2 else 3,
+                    textStyle =
+                        if (compact) {
+                            MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        } else {
+                            MaterialTheme.typography.bodyMedium
+                        },
                     onClick = overviewOnClick,
                     textBoxHeight = Dp.Unspecified,
                     modifier =
@@ -114,10 +127,12 @@ fun MovieDetailsHeader(
             }
 
             // Web: .itemDetailsGroup - Director(s), Writer(s), Studio(s), Genre(s)
-            IvanaFinDetailsGroup(
-                item = dto,
-                modifier = Modifier.padding(start = HeaderUtils.startPadding, top = 8.dp),
-            )
+            if (!compact) {
+                IvanaFinDetailsGroup(
+                    item = dto,
+                    modifier = Modifier.padding(start = HeaderUtils.startPadding, top = 8.dp),
+                )
+            }
         }
     }
 }

@@ -82,3 +82,8 @@ object IvanaFinLibraryCache {
 
     fun get(id: java.util.UUID): com.github.damontecres.wholphin.data.model.BaseItem? = items[id]
 }
+
+/** Movie page: quieter header like web - no stream chips, no Director/Writer/Studio/Genre rows. */
+@Composable
+@ReadOnlyComposable
+fun compactDetailHeader(): Boolean = isElegantFin
