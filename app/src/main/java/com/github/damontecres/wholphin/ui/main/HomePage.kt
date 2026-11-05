@@ -226,7 +226,7 @@ fun HomePage(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .padding(top = 16.dp, end = 16.dp, bottom = 4.dp),
+                                .padding(top = 8.dp, end = 16.dp, bottom = 0.dp),
                     ) {
                         // IvanaFin: Seerr discover/requests, shown once Seerr is connected
                         val seerrActive by viewModel.seerrActive.collectAsState(false)
@@ -840,6 +840,7 @@ private fun HomeTopButton(
     androidx.tv.material3.Button(
         onClick = onClick,
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+        scale = androidx.tv.material3.ButtonDefaults.scale(focusedScale = 1f), // IvanaFin: no grow when selected
     ) {
         androidx.tv.material3.Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
         androidx.tv.material3.Text(

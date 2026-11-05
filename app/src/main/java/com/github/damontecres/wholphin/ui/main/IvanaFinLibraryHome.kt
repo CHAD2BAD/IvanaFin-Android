@@ -63,11 +63,11 @@ fun IvanaFinLibraryHome(
                 Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(top = 12.dp, bottom = 20.dp, end = 16.dp),
+                    .padding(top = 8.dp, bottom = 12.dp, end = 16.dp),
         ) {
             val columns = 2
             val rows = ((libraries.size + columns - 1) / columns).coerceAtLeast(1)
-            val gap = 24.dp
+            val gap = 16.dp
             val tileWidth = (maxWidth - gap * (columns - 1)) / columns
             val tileHeight = (maxHeight - gap * (rows - 1)) / rows
             Column(
@@ -124,11 +124,11 @@ private fun LibraryTile(
     Card(
         onClick = onClick,
         shape = CardDefaults.shape(shape),
-        // Big tiles only grow a little so they don't run into each other
-        scale = CardDefaults.scale(focusedScale = 1.04f),
+        // Tiles stay the same size when selected
+        scale = CardDefaults.scale(focusedScale = 1f), // no grow: the white outline shows the selection
         border =
             CardDefaults.border(
-                focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape),
+                focusedBorder = Border(BorderStroke(1.5.dp, Color.White), shape = shape),
             ),
         modifier = modifier.size(width, height),
     ) {
