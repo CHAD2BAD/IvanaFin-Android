@@ -106,7 +106,8 @@ fun MovieDetailsHeader(
             dto.overview?.let { overview ->
                 OverviewText(
                     overview = overview,
-                    maxLines = if (compact) 2 else 3,
+                    // IvanaFin: whole description, never cut off
+                    maxLines = if (compact) Int.MAX_VALUE else 3,
                     textStyle =
                         if (compact) {
                             MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)

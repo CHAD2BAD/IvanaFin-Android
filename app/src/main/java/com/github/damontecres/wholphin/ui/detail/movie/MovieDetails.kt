@@ -22,6 +22,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import com.github.damontecres.wholphin.ui.components.ChosenTrackResult
+import com.github.damontecres.wholphin.ui.components.DialogParams
+import com.github.damontecres.wholphin.ui.components.DialogPopup
+import com.github.damontecres.wholphin.ui.components.chooseStream
+import com.github.damontecres.wholphin.ui.theme.compactDetailHeader
+import org.jellyfin.sdk.model.api.MediaStreamType
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -93,6 +100,8 @@ fun MovieDetails(
 
     var overviewDialog by remember { mutableStateOf<ItemDetailsDialogInfo?>(null) }
     var showContextMenu by remember { mutableStateOf<ContextMenu?>(null) }
+    var trackDialog by remember { mutableStateOf<DialogParams?>(null) }
+    val resources = LocalResources.current
     var showPlaylistDialog by remember { mutableStateOf<Optional<UUID>>(Optional.absent()) }
     val playlistState by playlistViewModel.playlistState.collectAsState()
 
@@ -237,8 +246,50 @@ fun MovieDetails(
                 onConfirmDelete = { state.movie?.let { viewModel.deleteItem(it) } },
                 onChooseVersion = { contextActions.onChooseVersion.invoke(movie, it) },
                 modifier = modifier,
+                // IvanaFin: Audio / Subtitles buttons on the movie page
+                onChooseTracks =
+                    if (compactDetailHeader()) {
+                        { type ->
+                            viewModel.streamChoiceService
+                                .chooseSource(movie.data, chosenStreams?.itemPlayback)
+                                ?.let { source ->
+                                    trackDialog =
+                                        chooseStream(
+                                            resources = resources,
+                                            streams = source.mediaStreams.orEmpty(),
+                                            type = type,
+                                            streamChoice =
+                                                if (type == MediaStreamType.AUDIO) {
+                                                    chosenStreams?.audioStream
+                                                } else {
+                                                    chosenStreams?.subtitleStream
+                                                },
+                                            onClick = { trackIndex ->
+                                                contextActions.onChooseTracks.invoke(
+                                                    ChosenTrackResult(
+                                                        item = movie,
+                                                        streamType = type,
+                                                        trackIndex = trackIndex,
+                                                        itemPlayback = chosenStreams?.itemPlayback,
+                                                    ),
+                                                )
+                                            },
+                                            preferredSubtitleLanguage = preferredSubtitleLanguage,
+                                        )
+                                }
+                        }
+                    } else {
+                        null
+                    },
             )
         }
+    }
+    trackDialog?.let { params ->
+        DialogPopup(
+            params = params,
+            onDismissRequest = { trackDialog = null },
+            dismissOnClick = true,
+        )
     }
     showContextMenu?.let { contextMenu ->
         ContextMenuDialog(
@@ -307,6 +358,7 @@ fun MovieDetailsContent(
     onConfirmDelete: () -> Unit,
     onChooseVersion: (MediaSourceInfo) -> Unit,
     modifier: Modifier = Modifier,
+    onChooseTracks: ((MediaStreamType) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -384,6 +436,8 @@ fun MovieDetailsContent(
                             Modifier
                                 .fillMaxWidth()
                                 .focusRequester(focusRequesters[HEADER_ROW]),
+                        onChooseAudio = onChooseTracks?.let { { it(MediaStreamType.AUDIO) } },
+                        onChooseSubtitles = onChooseTracks?.let { { it(MediaStreamType.SUBTITLE) } },
                     )
                         },
                     )

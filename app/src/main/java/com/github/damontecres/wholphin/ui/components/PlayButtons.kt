@@ -89,8 +89,12 @@ fun ExpandablePlayButtons(
     chooseVersionParams: ChooseVersionParams?,
     buttonOnFocusChanged: (FocusState) -> Unit,
     modifier: Modifier = Modifier,
+    // IvanaFin: when set, Audio + Subtitles buttons replace Watched / Favourite / Trailers
+    onChooseAudio: (() -> Unit)? = null,
+    onChooseSubtitles: (() -> Unit)? = null,
 ) {
     val resources = LocalResources.current
+    val trackButtons = onChooseAudio != null && onChooseSubtitles != null
     val firstFocus = remember { FocusRequester() }
     val restartInteractionSource = remember { MutableInteractionSource() }
     val restartButtonFocused by restartInteractionSource.collectIsFocusedAsState()
@@ -161,8 +165,27 @@ fun ExpandablePlayButtons(
             }
         }
 
+        if (trackButtons) {
+            item("audio") {
+                ExpandableFaButton(
+                    title = R.string.audio,
+                    iconStringRes = R.string.fa_volume_low,
+                    onClick = { onChooseAudio.invoke() },
+                    modifier = Modifier.onFocusChanged(buttonOnFocusChanged),
+                )
+            }
+            item("subtitles") {
+                ExpandableFaButton(
+                    title = R.string.subtitles,
+                    iconStringRes = R.string.fa_closed_captioning,
+                    onClick = { onChooseSubtitles.invoke() },
+                    modifier = Modifier.onFocusChanged(buttonOnFocusChanged),
+                )
+            }
+        }
+
         // Watched button
-        item("watched") {
+        if (!trackButtons) item("watched") {
             ExpandableFaButton(
                 title = if (watched) R.string.mark_unwatched else R.string.mark_watched,
                 iconStringRes = if (watched) R.string.fa_eye else R.string.fa_eye_slash,
@@ -172,7 +195,7 @@ fun ExpandablePlayButtons(
         }
 
         // Favorite button
-        item("favorite") {
+        if (!trackButtons) item("favorite") {
             ExpandableFaButton(
                 title = if (favorite) R.string.remove_favorite else R.string.add_favorite,
                 iconStringRes = R.string.fa_heart,
@@ -182,7 +205,7 @@ fun ExpandablePlayButtons(
             )
         }
 
-        if (trailers != null) {
+        if (trailers != null && !trackButtons) {
             item("trailers") {
                 TrailerButton(
                     trailers = trailers,
