@@ -32,6 +32,7 @@ fun CollectionFolderGeneric(
     filterOptions: List<ItemFilterBy<*>> = DefaultFilterOptions,
     sortOptions: List<ItemSortBy> = VideoSortOptions,
     preferencesViewModel: PreferencesViewModel = hiltViewModel(),
+    showTitle: Boolean = true,
 ) {
     var showHeader by rememberSaveable { mutableStateOf(true) }
     val viewOptions =
@@ -49,7 +50,7 @@ fun CollectionFolderGeneric(
         },
         itemId = itemId,
         initialFilter = filter,
-        showTitle = showHeader,
+        showTitle = showTitle && showHeader,
         recursive = recursive,
         sortOptions = sortOptions,
         modifier = modifier,

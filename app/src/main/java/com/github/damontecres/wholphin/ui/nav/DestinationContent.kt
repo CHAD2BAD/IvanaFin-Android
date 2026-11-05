@@ -14,6 +14,7 @@ import com.github.damontecres.wholphin.ui.components.ItemGrid
 import com.github.damontecres.wholphin.ui.components.LicenseInfo
 import com.github.damontecres.wholphin.ui.data.MovieSortOptions
 import com.github.damontecres.wholphin.ui.data.rememberSortOptions
+import com.github.damontecres.wholphin.ui.detail.CollectionFolderMixed
 import com.github.damontecres.wholphin.ui.detail.CollectionFolderGeneric
 import com.github.damontecres.wholphin.ui.detail.CollectionFolderLiveTv
 import com.github.damontecres.wholphin.ui.detail.CollectionFolderMovie
@@ -521,10 +522,32 @@ fun CollectionFolder(
             )
         }
 
+        // IvanaFin: mixed movies + TV libraries (no collection type) look like the movie/TV
+        // libraries - 2:3 posters, 6 columns, spacing 16, no library name at the top
+        // Library roots (COLLECTION_FOLDER / USER_VIEW, i.e. no posters override) get tabs.
+        null -> {
+            if (usePostersOverride == null) {
+                CollectionFolderMixed(
+                    preferences = preferences,
+                    destination = destination,
+                    modifier = modifier,
+                )
+            } else {
+                CollectionFolderGeneric(
+                    preferences,
+                    destination.itemId,
+                    usePosters = usePostersOverride,
+                    recursive = recursiveOverride ?: false,
+                    playEnabled = false,
+                    showTitle = false,
+                    modifier = modifier,
+                )
+            }
+        }
+
         CollectionType.FOLDERS,
         CollectionType.TRAILERS,
         CollectionType.UNKNOWN,
-        null,
         -> {
             CollectionFolderGeneric(
                 preferences,

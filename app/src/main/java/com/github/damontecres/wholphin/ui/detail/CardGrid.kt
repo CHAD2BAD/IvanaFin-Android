@@ -156,7 +156,7 @@ fun <T : CardGridItem> CardGrid(
         alphabetFocus = false
     }
 
-    val useBackToJump = true // uiConfig.preferences.interfacePreferences.scrollTopOnBack
+    val useBackToJump = false // IvanaFin: Back leaves the library instead of jumping to the first item. Upstream: true // uiConfig.preferences.interfacePreferences.scrollTopOnBack
     val showFooter = true // uiConfig.preferences.interfacePreferences.showPositionFooter
     val useJumpRemoteButtons = true // uiConfig.preferences.interfacePreferences.pageWithRemoteButtons
     val jump2 =
