@@ -44,6 +44,33 @@ fun IvanaFinDetailsGroup(
                     item.studios.orEmpty().mapNotNull { it.name?.takeIf(String::isNotBlank) },
                 ),
                 Triple(R.string.detail_genre, R.string.detail_genres, item.genres.orEmpty()),
+            )
+        }
+    IvanaFinDetailsGroup(
+        directors = rows[0].third,
+        writers = rows[1].third,
+        studios = rows[2].third,
+        genres = rows[3].third,
+        modifier = modifier,
+    )
+}
+
+/** Same labelled group from plain name lists (used by the Seerr discover pages). */
+@Composable
+fun IvanaFinDetailsGroup(
+    directors: List<String>,
+    writers: List<String>,
+    studios: List<String>,
+    genres: List<String>,
+    modifier: Modifier = Modifier,
+) {
+    val rows =
+        remember(directors, writers, studios, genres) {
+            listOf(
+                Triple(R.string.detail_director, R.string.detail_directors, directors.distinct()),
+                Triple(R.string.detail_writer, R.string.detail_writers, writers.distinct()),
+                Triple(R.string.detail_studio, R.string.detail_studios, studios.distinct()),
+                Triple(R.string.detail_genre, R.string.detail_genres, genres.distinct()),
             ).filter { it.third.isNotEmpty() }
         }
     if (rows.isEmpty()) return

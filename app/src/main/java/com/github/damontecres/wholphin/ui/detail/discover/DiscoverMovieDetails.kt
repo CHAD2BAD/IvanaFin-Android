@@ -212,7 +212,7 @@ fun DiscoverMovieDetailsContent(
     Box(modifier = modifier) {
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(horizontal = 32.dp, vertical = 8.dp),
+            contentPadding = PaddingValues(vertical = 8.dp), // IvanaFin: same left edge as the series page
             modifier = Modifier.fillMaxSize(),
         ) {
             item {
@@ -234,7 +234,7 @@ fun DiscoverMovieDetailsContent(
                             Modifier
                                 .fillMaxWidth()
                                 .padding(top = HeaderUtils.topPadding, bottom = 16.dp),
-                    )
+                        buttons = {
                     ExpandableDiscoverButtons(
                         availability =
                             SeerrAvailability.from(movie.mediaInfo?.status)
@@ -259,14 +259,16 @@ fun DiscoverMovieDetailsContent(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .padding(bottom = 16.dp)
                                 .focusRequester(focusRequesters[HEADER_ROW]),
+                    )
+                        },
                     )
                 }
             }
             if (people.isNotEmpty()) {
                 item {
                     DiscoverPersonRow(
+                        title = R.string.cast_and_crew,
                         people = people,
                         onClick = {
                             position = PEOPLE_ROW

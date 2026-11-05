@@ -504,7 +504,7 @@ fun SeerrDiscoverPage(
         ) {
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 40.dp),
+                contentPadding = PaddingValues(bottom = 40.dp), // IvanaFin: rows line up with the header like Home
                 modifier =
                     Modifier
                         .focusRestorer()

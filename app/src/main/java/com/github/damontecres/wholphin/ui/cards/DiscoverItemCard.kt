@@ -1,5 +1,6 @@
 package com.github.damontecres.wholphin.ui.cards
 
+import com.github.damontecres.wholphin.ui.theme.cardTitleMarquee
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -46,6 +47,9 @@ import com.github.damontecres.wholphin.ui.FontAwesome
 import com.github.damontecres.wholphin.ui.PreviewTvSpec
 import com.github.damontecres.wholphin.ui.enableMarquee
 import com.github.damontecres.wholphin.ui.theme.WholphinTheme
+import com.github.damontecres.wholphin.ui.theme.cardTitleMaxLines
+import com.github.damontecres.wholphin.ui.theme.showCardBadges
+import androidx.compose.ui.text.style.TextOverflow
 import kotlinx.coroutines.delay
 
 @Composable
@@ -139,7 +143,7 @@ fun DiscoverItemCard(
                     -> {
                     }
                 }
-                if (showOverlay) {
+                if (showOverlay && showCardBadges()) { // IvanaFin: no type tags
                     val color =
                         remember(item?.type) {
                             when (item?.type) {
@@ -181,7 +185,8 @@ fun DiscoverItemCard(
         SlidingCardText(focused) {
             Text(
                 text = item?.title ?: "",
-                maxLines = 1,
+                maxLines = cardTitleMaxLines(), // IvanaFin
+                overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
@@ -189,7 +194,7 @@ fun DiscoverItemCard(
                     Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 4.dp)
-                        .enableMarquee(focusedAfterDelay),
+                        .cardTitleMarquee(focusedAfterDelay), // IvanaFin
             )
             Text(
                 text = item?.releaseDate?.year?.toString() ?: "",

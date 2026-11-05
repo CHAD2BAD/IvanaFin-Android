@@ -24,11 +24,11 @@ import com.github.damontecres.wholphin.data.model.DiscoverRating
 import com.github.damontecres.wholphin.preferences.UserPreferences
 import com.github.damontecres.wholphin.services.jellyfinId
 import com.github.damontecres.wholphin.ui.LocalImageUrlService
-import com.github.damontecres.wholphin.ui.components.GenreText
 import com.github.damontecres.wholphin.ui.components.HeaderUtils
 import com.github.damontecres.wholphin.ui.components.OverviewText
 import com.github.damontecres.wholphin.ui.components.QuickDetailsText
 import com.github.damontecres.wholphin.ui.components.TitleOrLogo
+import com.github.damontecres.wholphin.ui.detail.IvanaFinDetailsGroup
 import com.github.damontecres.wholphin.ui.formatDuration
 import com.github.damontecres.wholphin.ui.isNotNullOrBlank
 import com.github.damontecres.wholphin.ui.letNotEmpty
@@ -49,6 +49,7 @@ fun DiscoverMovieDetailsHeader(
     overviewOnClick: () -> Unit,
     showLogo: Boolean,
     modifier: Modifier = Modifier,
+    buttons: @Composable () -> Unit = {},
 ) {
     val imageUrlService = LocalImageUrlService.current
     val logoImageUrl =
@@ -114,9 +115,17 @@ fun DiscoverMovieDetailsHeader(
                 }
 
             QuickDetailsText(details, Modifier.padding(start = HeaderUtils.startPadding))
-            movie.genres?.mapNotNull { it.name }?.letNotEmpty {
-                GenreText(it, Modifier.padding(start = HeaderUtils.startPadding))
-            }
+        }
+
+        // IvanaFin: web order - buttons directly under the misc info
+        Column(modifier = Modifier.padding(top = 12.dp, bottom = 12.dp)) {
+            buttons()
+        }
+
+        Column(
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.fillMaxWidth(.60f),
+        ) {
 
             val tagline = remember { movie.tagline?.takeIf { it.isNotNullOrBlank() } }
             tagline?.let {
@@ -146,24 +155,15 @@ fun DiscoverMovieDetailsHeader(
                 )
             }
 
-            val directorName =
-                remember(movie.credits?.crew) {
-                    movie.credits
-                        ?.crew
-                        ?.filter { it.job == "Director" && it.name.isNotNullOrBlank() }
-                        ?.joinToString(", ") { it.name!! }
-                        ?.takeIf { it.isNotNullOrBlank() }
-                }
-
-            directorName
-                ?.let {
-                    Text(
-                        text = stringResource(R.string.directed_by, it),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(start = HeaderUtils.startPadding),
-                    )
-                }
+            // IvanaFin: web .itemDetailsGroup - Director(s), Writer(s), Studio(s), Genre(s)
+            val crew = movie.credits?.crew.orEmpty()
+            IvanaFinDetailsGroup(
+                directors = crew.filter { it.job == "Director" }.mapNotNull { it.name?.takeIf(String::isNotBlank) },
+                writers = crew.filter { it.department == "Writing" }.mapNotNull { it.name?.takeIf(String::isNotBlank) },
+                studios = movie.productionCompanies.orEmpty().mapNotNull { it.name?.takeIf(String::isNotBlank) },
+                genres = movie.genres.orEmpty().mapNotNull { it.name?.takeIf(String::isNotBlank) },
+                modifier = Modifier.padding(start = HeaderUtils.startPadding, top = 8.dp),
+            )
         }
     }
 }

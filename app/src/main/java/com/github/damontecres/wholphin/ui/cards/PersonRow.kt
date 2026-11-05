@@ -96,6 +96,7 @@ fun DiscoverPersonRow(
             text = stringResource(title),
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(start = 8.dp), // IvanaFin: same as PersonRow
         )
         LazyRow(
             state = rememberLazyListState(),
@@ -103,7 +104,7 @@ fun DiscoverPersonRow(
             contentPadding = PaddingValues(8.dp),
             modifier =
                 Modifier
-                    .padding(start = 16.dp)
+                    // IvanaFin: no extra start offset, same as PersonRow
                     .fillMaxWidth()
                     .focusRestorer(firstFocus),
         ) {

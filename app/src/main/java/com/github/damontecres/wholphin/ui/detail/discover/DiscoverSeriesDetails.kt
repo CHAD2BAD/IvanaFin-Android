@@ -52,6 +52,10 @@ import com.github.damontecres.wholphin.ui.components.DialogPopup
 import com.github.damontecres.wholphin.ui.components.ErrorMessage
 import com.github.damontecres.wholphin.ui.components.GenreText
 import com.github.damontecres.wholphin.ui.components.HeaderUtils
+import com.github.damontecres.wholphin.ui.detail.IvanaFinDetailsGroup
+import androidx.compose.ui.text.font.FontStyle
+import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Text
 import com.github.damontecres.wholphin.ui.components.LoadingPage
 import com.github.damontecres.wholphin.ui.components.OverviewText
 import com.github.damontecres.wholphin.ui.components.QuickDetailsText
@@ -275,7 +279,7 @@ fun DiscoverSeriesDetailsContent(
                                 Modifier
                                     .fillMaxWidth()
                                     .padding(top = HeaderUtils.topPadding, bottom = 16.dp),
-                        )
+                            buttons = {
                         ExpandableDiscoverButtons(
                             availability = availability,
                             progressText = seerrDownloadProgressText(series.mediaInfo),
@@ -299,8 +303,9 @@ fun DiscoverSeriesDetailsContent(
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
-                                    .padding(bottom = 16.dp)
                                     .focusRequester(focusRequesters[HEADER_ROW]),
+                        )
+                            },
                         )
                     }
                 }
@@ -335,6 +340,7 @@ fun DiscoverSeriesDetailsContent(
                 if (people.isNotEmpty()) {
                     item {
                         DiscoverPersonRow(
+                            title = R.string.cast_and_crew,
                             people = people,
                             onClick = {
                                 position = PEOPLE_ROW
@@ -428,6 +434,7 @@ fun DiscoverSeriesDetailsHeader(
     overviewOnClick: () -> Unit,
     showLogo: Boolean,
     modifier: Modifier = Modifier,
+    buttons: @Composable () -> Unit = {},
 ) {
     val imageUrlService = LocalImageUrlService.current
     val logoImageUrl =
@@ -475,8 +482,24 @@ fun DiscoverSeriesDetailsHeader(
                 }
 
             QuickDetailsText(details, Modifier.padding(start = HeaderUtils.startPadding))
-            series.genres?.mapNotNull { it.name }?.letNotEmpty {
-                GenreText(it, Modifier.padding(start = HeaderUtils.startPadding, bottom = 4.dp))
+        }
+
+        // IvanaFin: web order - buttons directly under the misc info
+        Column(modifier = Modifier.padding(top = 12.dp, bottom = 12.dp)) {
+            buttons()
+        }
+
+        Column(
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.fillMaxWidth(.60f),
+        ) {
+            series.tagline?.takeIf { it.isNotBlank() }?.let { tagline ->
+                Text(
+                    text = tagline,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontStyle = FontStyle.Italic,
+                    modifier = Modifier.padding(start = HeaderUtils.startPadding),
+                )
             }
             series.overview?.let { overview ->
                 OverviewText(
@@ -486,6 +509,14 @@ fun DiscoverSeriesDetailsHeader(
                     textBoxHeight = Dp.Unspecified,
                 )
             }
+            // IvanaFin: web .itemDetailsGroup (series creators listed as writers, networks as studios)
+            IvanaFinDetailsGroup(
+                directors = emptyList(),
+                writers = series.createdBy.orEmpty().mapNotNull { it.name?.takeIf(String::isNotBlank) },
+                studios = series.networks.orEmpty().mapNotNull { it.name?.takeIf(String::isNotBlank) },
+                genres = series.genres.orEmpty().mapNotNull { it.name?.takeIf(String::isNotBlank) },
+                modifier = Modifier.padding(start = HeaderUtils.startPadding, top = 8.dp),
+            )
         }
     }
 }

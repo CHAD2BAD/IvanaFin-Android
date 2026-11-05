@@ -1,6 +1,7 @@
 package com.github.damontecres.wholphin.ui.theme
 
 import androidx.compose.runtime.Composable
+import com.github.damontecres.wholphin.ui.enableMarquee
 import androidx.compose.runtime.ReadOnlyComposable
 import com.github.damontecres.wholphin.preferences.AppThemeColors
 
@@ -22,3 +23,16 @@ fun showCardBadges(): Boolean = !isElegantFin
 @Composable
 @ReadOnlyComposable
 fun cardTitleMaxLines(): Int = if (isElegantFin) 2 else 1
+
+/** Web keeps a pure black page behind the backdrop; skip the colour tint taken from the image. */
+@Composable
+@ReadOnlyComposable
+fun useDynamicBackdropColors(): Boolean = !isElegantFin
+
+/**
+ * Marquee forces a single line, which defeats [cardTitleMaxLines]; only scroll titles when
+ * they are limited to one line.
+ */
+@Composable
+fun androidx.compose.ui.Modifier.cardTitleMarquee(focused: Boolean): androidx.compose.ui.Modifier =
+    if (cardTitleMaxLines() > 1) this else enableMarquee(focused)

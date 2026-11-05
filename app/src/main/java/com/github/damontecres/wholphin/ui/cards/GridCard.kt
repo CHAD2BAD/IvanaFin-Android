@@ -1,5 +1,6 @@
 package com.github.damontecres.wholphin.ui.cards
 
+import com.github.damontecres.wholphin.ui.theme.cardTitleMarquee
 import com.github.damontecres.wholphin.ui.theme.cardTitleMaxLines
 
 import androidx.compose.animation.AnimatedVisibility
@@ -119,7 +120,7 @@ fun GridCard(
                         Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 4.dp)
-                            .enableMarquee(focusedAfterDelay),
+                            .cardTitleMarquee(focusedAfterDelay), // IvanaFin
                 )
                 Text(
                     text = item?.subtitle ?: "",

@@ -2,6 +2,7 @@
 
 package com.github.damontecres.wholphin.ui.nav
 
+import com.github.damontecres.wholphin.ui.theme.useDynamicBackdropColors
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
@@ -79,7 +80,8 @@ fun Backdrop(
 ) {
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val baseBackgroundColor = MaterialTheme.colorScheme.background
-    if (backdrop.hasColors &&
+    if (useDynamicBackdropColors() && // IvanaFin
+        backdrop.hasColors &&
         (backdropStyle == BackdropStyle.BACKDROP_DYNAMIC_COLOR || backdropStyle == BackdropStyle.UNRECOGNIZED)
     ) {
         val animPrimary by animateColorAsState(

@@ -1,5 +1,6 @@
 package com.github.damontecres.wholphin.ui.cards
 
+import com.github.damontecres.wholphin.ui.theme.cardTitleMarquee
 import com.github.damontecres.wholphin.ui.theme.cardTitleMaxLines
 import com.github.damontecres.wholphin.ui.theme.showCardBadges
 
@@ -257,7 +258,7 @@ fun BannerCardWithTitle(
                     Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 4.dp)
-                        .enableMarquee(focusedAfterDelay),
+                        .cardTitleMarquee(focusedAfterDelay), // IvanaFin
             )
             Text(
                 text = subtitle ?: "",
