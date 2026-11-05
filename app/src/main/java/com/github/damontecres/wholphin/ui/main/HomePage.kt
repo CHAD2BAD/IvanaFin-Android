@@ -218,6 +218,11 @@ fun HomePage(
                 }
 
             // IvanaFin: with no side menu, Discover, Search & Settings live top-right (left of the clock)
+            // IvanaFin: Search is selected on launch; Down from any top button goes to the first library (Movies)
+            val searchFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+            val firstTileFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+            val downToFirstTile =
+                Modifier.focusProperties { down = firstTileFocus }
             val topButtons: @Composable () -> Unit = {
                     androidx.compose.foundation.layout.Row(
                         horizontalArrangement =
@@ -237,6 +242,7 @@ fun HomePage(
                                 onClick = {
                                     viewModel.navigationManager.navigateTo(Destination.Discover)
                                 },
+                                modifier = downToFirstTile,
                             )
                         }
                         HomeTopButton(
@@ -245,6 +251,7 @@ fun HomePage(
                             onClick = {
                                 viewModel.navigationManager.navigateTo(Destination.Search())
                             },
+                            modifier = downToFirstTile.focusRequester(searchFocus),
                         )
                         HomeTopButton(
                             text = stringResource(R.string.settings),
@@ -256,6 +263,7 @@ fun HomePage(
                                     ),
                                 )
                             },
+                            modifier = downToFirstTile,
                         )
                     }
             }
@@ -276,6 +284,8 @@ fun HomePage(
                         viewModel.navigationManager.navigateTo(item.destination())
                     },
                     header = topButtons,
+                    launchFocus = searchFocus,
+                    firstTileFocus = firstTileFocus,
                     modifier = modifier,
                 )
             } else {
@@ -836,11 +846,13 @@ private fun HomeTopButton(
     text: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     androidx.tv.material3.Button(
         onClick = onClick,
         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
         scale = androidx.tv.material3.ButtonDefaults.scale(focusedScale = 1f), // IvanaFin: no grow when selected
+        modifier = modifier,
     ) {
         androidx.tv.material3.Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
         androidx.tv.material3.Text(

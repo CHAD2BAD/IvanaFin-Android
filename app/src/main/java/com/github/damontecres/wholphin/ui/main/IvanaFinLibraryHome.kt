@@ -50,11 +50,23 @@ fun IvanaFinLibraryHome(
     onClickLibrary: (Int, BaseItem) -> Unit,
     header: @Composable () -> Unit,
     modifier: Modifier = Modifier,
+    launchFocus: FocusRequester? = null,
+    firstTileFocus: FocusRequester = remember { FocusRequester() },
 ) {
-    var focusedIndex by rememberSaveable { mutableStateOf(0) }
-    val focusRequesters = remember(libraries.size) { List(libraries.size) { FocusRequester() } }
+    // -1 = nothing opened yet (fresh launch): select launchFocus (Search). After opening a
+    // library and coming back, that library's tile is selected again.
+    var focusedIndex by rememberSaveable { mutableStateOf(-1) }
+    val focusRequesters =
+        remember(libraries.size, firstTileFocus) {
+            List(libraries.size) { if (it == 0) firstTileFocus else FocusRequester() }
+        }
     LaunchedEffect(libraries.size) {
-        focusRequesters.getOrNull(focusedIndex.coerceIn(0, (libraries.size - 1).coerceAtLeast(0)))?.tryRequestFocus()
+        val tile = focusRequesters.getOrNull(focusedIndex)
+        if (tile != null) {
+            tile.tryRequestFocus()
+        } else if (launchFocus?.tryRequestFocus() != true) {
+            focusRequesters.firstOrNull()?.tryRequestFocus()
+        }
     }
     Column(modifier = modifier.fillMaxSize()) {
         header()
