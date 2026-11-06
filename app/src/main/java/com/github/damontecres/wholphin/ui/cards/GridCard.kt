@@ -145,7 +145,8 @@ fun GridCard(
             )
         }
         AnimatedVisibility(showTitle) {
-            SlidingCardText(focused, spaceBetweenFocused = gridCardFocusedTextGap()) { // IvanaFin
+            // IvanaFin: the title only slides down to make room for the grow - no grow, no slide
+            SlidingCardText(focused && !outlineOnly, spaceBetweenFocused = gridCardFocusedTextGap()) { // IvanaFin
                 Text(
                     text = item?.title ?: "",
                     maxLines = cardTitleMaxLines(), // IvanaFin
