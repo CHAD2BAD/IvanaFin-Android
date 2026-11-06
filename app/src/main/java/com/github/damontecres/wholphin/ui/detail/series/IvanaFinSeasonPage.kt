@@ -97,6 +97,8 @@ fun IvanaFinSeasonPage(
     var focusAfterSeasonChange by remember { mutableStateOf(false) }
     // IvanaFin: Down from the Season / Play Next Episode buttons always goes to episode 1
     val firstEpisodeFocusRequester = remember { FocusRequester() }
+    // IvanaFin: Up from any episode in the top row always goes to the Season button
+    val seasonButtonFocusRequester = remember { FocusRequester() }
 
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -133,7 +135,7 @@ fun IvanaFinSeasonPage(
                 if (season != null) {
                     Button(
                         onClick = { showSeasonPicker = true },
-                        modifier = Modifier.width(HEADER_BUTTON_WIDTH),
+                        modifier = Modifier.width(HEADER_BUTTON_WIDTH).focusRequester(seasonButtonFocusRequester),
                     ) {
                         androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
                         Text(
@@ -211,6 +213,12 @@ fun IvanaFinSeasonPage(
                                             }
                                         ).then(
                                             if (index == 0) Modifier.focusRequester(firstEpisodeFocusRequester) else Modifier,
+                                        ).then(
+                                            if (index < COLUMNS && season != null) {
+                                                Modifier.focusProperties { up = seasonButtonFocusRequester }
+                                            } else {
+                                                Modifier
+                                            },
                                         ),
                                 )
                             }
