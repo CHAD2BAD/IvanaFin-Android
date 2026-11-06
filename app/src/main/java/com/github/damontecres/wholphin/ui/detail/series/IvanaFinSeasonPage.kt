@@ -28,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -94,6 +95,8 @@ fun IvanaFinSeasonPage(
     val season = seasons.getOrNull(selectedSeasonIndex)
     var showSeasonPicker by remember { mutableStateOf(false) }
     var focusAfterSeasonChange by remember { mutableStateOf(false) }
+    // IvanaFin: Down from the Season / Play Next Episode buttons always goes to episode 1
+    val firstEpisodeFocusRequester = remember { FocusRequester() }
 
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -115,7 +118,14 @@ fun IvanaFinSeasonPage(
         Row(
             horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+                    .focusProperties {
+                        val firstLoaded = (episodes as? EpisodeList.Success)?.episodes?.firstOrNull() != null
+                        if (firstLoaded) down = firstEpisodeFocusRequester
+                    },
         ) {
             // Keys keep the Play button the same node when the season button appears once
             // seasons load, so it keeps the initial focus
@@ -193,11 +203,15 @@ fun IvanaFinSeasonPage(
                                     onLongClick = { onEpisodeMenu(episode) },
                                     onFocused = { onFocusEpisode(index) },
                                     modifier =
-                                        if (index == focusedEpisodeIndex) {
-                                            Modifier.focusRequester(episodeFocusRequester)
-                                        } else {
-                                            Modifier
-                                        },
+                                        (
+                                            if (index == focusedEpisodeIndex) {
+                                                Modifier.focusRequester(episodeFocusRequester)
+                                            } else {
+                                                Modifier
+                                            }
+                                        ).then(
+                                            if (index == 0) Modifier.focusRequester(firstEpisodeFocusRequester) else Modifier,
+                                        ),
                                 )
                             }
                         }
