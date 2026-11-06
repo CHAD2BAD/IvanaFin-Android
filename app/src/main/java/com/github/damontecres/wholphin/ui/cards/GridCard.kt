@@ -3,6 +3,14 @@ package com.github.damontecres.wholphin.ui.cards
 import com.github.damontecres.wholphin.ui.theme.gridCardFocusedTextGap
 import com.github.damontecres.wholphin.ui.theme.cardTitleMarquee
 import com.github.damontecres.wholphin.ui.theme.cardTitleMaxLines
+import com.github.damontecres.wholphin.ui.theme.posterOutlineOnly
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.tv.material3.Border
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
@@ -76,11 +84,39 @@ fun GridCard(
         verticalArrangement = Arrangement.spacedBy(4.dp),
         modifier = modifier,
     ) {
+        // IvanaFin: no grow; white outline just outside the picture while highlighted
+        val outlineOnly = posterOutlineOnly()
+        val posterCorner = 8.dp
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (outlineOnly) {
+                            Modifier.drawWithContent {
+                                drawContent()
+                                if (focused) {
+                                    val stroke = 1.5.dp.toPx()
+                                    val half = stroke / 2f
+                                    drawRoundRect(
+                                        color = Color.White,
+                                        topLeft = Offset(-half, -half),
+                                        size = Size(size.width + stroke, size.height + stroke),
+                                        cornerRadius = CornerRadius(posterCorner.toPx() + half),
+                                        style = Stroke(width = stroke),
+                                    )
+                                }
+                            }
+                        } else {
+                            Modifier
+                        },
+                    ),
             onClick = onClick,
             onLongClick = onLongClick,
             interactionSource = interactionSource,
+            shape = if (outlineOnly) CardDefaults.shape(RoundedCornerShape(posterCorner)) else CardDefaults.shape(),
+            scale = if (outlineOnly) CardDefaults.scale(focusedScale = 1f) else CardDefaults.scale(),
+            border = if (outlineOnly) CardDefaults.border(focusedBorder = Border.None) else CardDefaults.border(),
             colors =
                 CardDefaults.colors(
                     containerColor = Color.Transparent,

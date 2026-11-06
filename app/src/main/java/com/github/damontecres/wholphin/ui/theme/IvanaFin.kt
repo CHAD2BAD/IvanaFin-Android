@@ -20,6 +20,14 @@ private val isElegantFin: Boolean
 @ReadOnlyComposable
 fun showCardBadges(): Boolean = !isElegantFin
 
+/**
+ * Library/grid posters: no grow when highlighted, just a thin white outline drawn OUTSIDE the
+ * picture (same as the Samsung app; an inside border squeezed the picture).
+ */
+@Composable
+@ReadOnlyComposable
+fun posterOutlineOnly(): Boolean = isElegantFin
+
 /** Web CSS lets `.cardText` wrap instead of truncating; allow 2 lines for titles. */
 @Composable
 @ReadOnlyComposable
