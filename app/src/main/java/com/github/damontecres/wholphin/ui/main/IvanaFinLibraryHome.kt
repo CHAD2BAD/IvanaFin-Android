@@ -52,9 +52,17 @@ import com.github.damontecres.wholphin.ui.LocalImageUrlService
 import com.github.damontecres.wholphin.ui.tryRequestFocus
 import org.jellyfin.sdk.model.api.ImageType
 
+/** IvanaFin: the extra "Discover" (Seerr) tile shown after the libraries on Home. */
+class DiscoverTile(
+    val name: String,
+    val backdropUrl: String?,
+    val onClick: () -> Unit,
+)
+
 /**
  * IvanaFin home: just the top buttons and the libraries as big tiles filling the screen,
- * two per row in the server's library order (Movies, Shows / Star Wars, Movies Alternative).
+ * three per row in the server's library order (Movies, Shows, Star Wars / Movies (Special),
+ * Live TV) followed by a Discover tile.
  */
 @Composable
 fun IvanaFinLibraryHome(
@@ -72,8 +80,10 @@ fun IvanaFinLibraryHome(
     lastOpenedIndex: Int = -1,
     // returns true only the first time it is called per visit to Home
     consumeSelectionRestore: () -> Boolean = { true },
+    // Extra tile after the libraries (null = Seerr not connected)
+    discover: DiscoverTile? = null,
 ) {
-    val libraryIds = remember(libraries) { libraries.map { it.id } }
+    val tileCount = libraries.size + (if (discover != null) 1 else 0)
     val currentOnShown by rememberUpdatedState(onShown)
     // Bumped every time Home comes (back) on screen, to re-run the focus choice below
     var shownCount by remember { mutableIntStateOf(0) }
@@ -88,8 +98,8 @@ fun IvanaFinLibraryHome(
     // After opening a library and coming back, that library's tile is selected again.
     val currentLastOpened by rememberUpdatedState(lastOpenedIndex)
     val focusRequesters =
-        remember(libraries.size, firstTileFocus) {
-            List(libraries.size) { if (it == 0) firstTileFocus else FocusRequester() }
+        remember(tileCount, firstTileFocus) {
+            List(tileCount) { if (it == 0) firstTileFocus else FocusRequester() }
         }
     LaunchedEffect(shownCount) {
         // let the returning screen lay out first, then move the selection
@@ -112,32 +122,45 @@ fun IvanaFinLibraryHome(
                     .fillMaxWidth()
                     .padding(top = 8.dp, bottom = 12.dp, end = 16.dp),
         ) {
-            val columns = 2
-            val rows = ((libraries.size + columns - 1) / columns).coerceAtLeast(1)
+            val columns = 3
+            val rows = ((tileCount + columns - 1) / columns).coerceAtLeast(1)
             val gap = 16.dp
             val tileWidth = (maxWidth - gap * (columns - 1)) / columns
             val tileHeight = (maxHeight - gap * (rows - 1)) / rows
+            // libraries, then the Discover tile (null entry)
+            val tiles: List<BaseItem?> = libraries + (if (discover != null) listOf(null) else emptyList())
             Column(
                 verticalArrangement = Arrangement.spacedBy(gap),
                 modifier = Modifier.fillMaxSize(),
             ) {
-                libraries.chunked(columns).forEachIndexed { rowIndex, rowItems ->
+                tiles.chunked(columns).forEachIndexed { rowIndex, rowItems ->
                     Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
                         rowItems.forEachIndexed { columnIndex, library ->
                             val index = rowIndex * columns + columnIndex
-                            LibraryTile(
-                                library = library,
-                                backdropItem = backdrops[library.id],
-                                backdropLoaded = backdrops.containsKey(library.id),
-                                width = tileWidth,
-                                height = tileHeight,
-                                onClick = {
-                                    onClickLibrary.invoke(index, library)
-                                },
-                                modifier =
-                                    Modifier
-                                        .focusRequester(focusRequesters[index])
-                            )
+                            if (library != null) {
+                                LibraryTile(
+                                    library = library,
+                                    backdropItem = backdrops[library.id],
+                                    backdropLoaded = backdrops.containsKey(library.id),
+                                    width = tileWidth,
+                                    height = tileHeight,
+                                    onClick = {
+                                        onClickLibrary.invoke(index, library)
+                                    },
+                                    modifier =
+                                        Modifier
+                                            .focusRequester(focusRequesters[index]),
+                                )
+                            } else if (discover != null) {
+                                PictureTile(
+                                    name = discover.name,
+                                    backdropUrl = discover.backdropUrl,
+                                    width = tileWidth,
+                                    height = tileHeight,
+                                    onClick = discover.onClick,
+                                    modifier = Modifier.focusRequester(focusRequesters[index]),
+                                )
+                            }
                         }
                     }
                 }
@@ -247,6 +270,64 @@ private fun LibraryTile(
     }
 }
 
+/** A home tile that is not a library (Discover): picture + darkening + big name, same look as LibraryTile. */
+@Composable
+private fun PictureTile(
+    name: String,
+    backdropUrl: String?,
+    width: Dp,
+    height: Dp,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    var backdropError by remember(backdropUrl) { mutableStateOf(false) }
+    val shape = RoundedCornerShape(16.dp)
+    Card(
+        onClick = onClick,
+        shape = CardDefaults.shape(shape),
+        scale = CardDefaults.scale(focusedScale = 1f),
+        border =
+            CardDefaults.border(
+                focusedBorder = Border(BorderStroke(1.5.dp, Color.White), shape = shape),
+            ),
+        colors = CardDefaults.colors(containerColor = Color.Black),
+        modifier = modifier.size(width, height),
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (backdropUrl != null && !backdropError) {
+                AsyncImage(
+                    model = remember(backdropUrl) { tileBackdropRequest(context, backdropUrl) },
+                    contentDescription = name,
+                    contentScale = ContentScale.Crop,
+                    onError = { backdropError = true },
+                    modifier = Modifier.fillMaxSize(),
+                )
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = .35f)),
+                )
+            }
+            Text(
+                text = name,
+                style =
+                    (if (name.length > 14) MaterialTheme.typography.displaySmall else MaterialTheme.typography.displayMedium).copy(
+                        fontWeight = FontWeight.Bold,
+                        shadow = Shadow(Color.Black.copy(alpha = .8f), Offset(0f, 2f), blurRadius = 16f),
+                    ),
+                color = Color.White,
+                textAlign = TextAlign.Center,
+                modifier =
+                    Modifier
+                        .align(Alignment.Center)
+                        .padding(horizontal = 24.dp),
+            )
+        }
+    }
+}
+
 /** IvanaFin: names shown on the home tiles (the server keeps its own names). */
 private fun ivanaFinLibraryDisplayName(name: String?): String =
     when (name) {
@@ -264,9 +345,17 @@ fun tileBackdropUrl(
 ): String? =
     imageUrlService.getItemImageUrl(
         item,
-        ImageType.BACKDROP,
+        // Live TV tile: programmes only have a Primary picture
+        if (item.data.channelId != null && item.type in programKinds) ImageType.PRIMARY else ImageType.BACKDROP,
         fillWidth = 1280,
         fillHeight = 720,
+    )
+
+private val programKinds =
+    setOf(
+        org.jellyfin.sdk.model.api.BaseItemKind.PROGRAM,
+        org.jellyfin.sdk.model.api.BaseItemKind.TV_PROGRAM,
+        org.jellyfin.sdk.model.api.BaseItemKind.LIVE_TV_PROGRAM,
     )
 
 /**

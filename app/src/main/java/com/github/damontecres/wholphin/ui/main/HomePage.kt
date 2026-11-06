@@ -235,20 +235,7 @@ fun HomePage(
                                 .fillMaxWidth()
                                 .padding(top = 8.dp, end = 16.dp, bottom = 0.dp),
                     ) {
-                        // IvanaFin: Seerr discover/requests, shown once Seerr is connected
-                        val seerrActive by viewModel.seerrActive.collectAsState(false)
-                        if (seerrActive) {
-                            HomeTopButton(
-                                text = stringResource(R.string.discover),
-                                icon = androidx.compose.material.icons.Icons.Default.Add,
-                                onClick = {
-                                    viewModel.swapTileBackdropsAfterLeaving()
-                                viewModel.homeLastOpenedIndex.intValue = -1 // come back to Search
-                                    viewModel.navigationManager.navigateTo(Destination.Discover)
-                                },
-                                modifier = downToFirstTile,
-                            )
-                        }
+                        // IvanaFin: Discover (Seerr) is now the last tile of the home grid, not a button
                         HomeTopButton(
                             text = stringResource(R.string.search),
                             icon = androidx.compose.material.icons.Icons.Default.Search,
@@ -293,9 +280,27 @@ fun HomePage(
             val tileBackdrops by viewModel.tileBackdrops.collectAsState()
             val imageUrlService = com.github.damontecres.wholphin.ui.LocalImageUrlService.current
             val context = androidx.compose.ui.platform.LocalContext.current
+            // IvanaFin: Seerr discover/requests as the 6th home tile, shown once Seerr is connected
+            val seerrActive by viewModel.seerrActive.collectAsState(false)
+            val discoverBackdrop by viewModel.discoverTileBackdrop.collectAsState()
+            val discoverName = stringResource(R.string.discover)
             if (useLibraryGridHome() && !libraries.isNullOrEmpty()) {
                 IvanaFinLibraryHome(
                     libraries = libraries,
+                    discover =
+                        if (seerrActive) {
+                            DiscoverTile(
+                                name = discoverName,
+                                backdropUrl = discoverBackdrop,
+                                onClick = {
+                                    viewModel.homeLastOpenedIndex.intValue = libraries.size // come back to this tile
+                                    viewModel.swapTileBackdropsAfterLeaving()
+                                    viewModel.navigationManager.navigateTo(Destination.Discover)
+                                },
+                            )
+                        } else {
+                            null
+                        },
                     lastOpenedIndex = viewModel.homeLastOpenedIndex.intValue,
                     consumeSelectionRestore = viewModel::consumeHomeSelectionRestore,
                     onClickLibrary = { index, item ->
@@ -308,14 +313,17 @@ fun HomePage(
                     firstTileFocus = firstTileFocus,
                     backdrops = tileBackdrops,
                     onShown = {
-                        viewModel.prepareTileBackdrops(libraries.map { it.id }) { item ->
-                            // download the next picture into the image cache now, while Home is showing
-                            tileBackdropUrl(imageUrlService, item)?.let { url ->
-                                coil3.SingletonImageLoader
-                                    .get(context)
-                                    .execute(tileBackdropRequest(context, url))
-                            }
+                        // download the next pictures into the image cache now, while Home is showing
+                        val preloadUrl: suspend (String) -> Unit = { url ->
+                            coil3.SingletonImageLoader
+                                .get(context)
+                                .execute(tileBackdropRequest(context, url))
                         }
+                        viewModel.prepareTileBackdrops(
+                            libraries,
+                            preload = { item -> tileBackdropUrl(imageUrlService, item)?.let { preloadUrl(it) } },
+                            preloadUrl = preloadUrl,
+                        )
                     },
                     modifier = modifier,
                 )
