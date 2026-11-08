@@ -249,7 +249,11 @@ fun IvanaFinSeasonPage(
             showDialog = true,
             title = series.name ?: "",
             dialogItems =
-                seasons.mapIndexedNotNull { index, s ->
+                // IvanaFin: Specials (season 0) at the bottom of the list; indexes stay the real ones
+                seasons
+                    .withIndex()
+                    .sortedBy { (_, s) -> if (s?.data?.indexNumber == 0) 1 else 0 }
+                    .mapNotNull { (index, s) ->
                     s?.let {
                         DialogItem(
                             headlineContent = { Text(seasonLabel(it)) },
