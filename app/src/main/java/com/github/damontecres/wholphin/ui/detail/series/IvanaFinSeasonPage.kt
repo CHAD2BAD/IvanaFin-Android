@@ -93,11 +93,13 @@ fun IvanaFinSeasonPage(
     modifier: Modifier = Modifier,
 ) {
     val season = seasons.getOrNull(selectedSeasonIndex)
+    // IvanaFin: a show with only one season has no Season button (nothing to choose)
+    val showSeasonButton = season != null && seasons.size > 1
     var showSeasonPicker by remember { mutableStateOf(false) }
     var focusAfterSeasonChange by remember { mutableStateOf(false) }
     // IvanaFin: Down from the Season / Play Next Episode buttons always goes to episode 1
     val firstEpisodeFocusRequester = remember { FocusRequester() }
-    // IvanaFin: Up from any episode in the top row always goes to the Season button
+    // IvanaFin: Up from any episode in the top row goes to the Season button (Play Next Episode if none)
     val seasonButtonFocusRequester = remember { FocusRequester() }
 
     Column(
@@ -132,7 +134,7 @@ fun IvanaFinSeasonPage(
             // Keys keep the Play button the same node when the season button appears once
             // seasons load, so it keeps the initial focus
             androidx.compose.runtime.key("season") {
-                if (season != null) {
+                if (showSeasonButton && season != null) {
                     Button(
                         onClick = { showSeasonPicker = true },
                         modifier = Modifier.width(HEADER_BUTTON_WIDTH).focusRequester(seasonButtonFocusRequester),
@@ -214,8 +216,11 @@ fun IvanaFinSeasonPage(
                                         ).then(
                                             if (index == 0) Modifier.focusRequester(firstEpisodeFocusRequester) else Modifier,
                                         ).then(
-                                            if (index < COLUMNS && season != null) {
-                                                Modifier.focusProperties { up = seasonButtonFocusRequester }
+                                            if (index < COLUMNS) {
+                                                // Up from the top row: Season, or Play Next Episode when there is no Season button
+                                                Modifier.focusProperties {
+                                                    up = if (showSeasonButton) seasonButtonFocusRequester else playNextFocusRequester
+                                                }
                                             } else {
                                                 Modifier
                                             },
