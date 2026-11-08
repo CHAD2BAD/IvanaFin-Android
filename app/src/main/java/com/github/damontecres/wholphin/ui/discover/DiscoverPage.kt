@@ -26,9 +26,10 @@ fun DiscoverPage(
     val tabs =
         remember {
             listOf(
+                // IvanaFin: Search before Request
                 TabDetails(R.string.discover),
-                TabDetails(R.string.request),
                 TabDetails(R.string.search),
+                TabDetails(R.string.request),
                 TabDetails(R.string.movies_title),
                 TabDetails(R.string.tv_shows_title),
             )
@@ -55,7 +56,7 @@ fun DiscoverPage(
             }
 
             // Requests
-            1 -> {
+            2 -> {
                 SeerrRequestsPage(
                     focusRequesterOnEmpty = tabDetails.tabFocusRequester,
                     positionCallback = { columns, index -> showHeader = index < columns },
@@ -67,7 +68,7 @@ fun DiscoverPage(
             }
 
             // Search
-            2 -> {
+            1 -> {
                 DiscoverSearchPage(
                     preferences = preferences,
                     positionCallback = { columns, index -> showHeader = index < columns },
