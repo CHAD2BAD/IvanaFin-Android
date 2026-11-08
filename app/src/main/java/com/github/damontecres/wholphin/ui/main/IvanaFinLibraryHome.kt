@@ -38,6 +38,7 @@ import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import coil3.request.transformations
 import androidx.compose.foundation.background
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -120,7 +121,7 @@ fun IvanaFinLibraryHome(
                 Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(top = 8.dp, bottom = 12.dp, end = 16.dp),
+                    .padding(top = 8.dp, bottom = 32.dp, end = 16.dp), // bottom gap = side margins
         ) {
             val columns = 3
             val rows = ((tileCount + columns - 1) / columns).coerceAtLeast(1)
@@ -232,7 +233,7 @@ private fun LibraryTile(
                         modifier =
                             Modifier
                                 .fillMaxSize()
-                                .background(Color.Black.copy(alpha = .35f)),
+                                .background(Color.Black.copy(alpha = if (isProgramTileUrl(backdropUrl)) .5f else .35f)),
                     )
                 }
                 Text(
@@ -345,11 +346,40 @@ fun tileBackdropUrl(
 ): String? =
     imageUrlService.getItemImageUrl(
         item,
-        // Live TV tile: programmes only have a Primary picture
+        // Live TV tile: programmes only have a Primary picture (blurred later - see isProgramTileUrl)
         if (item.data.channelId != null && item.type in programKinds) ImageType.PRIMARY else ImageType.BACKDROP,
         fillWidth = 1280,
         fillHeight = 720,
     )
+
+/**
+ * IvanaFin: true for a Live TV programme picture (Jellyfin Primary image). TV guide pictures are
+ * title cards with the programme name printed on them, which clashes with the tile name - so they
+ * are shown heavily blurred and darker. Library and Discover backdrops are never Primary images.
+ */
+fun isProgramTileUrl(url: String?): Boolean = url?.contains("/Images/Primary") == true
+
+/**
+ * Strong blur that works on Fire OS 8 (Modifier.blur needs Android 12): shrink the picture to a
+ * few dozen pixels, then scale it back up in doubling steps with filtering - a smooth, soft wash of
+ * the picture's colours with any printed text gone.
+ */
+private object TileBlurTransformation : coil3.transform.Transformation() {
+    override val cacheKey: String = "ivanafin-tile-blur-1"
+
+    override suspend fun transform(
+        input: android.graphics.Bitmap,
+        size: coil3.size.Size,
+    ): android.graphics.Bitmap {
+        val smallWidth = 24
+        val smallHeight = (smallWidth * input.height / input.width.coerceAtLeast(1)).coerceAtLeast(1)
+        var bitmap = android.graphics.Bitmap.createScaledBitmap(input, smallWidth, smallHeight, true)
+        repeat(4) {
+            bitmap = android.graphics.Bitmap.createScaledBitmap(bitmap, bitmap.width * 2, bitmap.height * 2, true)
+        }
+        return bitmap
+    }
+}
 
 private val programKinds =
     setOf(
@@ -372,4 +402,5 @@ fun tileBackdropRequest(
         .memoryCacheKey(url)
         .size(coil3.size.Size.ORIGINAL)
         .crossfade(true)
+        .apply { if (isProgramTileUrl(url)) transformations(TileBlurTransformation) }
         .build()
