@@ -426,6 +426,13 @@ class HomeViewModel
             }
         }
 
+        /** IvanaFin: the tile home has no page backdrop - drop whatever Discover or a library left behind */
+        fun clearBackdrop() {
+            viewModelScope.launchIO {
+                backdropService.clearBackdrop()
+            }
+        }
+
         fun deleteItem(
             position: RowColumn,
             item: BaseItem,

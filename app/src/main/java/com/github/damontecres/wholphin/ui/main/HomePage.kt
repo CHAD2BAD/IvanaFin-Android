@@ -313,6 +313,7 @@ fun HomePage(
                     firstTileFocus = firstTileFocus,
                     backdrops = tileBackdrops,
                     onShown = {
+                        viewModel.clearBackdrop() // IvanaFin: no Discover picture behind the tiles
                         // download the next pictures into the image cache now, while Home is showing
                         val preloadUrl: suspend (String) -> Unit = { url ->
                             coil3.SingletonImageLoader
