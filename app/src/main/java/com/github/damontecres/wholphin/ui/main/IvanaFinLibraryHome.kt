@@ -266,11 +266,19 @@ private fun LibraryTile(
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
+                // No picture at all (e.g. an empty library): the same bold white name as the others
                 Text(
                     text = displayName,
-                    style = MaterialTheme.typography.displaySmall,
+                    style =
+                        (if (displayName.length > 14) MaterialTheme.typography.displaySmall else MaterialTheme.typography.displayMedium).copy(
+                            fontWeight = FontWeight.Bold,
+                        ),
+                    color = Color.White,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.align(Alignment.Center),
+                    modifier =
+                        Modifier
+                            .align(Alignment.Center)
+                            .padding(horizontal = 24.dp),
                 )
             }
         }
