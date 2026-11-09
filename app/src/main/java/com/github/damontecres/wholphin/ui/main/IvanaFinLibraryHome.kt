@@ -60,10 +60,13 @@ class DiscoverTile(
     val onClick: () -> Unit,
 )
 
+/** IvanaFin: the "Games" home tile - a placeholder for now (name on black, does nothing). */
+private val GamesTile = DiscoverTile(name = "Games", backdropUrl = null, onClick = {})
+
 /**
  * IvanaFin home: just the top buttons and the libraries as big tiles filling the screen,
- * three per row in the server's library order (Movies, Shows, Star Wars / Movies (Special),
- * Archive) followed by a Discover tile.
+ * four per row in the server's library order (Movies, Shows, Star Wars, Movies (Special) /
+ * Archive, Music) followed by a Discover tile and a Games tile.
  */
 @Composable
 fun IvanaFinLibraryHome(
@@ -84,7 +87,9 @@ fun IvanaFinLibraryHome(
     // Extra tile after the libraries (null = Seerr not connected)
     discover: DiscoverTile? = null,
 ) {
-    val tileCount = libraries.size + (if (discover != null) 1 else 0)
+    // Tiles after the libraries: Discover (when Seerr is connected), then Games
+    val extraTiles = listOfNotNull(discover, GamesTile)
+    val tileCount = libraries.size + extraTiles.size
     val currentOnShown by rememberUpdatedState(onShown)
     // Bumped every time Home comes (back) on screen, to re-run the focus choice below
     var shownCount by remember { mutableIntStateOf(0) }
@@ -123,22 +128,23 @@ fun IvanaFinLibraryHome(
                     .fillMaxWidth()
                     .padding(top = 8.dp, bottom = 32.dp, end = 16.dp), // bottom gap = side margins
         ) {
-            val columns = 3
+            val columns = 4
             val rows = ((tileCount + columns - 1) / columns).coerceAtLeast(1)
             val gap = 16.dp
             val tileWidth = (maxWidth - gap * (columns - 1)) / columns
             val tileHeight = (maxHeight - gap * (rows - 1)) / rows
-            // libraries, then the Discover tile (null entry)
-            val tiles: List<BaseItem?> = libraries + (if (discover != null) listOf(null) else emptyList())
+            // libraries (BaseItem), then Discover / Games (DiscoverTile)
+            val tiles: List<Any> = libraries + extraTiles
             Column(
                 verticalArrangement = Arrangement.spacedBy(gap),
                 modifier = Modifier.fillMaxSize(),
             ) {
                 tiles.chunked(columns).forEachIndexed { rowIndex, rowItems ->
                     Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
-                        rowItems.forEachIndexed { columnIndex, library ->
+                        rowItems.forEachIndexed { columnIndex, tile ->
                             val index = rowIndex * columns + columnIndex
-                            if (library != null) {
+                            if (tile is BaseItem) {
+                                val library = tile
                                 LibraryTile(
                                     library = library,
                                     backdropItem = backdrops[library.id],
@@ -152,13 +158,13 @@ fun IvanaFinLibraryHome(
                                         Modifier
                                             .focusRequester(focusRequesters[index]),
                                 )
-                            } else if (discover != null) {
+                            } else if (tile is DiscoverTile) {
                                 PictureTile(
-                                    name = discover.name,
-                                    backdropUrl = discover.backdropUrl,
+                                    name = tile.name,
+                                    backdropUrl = tile.backdropUrl,
                                     width = tileWidth,
                                     height = tileHeight,
-                                    onClick = discover.onClick,
+                                    onClick = tile.onClick,
                                     modifier = Modifier.focusRequester(focusRequesters[index]),
                                 )
                             }
