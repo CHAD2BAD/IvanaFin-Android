@@ -162,12 +162,13 @@ fun GridCard(
                 )
                 Text(
                     // IvanaFin: Star Wars timeline order shows the in-universe year
+                    // (extras outside the story show no year at all; the empty line keeps the row height)
                     text =
-                        (if (com.github.damontecres.wholphin.ui.theme.LocalSwTimeline.current) {
-                            com.github.damontecres.wholphin.ui.theme.IvanaFinSwTimeline.label(item)
+                        if (com.github.damontecres.wholphin.ui.theme.LocalSwTimeline.current) {
+                            com.github.damontecres.wholphin.ui.theme.IvanaFinSwTimeline.label(item) ?: ""
                         } else {
-                            null
-                        }) ?: item?.subtitle ?: "",
+                            item?.subtitle ?: ""
+                        },
                     maxLines = 1,
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodySmall,
