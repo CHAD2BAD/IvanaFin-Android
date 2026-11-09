@@ -660,7 +660,7 @@ fun NavigationDrawerScope.NavItem(
     containerColor: Color = Color.Unspecified,
 ) {
     val context = LocalContext.current
-    val useFont = library !is ServerNavDrawerItem || library.type != CollectionType.LIVETV
+    val useFont = true
     val icon =
         remember(library) {
             when (library) {
@@ -681,7 +681,6 @@ fun NavigationDrawerScope.NavItem(
                         CollectionType.MOVIES -> R.string.fa_film
                         CollectionType.TVSHOWS -> R.string.fa_tv
                         CollectionType.HOMEVIDEOS -> R.string.fa_video
-                        CollectionType.LIVETV -> R.drawable.gf_dvr
                         CollectionType.MUSIC -> R.string.fa_music
                         CollectionType.BOXSETS -> R.string.fa_open_folder
                         CollectionType.PLAYLISTS -> R.string.fa_list_ul

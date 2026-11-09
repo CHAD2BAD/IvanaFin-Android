@@ -27,8 +27,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import org.jellyfin.sdk.api.client.ApiClient
-import org.jellyfin.sdk.api.client.exception.InvalidStatusException
-import org.jellyfin.sdk.api.client.extensions.liveTvApi
 import org.jellyfin.sdk.api.client.extensions.userViewsApi
 import org.jellyfin.sdk.model.api.CollectionType
 import org.jellyfin.sdk.model.api.UserDto
@@ -133,35 +131,16 @@ class NavDrawerService
                 api.userViewsApi
                     .getUserViews(userId = userId)
                     .content.items
-            val recordingFolders =
-                if (tvAccess) {
-                    try {
-                        api.liveTvApi
-                            .getRecordingFolders(userId = userId)
-                            .content.items
-                            .map { it.id }
-                            .toSet()
-                    } catch (ex: InvalidStatusException) {
-                        if (ex.status == 401 || ex.status == 403) {
-                            Timber.w("Got HTTP %s querying for recording folders", ex.status)
-                            emptySet()
-                        } else {
-                            throw ex
-                        }
-                    }
-                } else {
-                    emptySet()
-                }
             val libraries =
                 userViews
-                    .filter { it.collectionType in supportedCollectionTypes || it.id in recordingFolders }
+                    .filter { it.collectionType in supportedCollectionTypes }
                     .map {
                         Library(
                             itemId = it.id,
                             name = it.name ?: "",
                             type = it.type,
                             collectionType = it.collectionType ?: CollectionType.UNKNOWN,
-                            isRecordingFolder = it.id in recordingFolders,
+                            isRecordingFolder = false,
                         )
                     }
             return libraries
@@ -202,15 +181,11 @@ class NavDrawerService
                 allLibraries
                     .map {
                         val destination =
-                            if (it.isRecordingFolder) {
-                                Destination.Recordings(it.itemId)
-                            } else {
-                                Destination.MediaItem(
-                                    it.itemId,
-                                    it.type,
-                                    it.collectionType,
-                                )
-                            }
+                            Destination.MediaItem(
+                                it.itemId,
+                                it.type,
+                                it.collectionType,
+                            )
                         ServerNavDrawerItem(
                             itemId = it.itemId,
                             name = it.name,

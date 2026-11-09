@@ -299,13 +299,7 @@ class HomeSettingsService
                     .mapIndexed { index, library ->
                         val parentId = library.itemId
                         val title = getRecentlyAddedTitle(library.name)
-                        if (library.collectionType == CollectionType.LIVETV) {
-                            HomeRowConfigDisplay(
-                                id = index,
-                                title = ResStringProvider(R.string.watch_live),
-                                config = HomeRowConfig.TvPrograms(),
-                            )
-                        } else {
+                        run { // IvanaFin: no Live TV "Watch live" row (Live TV removed)
                             val viewOptions = viewOptionsForCollectionType(library.collectionType)
                             HomeRowConfigDisplay(
                                 id = index,
@@ -367,13 +361,8 @@ class HomeSettingsService
                             )
                             val config =
                                 when (sectionType) {
-                                    HomeSectionType.ACTIVE_RECORDINGS -> {
-                                        HomeRowConfigDisplay(
-                                            id = id++,
-                                            title = ResStringProvider(R.string.active_recordings),
-                                            config = HomeRowConfig.Recordings(),
-                                        )
-                                    }
+                                    // IvanaFin: Live TV removed - no recordings row
+                                    HomeSectionType.ACTIVE_RECORDINGS -> null
 
                                     HomeSectionType.RESUME -> {
                                         HomeRowConfigDisplay(
@@ -391,17 +380,8 @@ class HomeSettingsService
                                         )
                                     }
 
-                                    HomeSectionType.LIVE_TV -> {
-                                        if (userDto.tvAccess) {
-                                            HomeRowConfigDisplay(
-                                                id = id++,
-                                                title = ResStringProvider(R.string.watch_live),
-                                                config = HomeRowConfig.TvPrograms(),
-                                            )
-                                        } else {
-                                            null
-                                        }
-                                    }
+                                    // IvanaFin: Live TV removed - no "Watch live" row
+                                    HomeSectionType.LIVE_TV -> null
 
                                     HomeSectionType.LATEST_MEDIA -> {
                                         // Handled below

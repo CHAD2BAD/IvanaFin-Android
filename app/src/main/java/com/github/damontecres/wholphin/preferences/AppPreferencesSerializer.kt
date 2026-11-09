@@ -127,13 +127,13 @@ class AppPreferencesSerializer
                                     LiveTvPreferences
                                         .newBuilder()
                                         .apply {
-                                            showHeader = AppPreference.LiveTvShowHeader.defaultValue
+                                            showHeader = true
                                             favoriteChannelsAtBeginning =
-                                                AppPreference.LiveTvFavoriteChannelsBeginning.defaultValue
+                                                true
                                             sortByRecentlyWatched =
-                                                AppPreference.LiveTvChannelSortByWatched.defaultValue
+                                                false
                                             colorCodePrograms =
-                                                AppPreference.LiveTvColorCodePrograms.defaultValue
+                                                true
                                         }.build()
 
                                 screensaverPreference =

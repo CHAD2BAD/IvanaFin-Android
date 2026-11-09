@@ -18,8 +18,6 @@ import com.github.damontecres.wholphin.data.model.HomeRowConfig.NextUp
 import com.github.damontecres.wholphin.data.model.HomeRowConfig.RecentlyAdded
 import com.github.damontecres.wholphin.data.model.HomeRowConfig.RecentlyReleased
 import com.github.damontecres.wholphin.data.model.HomeRowConfig.Suggestions
-import com.github.damontecres.wholphin.data.model.HomeRowConfig.TvChannels
-import com.github.damontecres.wholphin.data.model.HomeRowConfig.TvPrograms
 import com.github.damontecres.wholphin.data.model.HomeRowViewOptions
 import com.github.damontecres.wholphin.data.model.SUPPORTED_HOME_PAGE_SETTINGS_VERSION
 import com.github.damontecres.wholphin.preferences.AppPreferences
@@ -364,36 +362,6 @@ class HomeSettingsViewModel
                                 id = id,
                                 title = title,
                                 config = Suggestions(library.itemId, viewOptions),
-                            )
-                        }
-
-                        LibraryRowType.TV_CHANNELS -> {
-                            val title = ResStringProvider(R.string.channels)
-                            HomeRowConfigDisplay(
-                                id = id,
-                                title = title,
-                                config =
-                                    TvChannels(
-                                        viewOptions = HomeRowViewOptions.liveTvDefault,
-                                    ),
-                            )
-                        }
-
-                        LibraryRowType.TV_PROGRAMS -> {
-                            val title = ResStringProvider(R.string.watch_live)
-                            HomeRowConfigDisplay(
-                                id = id,
-                                title = title,
-                                config = TvPrograms(),
-                            )
-                        }
-
-                        LibraryRowType.RECENTLY_RECORDED -> {
-                            val title = getRecentlyAddedTitle(library.name)
-                            HomeRowConfigDisplay(
-                                id = id,
-                                title = title,
-                                config = RecentlyAdded(library.itemId),
                             )
                         }
 

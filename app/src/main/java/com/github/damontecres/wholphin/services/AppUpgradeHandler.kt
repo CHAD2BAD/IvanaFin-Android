@@ -234,13 +234,13 @@ class AppUpgradeHandler
             if (previous.isEqualOrBefore(Version.fromString("0.3.5-56-g0"))) {
                 appPreferences.updateData {
                     it.updateLiveTvPreferences {
-                        showHeader = AppPreference.LiveTvShowHeader.defaultValue
+                        showHeader = true
                         favoriteChannelsAtBeginning =
-                            AppPreference.LiveTvFavoriteChannelsBeginning.defaultValue
+                            true
                         sortByRecentlyWatched =
-                            AppPreference.LiveTvChannelSortByWatched.defaultValue
+                            false
                         colorCodePrograms =
-                            AppPreference.LiveTvColorCodePrograms.defaultValue
+                            true
                     }
                 }
             }

@@ -16,12 +16,10 @@ import com.github.damontecres.wholphin.ui.data.MovieSortOptions
 import com.github.damontecres.wholphin.ui.data.rememberSortOptions
 import com.github.damontecres.wholphin.ui.detail.CollectionFolderMixed
 import com.github.damontecres.wholphin.ui.detail.CollectionFolderGeneric
-import com.github.damontecres.wholphin.ui.detail.CollectionFolderLiveTv
 import com.github.damontecres.wholphin.ui.detail.CollectionFolderMovie
 import com.github.damontecres.wholphin.ui.detail.CollectionFolderMusic
 import com.github.damontecres.wholphin.ui.detail.CollectionFolderPhotoAlbum
 import com.github.damontecres.wholphin.ui.detail.CollectionFolderPlaylist
-import com.github.damontecres.wholphin.ui.detail.CollectionFolderRecordings
 import com.github.damontecres.wholphin.ui.detail.CollectionFolderTv
 import com.github.damontecres.wholphin.ui.detail.DebugPage
 import com.github.damontecres.wholphin.ui.detail.FavoritesPage
@@ -321,16 +319,6 @@ fun DestinationContent(
             )
         }
 
-        is Destination.Recordings -> {
-            LaunchedEffect(Unit) { onClearBackdrop.invoke() }
-            CollectionFolderRecordings(
-                preferences,
-                destination.itemId,
-                false,
-                modifier,
-            )
-        }
-
         is Destination.ItemGrid<*> -> {
             LaunchedEffect(Unit) { onClearBackdrop.invoke() }
             ItemGrid(
@@ -482,14 +470,6 @@ fun CollectionFolder(
             )
         }
 
-        CollectionType.LIVETV -> {
-            CollectionFolderLiveTv(
-                preferences = preferences,
-                destination = destination,
-                modifier = modifier,
-            )
-        }
-
         CollectionType.MUSIC -> {
             CollectionFolderMusic(
                 preferences,
@@ -548,6 +528,7 @@ fun CollectionFolder(
         CollectionType.FOLDERS,
         CollectionType.TRAILERS,
         CollectionType.UNKNOWN,
+        CollectionType.LIVETV, // IvanaFin: Live TV removed - never listed, plain folder if ever opened
         -> {
             CollectionFolderGeneric(
                 preferences,

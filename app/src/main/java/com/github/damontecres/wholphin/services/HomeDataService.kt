@@ -11,7 +11,6 @@ import com.github.damontecres.wholphin.data.model.createStudioDestination
 import com.github.damontecres.wholphin.preferences.HomePagePreferences
 import com.github.damontecres.wholphin.services.hilt.AuthOkHttpClient
 import com.github.damontecres.wholphin.ui.HomeItemFields
-import com.github.damontecres.wholphin.ui.ProgramItemFields
 import com.github.damontecres.wholphin.ui.components.getGenreImageMap
 import com.github.damontecres.wholphin.ui.formatTypeName
 import com.github.damontecres.wholphin.ui.main.settings.Library
@@ -25,10 +24,7 @@ import com.github.damontecres.wholphin.util.ApiRequestPager
 import com.github.damontecres.wholphin.util.GetArtistsHandler
 import com.github.damontecres.wholphin.util.GetGenresRequestHandler
 import com.github.damontecres.wholphin.util.GetItemsRequestHandler
-import com.github.damontecres.wholphin.util.GetLiveTvChannelsRequestHandler
 import com.github.damontecres.wholphin.util.GetPersonsHandler
-import com.github.damontecres.wholphin.util.GetProgramsDtoHandler
-import com.github.damontecres.wholphin.util.GetRecordingsRequestHandler
 import com.github.damontecres.wholphin.util.GetStudiosRequestHandler
 import com.github.damontecres.wholphin.util.HomeRowLoadingState
 import com.github.damontecres.wholphin.util.HomeRowLoadingState.Success
@@ -41,15 +37,12 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.exception.InvalidStatusException
-import org.jellyfin.sdk.api.client.extensions.liveTvApi
 import org.jellyfin.sdk.api.client.extensions.userLibraryApi
 import org.jellyfin.sdk.api.client.extensions.userViewsApi
-import org.jellyfin.sdk.model.DateTime
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemDtoQueryResult
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.CollectionType
-import org.jellyfin.sdk.model.api.GetProgramsDto
 import org.jellyfin.sdk.model.api.ImageType
 import org.jellyfin.sdk.model.api.ItemFields
 import org.jellyfin.sdk.model.api.ItemSortBy
@@ -58,9 +51,7 @@ import org.jellyfin.sdk.model.api.request.GetArtistsRequest
 import org.jellyfin.sdk.model.api.request.GetGenresRequest
 import org.jellyfin.sdk.model.api.request.GetItemsRequest
 import org.jellyfin.sdk.model.api.request.GetLatestMediaRequest
-import org.jellyfin.sdk.model.api.request.GetLiveTvChannelsRequest
 import org.jellyfin.sdk.model.api.request.GetPersonsRequest
-import org.jellyfin.sdk.model.api.request.GetRecordingsRequest
 import org.jellyfin.sdk.model.api.request.GetStudiosRequest
 import timber.log.Timber
 import java.time.LocalDateTime
@@ -554,107 +545,16 @@ class HomeDataService
                         }
                 }
 
-                is HomeRowConfig.Recordings -> {
-                    val request =
-                        GetRecordingsRequest(
-                            userId = userDto.id,
-                            isInProgress = true,
-                            fields = HomeItemFields,
-                            limit = limit,
-                            enableImages = true,
-                            enableUserData = true,
-                            enableTotalRecordCount = false,
-                        )
-                    if (usePaging) {
-                        ApiRequestPager(
-                            api,
-                            request,
-                            GetRecordingsRequestHandler,
-                            scope,
-                            useSeriesForPrimary = row.viewOptions.useSeries,
-                        ).init()
-                    } else {
-                        api.liveTvApi
-                            .getRecordings(request)
-                            .content.items
-                            .map { BaseItem(it, row.viewOptions.useSeries) }
-                    }.let {
-                        Success(
-                            ResStringProvider(R.string.active_recordings),
-                            it,
-                            row.viewOptions,
-                            rowType = row,
-                            showViewMore = it.size >= limit,
-                        )
-                    }
-                }
-
-                is HomeRowConfig.TvPrograms -> {
-                    val request =
-                        GetProgramsDto(
-                            userId = userDto.id,
-                            fields = ProgramItemFields,
-                            limit = limit,
-                            enableUserData = true,
-                            enableImages = true,
-                            enableImageTypes = listOf(ImageType.PRIMARY, ImageType.LOGO),
-                            imageTypeLimit = 1,
-                            isAiring = true,
-                            minEndDate = DateTime.now().plusMinutes(1),
-                        )
-                    if (usePaging) {
-                        ApiRequestPager(
-                            api,
-                            request,
-                            GetProgramsDtoHandler,
-                            scope,
-                            useSeriesForPrimary = row.viewOptions.useSeries,
-                        ).init()
-                    } else {
-                        api.liveTvApi
-                            .getPrograms(request)
-                            .content.items
-                            .map { BaseItem(it, row.viewOptions.useSeries) }
-                    }.let {
-                        Success(
-                            ResStringProvider(R.string.watch_live),
-                            it,
-                            row.viewOptions,
-                            rowType = row,
-                            showViewMore = it.size >= limit,
-                        )
-                    }
-                }
-
-                is HomeRowConfig.TvChannels -> {
-                    val request =
-                        GetLiveTvChannelsRequest(
-                            userId = userDto.id,
-                            fields = HomeItemFields,
-                            limit = limit,
-                            enableImages = true,
-                        )
-                    if (usePaging) {
-                        ApiRequestPager(
-                            api,
-                            request,
-                            GetLiveTvChannelsRequestHandler,
-                            scope,
-                            useSeriesForPrimary = row.viewOptions.useSeries,
-                        ).init()
-                    } else {
-                        api.liveTvApi
-                            .getLiveTvChannels(request)
-                            .toBaseItems(api, row.viewOptions.useSeries)
-                    }.let {
-                        Success(
-                            ResStringProvider(R.string.channels),
-                            it,
-                            row.viewOptions,
-                            rowType = row,
-                            showViewMore = it.size >= limit,
-                        )
-                    }
+                // IvanaFin: Live TV removed - recordings / airing programmes / channels rows stay empty
+                // (the row types are kept only so previously saved home layouts still load)
+                is HomeRowConfig.Recordings, is HomeRowConfig.TvPrograms, is HomeRowConfig.TvChannels -> {
+                    Success(
+                        ResStringProvider(R.string.channels),
+                        emptyList(),
+                        row.viewOptions,
+                        rowType = row,
+                        showViewMore = false,
+                    )
                 }
 
                 is HomeRowConfig.Suggestions -> {

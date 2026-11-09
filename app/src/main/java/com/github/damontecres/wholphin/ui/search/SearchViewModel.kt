@@ -13,7 +13,6 @@ import com.github.damontecres.wholphin.preferences.AppPreferences
 import com.github.damontecres.wholphin.preferences.updateSearchPreferences
 import com.github.damontecres.wholphin.services.FavoriteWatchManager
 import com.github.damontecres.wholphin.services.KeyValueService
-import com.github.damontecres.wholphin.services.LiveTvService
 import com.github.damontecres.wholphin.services.MediaManagementService
 import com.github.damontecres.wholphin.services.NavDrawerService
 import com.github.damontecres.wholphin.services.NavigationManager
@@ -21,14 +20,11 @@ import com.github.damontecres.wholphin.services.SeerrService
 import com.github.damontecres.wholphin.services.ServerReportService
 import com.github.damontecres.wholphin.services.UserPreferencesService
 import com.github.damontecres.wholphin.services.deleteItem
-import com.github.damontecres.wholphin.services.tvAccess
-import com.github.damontecres.wholphin.ui.ProgramItemFields
 import com.github.damontecres.wholphin.ui.SlimItemFields
 import com.github.damontecres.wholphin.ui.components.ContextMenuProvider
 import com.github.damontecres.wholphin.ui.components.VoiceInputManager
 import com.github.damontecres.wholphin.ui.components.baseItemKinds
 import com.github.damontecres.wholphin.ui.data.RowColumn
-import com.github.damontecres.wholphin.ui.detail.livetv.ProgramDialogState
 import com.github.damontecres.wholphin.ui.isNotNullOrBlank
 import com.github.damontecres.wholphin.ui.launchDefault
 import com.github.damontecres.wholphin.ui.launchIO
@@ -76,7 +72,6 @@ class SearchViewModel
         private val favoriteWatchManager: FavoriteWatchManager,
         private val mediaManagementService: MediaManagementService,
         private val serverReportService: ServerReportService,
-        private val liveTvService: LiveTvService,
         private val keyValueService: KeyValueService,
         private val navDrawerService: NavDrawerService,
     ) : ViewModel(),
@@ -95,8 +90,6 @@ class SearchViewModel
         private var currentQuery: String? = null
         private var combinedMode = false
 
-        private val _programDialogState = MutableStateFlow(ProgramDialogState())
-        val programDialogState: StateFlow<ProgramDialogState> = _programDialogState
 
         private var userLibraryTypes: Set<BaseItemKind> = emptySet()
 
@@ -157,7 +150,6 @@ class SearchViewModel
         }
 
         private fun determineSearchableTypes(excludedSearchableTypes: List<BaseItemKind>): List<BaseItemKind> {
-            val tvAccess = serverRepository.currentUserDto?.tvAccess == true
             val searchableTypes =
                 allSearchableTypes.filter {
                     val excluded = excludedSearchableTypes.contains(it)
@@ -166,13 +158,6 @@ class SearchViewModel
                     when (it) {
                         // No library type for person
                         BaseItemKind.PERSON -> !excluded
-
-                        // Remove live tv search if user doesn't have access
-                        BaseItemKind.TV_CHANNEL,
-                        BaseItemKind.LIVE_TV_PROGRAM,
-                        BaseItemKind.TV_PROGRAM,
-                        BaseItemKind.PROGRAM,
-                        -> tvAccess && !excluded
 
                         else -> hasLibrary && !excluded
                     }
@@ -233,19 +218,6 @@ class SearchViewModel
                 try {
                     val items: List<BaseItem> =
                         when (type) {
-                            BaseItemKind.LIVE_TV_PROGRAM -> {
-                                val request =
-                                    GetItemsRequest(
-                                        searchTerm = query,
-                                        recursive = true,
-                                        includeItemTypes = listOf(type),
-                                        fields = ProgramItemFields,
-                                        limit = SEARCH_LIMIT,
-                                        enableTotalRecordCount = false,
-                                    )
-                                api.itemsApi.getItems(request).toBaseItems(api, false)
-                            }
-
                             BaseItemKind.MUSIC_ARTIST -> {
                                 api.artistsApi
                                     .getArtists(
@@ -454,56 +426,6 @@ class SearchViewModel
 
         override fun sendReportFor(itemId: UUID) = serverReportService.sendMediaReportFor(itemId)
 
-        fun fetchProgramForDialog(programId: UUID) {
-            _programDialogState.update { it.copy(loading = DataLoadingState.Loading) }
-            viewModelScope.launchDefault {
-                try {
-                    val result = liveTvService.fetchProgramForDialog(programId)
-                    _programDialogState.update { it.copy(loading = DataLoadingState.Success(result)) }
-                } catch (ex: CancellationException) {
-                    throw ex
-                } catch (ex: Exception) {
-                    Timber.e(ex, "Error fetching program $programId")
-                    _programDialogState.update { it.copy(loading = DataLoadingState.Error(ex)) }
-                }
-            }
-        }
-
-        fun cancelRecording(
-            series: Boolean,
-            timerId: String?,
-        ) {
-            viewModelScope.launchIO(ExceptionHandler(autoToast = true)) {
-                try {
-                    val result = liveTvService.cancelRecording(series, timerId)
-                    // TODO update program card?
-                } catch (ex: CancellationException) {
-                    throw ex
-                } catch (ex: Exception) {
-                    Timber.e(ex, "Error canceling timer %s, series=%s", timerId, series)
-                    showToast(context, "Error: ${ex.localizedMessage}")
-                }
-            }
-        }
-
-        fun record(
-            programId: UUID,
-            series: Boolean,
-        ) {
-            viewModelScope.launchIO {
-                try {
-                    liveTvService.record(programId, series)
-                    // TODO update program card?
-                    refreshItem(programId)
-                } catch (ex: CancellationException) {
-                    throw ex
-                } catch (ex: Exception) {
-                    Timber.e(ex, "Error recording %s, series=%s", programId, series)
-                    showToast(context, "Error: ${ex.localizedMessage}")
-                }
-            }
-        }
-
         fun onClickExcludeSearchableType(type: BaseItemKind) {
             viewModelScope.launchIO {
                 try {
@@ -612,8 +534,6 @@ private val allSearchableTypes =
         BaseItemKind.EPISODE,
         BaseItemKind.BOX_SET,
         BaseItemKind.PERSON,
-        BaseItemKind.TV_CHANNEL,
-        BaseItemKind.LIVE_TV_PROGRAM,
         BaseItemKind.MUSIC_ALBUM,
         BaseItemKind.MUSIC_ARTIST,
         BaseItemKind.AUDIO,

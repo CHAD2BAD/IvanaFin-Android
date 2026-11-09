@@ -477,7 +477,6 @@ class PlaybackViewModel
                 this@PlaybackViewModel.currentItem = playlistItem
                 this@PlaybackViewModel.itemId = item.id
 
-                val isLiveTv = item.type == BaseItemKind.TV_CHANNEL
                 val base = item.data
 
                 // Use the provided playback parameters or else check if the database has some
@@ -492,12 +491,7 @@ class PlaybackViewModel
                             }
                         }
                     }
-                val mediaSource =
-                    if (!isLiveTv) {
-                        streamChoiceService.chooseSource(base, itemPlayback)
-                    } else {
-                        null
-                    }
+                val mediaSource = streamChoiceService.chooseSource(base, itemPlayback)
 
                 val audioStc =
                     streamChoiceService.getSeriesTrackChoices(
@@ -510,7 +504,7 @@ class PlaybackViewModel
                         SeriesTrackChoiceType.AUDIO,
                     )
 
-                if (mediaSource == null && !isLiveTv) {
+                if (mediaSource == null) {
                     showToast(
                         context,
                         "Item has no media sources, skipping...",
