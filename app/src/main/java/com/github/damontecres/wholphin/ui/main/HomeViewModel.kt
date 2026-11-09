@@ -50,7 +50,6 @@ import kotlinx.coroutines.withContext
 import org.jellyfin.sdk.api.client.exception.InvalidStatusException
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.api.client.extensions.itemsApi
-import org.jellyfin.sdk.api.client.extensions.liveTvApi
 import timber.log.Timber
 import java.util.UUID
 import javax.inject.Inject
@@ -165,38 +164,9 @@ class HomeViewModel
         }
 
         /**
-         * IvanaFin: picture for a home tile - a random movie or series backdrop from the library, or for
-         * Live TV a programme airing now (sports preferred).
+         * IvanaFin: picture for a home tile - a random movie or series backdrop from the library.
          */
-        suspend fun randomLibraryBackdrop(library: BaseItem): BaseItem? =
-            if (library.data.collectionType == org.jellyfin.sdk.model.api.CollectionType.LIVETV) {
-                randomAiringProgram()
-            } else {
-                randomLibraryBackdrop(library.id)
-            }
-
-        private suspend fun randomAiringProgram(): BaseItem? =
-            try {
-                val programs =
-                    api.liveTvApi
-                        .getPrograms(
-                            org.jellyfin.sdk.model.api.GetProgramsDto(
-                                userId = serverRepository.currentUser?.id,
-                                isAiring = true,
-                                limit = 300,
-                                enableImages = true,
-                                enableImageTypes = listOf(org.jellyfin.sdk.model.api.ImageType.PRIMARY),
-                                imageTypeLimit = 1,
-                                enableUserData = false,
-                            ),
-                        ).content.items
-                        .filter { it.imageTags?.containsKey(org.jellyfin.sdk.model.api.ImageType.PRIMARY) == true }
-                val sports = programs.filter { it.isSports == true }
-                (sports.ifEmpty { programs }).randomOrNull()?.let { BaseItem(it, false) }
-            } catch (ex: Exception) {
-                Timber.w(ex, "Could not get an airing programme for the Live TV tile")
-                null
-            }
+        suspend fun randomLibraryBackdrop(library: BaseItem): BaseItem? = randomLibraryBackdrop(library.id)
 
         /** IvanaFin: a random movie or series with a backdrop from [libraryId], for the home tiles. */
         suspend fun randomLibraryBackdrop(libraryId: java.util.UUID): BaseItem? =
