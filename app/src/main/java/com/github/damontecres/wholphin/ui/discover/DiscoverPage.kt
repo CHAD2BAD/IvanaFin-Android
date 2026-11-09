@@ -40,7 +40,9 @@ fun DiscoverPage(
         itemId = NavDrawerItem.Discover.id,
         tabs = tabs,
         modifier = modifier,
-        showTabs = showHeader,
+        // IvanaFin: the tabs always stay at the top (like web / Samsung); they used to hide on scrolling
+        // and the selected title's name + overview jumped up to the very top of the screen
+        showTabs = true,
     ) { tabIndex, tabDetails ->
         when (tabIndex) {
             // Discover
