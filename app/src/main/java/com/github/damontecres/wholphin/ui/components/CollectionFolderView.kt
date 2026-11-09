@@ -11,6 +11,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.foundation.layout.fillMaxWidth
+import com.github.damontecres.wholphin.ui.theme.IvanaFinSwTimeline
+import com.github.damontecres.wholphin.ui.theme.LocalSwTimeline
+import org.jellyfin.sdk.api.client.extensions.itemsApi
+import org.jellyfin.sdk.model.api.ItemFields
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -211,7 +218,15 @@ class CollectionFolderViewModel
                             collectionFilter.filter
                         }
 
-                    _state.update { it.copy(item = DataLoadingState.Success(item)) }
+                    // IvanaFin: Star Wars library - release date or in-universe timeline order
+                    val isStarWars = item?.name == IvanaFinSwTimeline.LIBRARY_NAME
+                    _state.update {
+                        it.copy(
+                            item = DataLoadingState.Success(item),
+                            isStarWars = isStarWars,
+                            swTimeline = isStarWars && IvanaFinSwTimeline.isTimeline(context),
+                        )
+                    }
                     loadResults(true, sortAndDirection, recursive, filterToUse, useSeriesForPrimary)
                         .join()
 //                    onResumePage()
@@ -390,9 +405,15 @@ class CollectionFolderViewModel
                 )
             }
             try {
-                val newPager =
-                    createPager(sortAndDirection, recursive, filter, useSeriesForPrimary).init()
-                if (newPager.isNotEmpty()) newPager.getBlocking(0)
+                val swTimeline = state.value.swTimeline && filter.override == GetItemsFilterOverride.NONE
+                val newPager: List<BaseItem?> =
+                    if (swTimeline) {
+                        loadSwTimeline(filter)
+                    } else {
+                        createPager(sortAndDirection, recursive, filter, useSeriesForPrimary).init().also {
+                            if (it.isNotEmpty()) it.getBlocking(0)
+                        }
+                    }
                 _state.update {
                     it.copy(
                         items = DataLoadingState.Success(newPager),
@@ -413,6 +434,46 @@ class CollectionFolderViewModel
                     )
                 }
             }
+        }
+
+        /**
+         * IvanaFin: every Star Wars title at once (a few dozen), in-universe order: SwTimeline
+         * ascending, titles without one after them in release order.
+         */
+        private suspend fun loadSwTimeline(filter: GetItemsFilter): List<BaseItem?> {
+            val item = state.value.item.successValue
+            val request =
+                filter.applyTo(
+                    GetItemsRequest(
+                        parentId = item?.id,
+                        enableImageTypes =
+                            listOf(ImageType.PRIMARY, ImageType.THUMB, ImageType.BACKDROP, ImageType.LOGO),
+                        includeItemTypes = listOf(BaseItemKind.MOVIE, BaseItemKind.SERIES),
+                        recursive = true,
+                        excludeItemIds = item?.let { listOf(item.id) },
+                        sortBy = listOf(ItemSortBy.PREMIERE_DATE, ItemSortBy.PRODUCTION_YEAR, ItemSortBy.SORT_NAME),
+                        sortOrder = listOf(SortOrder.ASCENDING, SortOrder.ASCENDING, SortOrder.ASCENDING),
+                        fields = SlimItemFields + ItemFields.PROVIDER_IDS,
+                    ),
+                ).copy(includeItemTypes = listOf(BaseItemKind.MOVIE, BaseItemKind.SERIES), recursive = true)
+            val items =
+                api.itemsApi
+                    .getItems(request)
+                    .content.items
+                    .map { BaseItem(it, useSeriesForPrimary) }
+            // sortedWith is stable, so equal keys / no key keep release order
+            return items.sortedWith(
+                compareBy<BaseItem>({ IvanaFinSwTimeline.key(it) == null }, { IvanaFinSwTimeline.key(it) ?: 0.0 }),
+            )
+        }
+
+        /** IvanaFin: the Star Wars Sort button - switch order and remember it on this device */
+        override fun toggleSwTimeline() {
+            val timeline = !state.value.swTimeline
+            IvanaFinSwTimeline.setTimeline(context, timeline)
+            position = 0
+            _state.update { it.copy(swTimeline = timeline) }
+            loadResults(true, state.value.sortAndDirection, recursive, state.value.filter, useSeriesForPrimary)
         }
 
         private fun createPager(
@@ -725,6 +786,8 @@ data class CollectionFolderState(
     val sortAndDirection: SortAndDirection = SortAndDirection.DEFAULT,
     val filter: GetItemsFilter = GetItemsFilter(),
     val viewOptions: ViewOptions,
+    val isStarWars: Boolean = false, // IvanaFin
+    val swTimeline: Boolean = false, // IvanaFin
 )
 
 /**
@@ -896,6 +959,9 @@ interface CollectionFolderViewActions {
      * Navigate to a random item
      */
     fun onClickRandom()
+
+    /** IvanaFin: Star Wars library - switch between release date and timeline order */
+    fun toggleSwTimeline() {}
 }
 
 @Composable
@@ -1080,6 +1146,23 @@ fun CollectionFolderViewContent(
                         randomButtonFocusRequester = randomButtonFocusRequester,
                     )
 
+                    // IvanaFin: Star Wars library Sort pill (Release date / Star Wars timeline)
+                    if (state.isStarWars) {
+                        AnimatedVisibility(showHeader) {
+                            androidx.compose.foundation.layout.Row(
+                                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End,
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(start = 32.dp, end = 16.dp, bottom = 12.dp),
+                            ) {
+                                SwTimelineButton(
+                                    timeline = state.swTimeline,
+                                    onClick = { viewActions.toggleSwTimeline() },
+                                )
+                            }
+                        }
+                    }
                     when (val pager = state.items) {
                         is DataLoadingState.Error -> {
                             LaunchedEffect(Unit) {
@@ -1120,6 +1203,7 @@ fun CollectionFolderViewContent(
                                 }
 
                             Box(Modifier.fillMaxSize()) {
+                                CompositionLocalProvider(LocalSwTimeline provides state.swTimeline) { // IvanaFin
                                 if (state.viewOptions.type == ViewOptionsType.GRID) {
                                     scope.CollectionFolderGrid(
                                         preferences = preferences,
@@ -1162,6 +1246,7 @@ fun CollectionFolderViewContent(
                                         itemContent = listItemContent,
                                     )
                                 }
+                                } // IvanaFin: LocalSwTimeline
                                 androidx.compose.animation.AnimatedVisibility(
                                     state.backgroundLoading == LoadingState.Loading,
                                     modifier =
@@ -1208,4 +1293,30 @@ interface CollectionFolderViewScope {
     val collectionType: CollectionType?
     val sortAndDirection: SortAndDirection
     val collectionSize: Int
+}
+
+/** IvanaFin: same pill as the home Search / Settings buttons */
+@Composable
+private fun SwTimelineButton(
+    timeline: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    androidx.tv.material3.Button(
+        onClick = onClick,
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+        scale = androidx.tv.material3.ButtonDefaults.scale(focusedScale = 1f),
+        modifier = modifier,
+    ) {
+        androidx.tv.material3.Icon(
+            androidx.compose.material.icons.Icons.AutoMirrored.Filled.List,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+        )
+        androidx.tv.material3.Text(
+            text = if (timeline) "Star Wars timeline" else "Release date",
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(start = 6.dp),
+        )
+    }
 }

@@ -161,7 +161,13 @@ fun GridCard(
                             .cardTitleMarquee(focusedAfterDelay), // IvanaFin
                 )
                 Text(
-                    text = item?.subtitle ?: "",
+                    // IvanaFin: Star Wars timeline order shows the in-universe year
+                    text =
+                        (if (com.github.damontecres.wholphin.ui.theme.LocalSwTimeline.current) {
+                            com.github.damontecres.wholphin.ui.theme.IvanaFinSwTimeline.label(item)
+                        } else {
+                            null
+                        }) ?: item?.subtitle ?: "",
                     maxLines = 1,
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodySmall,

@@ -84,6 +84,35 @@ object IvanaFinLibraryCache {
     fun get(id: java.util.UUID): com.github.damontecres.wholphin.data.model.BaseItem? = items[id]
 }
 
+/**
+ * IvanaFin: Star Wars library "Sort: Release date / Star Wars timeline" (same as web/Samsung).
+ * Each Star Wars title carries hidden provider ids on the server: SwTimeline = in-universe sort key
+ * in years (BBY negative), SwYear = label shown under the poster ("32 BBY", "22–19 BBY").
+ * Titles without one (documentaries, Holiday Special, Visions) come last in release order.
+ */
+object IvanaFinSwTimeline {
+    const val LIBRARY_NAME = "Star Wars"
+    private const val PREFS = "ivanafin"
+    private const val KEY = "sw_sort"
+
+    fun isTimeline(context: android.content.Context): Boolean =
+        context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).getString(KEY, "release") == "timeline"
+
+    fun setTimeline(context: android.content.Context, timeline: Boolean) {
+        context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit()
+            .putString(KEY, if (timeline) "timeline" else "release").apply()
+    }
+
+    fun key(item: com.github.damontecres.wholphin.data.model.BaseItem?): Double? =
+        item?.data?.providerIds?.get("SwTimeline")?.toDoubleOrNull()
+
+    fun label(item: com.github.damontecres.wholphin.data.model.BaseItem?): String? =
+        item?.data?.providerIds?.get("SwYear")?.takeIf { it.isNotBlank() }
+}
+
+/** True inside a Star Wars grid sorted by the timeline: posters show the in-universe year. */
+val LocalSwTimeline = androidx.compose.runtime.staticCompositionLocalOf { false }
+
 /** Movie page: quieter header like web - no stream chips, no Director/Writer/Studio/Genre rows. */
 @Composable
 @ReadOnlyComposable
