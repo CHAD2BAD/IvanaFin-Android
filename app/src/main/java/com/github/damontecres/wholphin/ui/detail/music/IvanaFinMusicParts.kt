@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -75,6 +76,9 @@ internal val MuGreen = Color(0xFF1ED760)
 internal val MuBg = Color(0xFF121212)
 internal val MuCard = Color(0xFF282828)
 internal val MuDim = Color.White.copy(alpha = .7f)
+/** Goes up by one each time a tab in the Music top bar gets the focus: pages then scroll back to the top. */
+internal val LocalMuToTop = compositionLocalOf { 0 }
+
 internal val LikedBrush = Brush.linearGradient(listOf(Color(0xFF450AF5), Color(0xFF8E8EE5), Color(0xFFC4EFD9)))
 
 /** Font Awesome (solid) glyphs */
@@ -101,12 +105,13 @@ internal fun HeroArt(
     liked: Boolean,
     scrollPx: () -> Float,
     modifier: Modifier = Modifier,
+    // album covers are square: shown whole on the right (cropping one to a wide strip zooms right in)
+    square: Boolean = false,
 ) {
     Box(
         modifier =
             modifier
-                .fillMaxWidth(.66f)
-                .height(340.dp)
+                .then(if (square) Modifier.height(410.dp).aspectRatio(1f) else Modifier.fillMaxWidth(.66f).height(340.dp))
                 .graphicsLayer {
                     translationY = -scrollPx()
                     alpha = .8f
@@ -132,7 +137,11 @@ internal fun HeroArt(
         }
         Box(
             Modifier.fillMaxSize().background(
-                Brush.horizontalGradient(0f to MuBg, .22f to MuBg.copy(alpha = .6f), .5f to Color.Transparent),
+                if (square) {
+                    Brush.horizontalGradient(0f to MuBg, .14f to MuBg.copy(alpha = .55f), .38f to Color.Transparent)
+                } else {
+                    Brush.horizontalGradient(0f to MuBg, .22f to MuBg.copy(alpha = .6f), .5f to Color.Transparent)
+                },
             ),
         )
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(.45f to Color.Transparent, 1f to MuBg)))

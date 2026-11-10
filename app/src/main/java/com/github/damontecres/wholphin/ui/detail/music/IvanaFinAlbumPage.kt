@@ -91,7 +91,7 @@ fun IvanaFinAlbumPage(
     // IvanaFin music layout: other albums ("More by") open inside Music too
     onOpenAlbum: ((UUID) -> Unit)? = null,
     requestInitialFocus: Boolean = true,
-    onScrolled: ((Boolean) -> Unit)? = null,
+    onScrolled: ((Float) -> Unit)? = null,
     viewModel: AlbumViewModel =
         hiltViewModel<AlbumViewModel, AlbumViewModel.Factory>(
             key = "album-$itemId",
@@ -195,9 +195,13 @@ fun IvanaFinAlbumPage(
                 }
             }
             LaunchedEffect(listState) {
-                snapshotFlow { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 4 }
+                snapshotFlow { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 100000f }
                     .collect { onScrolled?.invoke(it) }
             }
+            // a tab in the top bar got the focus: back to the top of the page
+            val toTop = LocalMuToTop.current
+            val toTopStart = remember { toTop }
+            LaunchedEffect(toTop) { if (toTop != toTopStart) listState.scrollToItem(0) }
             // Back from further down the page: first back to the top (Play)
             BackHandler(listState.firstVisibleItemIndex > 2) {
                 scope.launch {
@@ -210,6 +214,7 @@ fun IvanaFinAlbumPage(
                 HeroArt(
                     url = api.imageApi.getItemImageUrl(itemId = album.id, imageType = ImageType.PRIMARY, maxWidth = 2000),
                     liked = false,
+                    square = true,
                     scrollPx = { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 100000f },
                     modifier = Modifier.align(Alignment.TopEnd),
                 )

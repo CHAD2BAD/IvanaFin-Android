@@ -39,11 +39,14 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -74,6 +77,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -546,6 +550,8 @@ private data class Hero(
     val art: String?,
     val liked: Boolean = false,
     val avatar: String? = null,
+    // album covers are square: shown whole, not cropped to a wide strip
+    val square: Boolean = false,
 )
 
 @Composable
@@ -563,7 +569,8 @@ fun IvanaFinMusicLibrary(
         }
     val current = stack.last()
     var npOpen by remember { mutableStateOf(false) }
-    var scrolled by remember { mutableStateOf(false) }
+    var scrolled by remember { mutableFloatStateOf(0f) }
+    var toTop by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) { viewModel.load(libraryId) }
     DisposableEffect(Unit) { onDispose { viewModel.stopMusic() } }
 
@@ -608,7 +615,7 @@ fun IvanaFinMusicLibrary(
         } else {
             stack.add(v)
         }
-        scrolled = false
+        scrolled = 0f
     }
     fun open(k: String) {
         when {
@@ -626,7 +633,7 @@ fun IvanaFinMusicLibrary(
             }
         } else {
             stack.removeAt(stack.lastIndex)
-            scrolled = false
+            scrolled = 0f
         }
     }
 
@@ -645,7 +652,8 @@ fun IvanaFinMusicLibrary(
         ) {
             // pages scroll only when the selected item would leave the screen, and keep it clear of the top bar
             MuScroll(start = 100.dp) {
-            val onScrolled: (Boolean) -> Unit = { scrolled = it }
+            CompositionLocalProvider(LocalMuToTop provides toTop) {
+            val onScrolled: (Float) -> Unit = { scrolled = it }
             when (current) {
                 MusicView.Home ->
                     MusicHomeView(
@@ -693,6 +701,7 @@ fun IvanaFinMusicLibrary(
                 current = current,
                 rootView = if (current == MusicView.Library || current == MusicView.Search) current else stack.getOrNull(1)?.takeIf { it == MusicView.Library || it == MusicView.Search } ?: MusicView.Home,
                 scrolled = scrolled,
+                onTopFocus = { if (scrolled > 0f) toTop++ },
                 nowItem = nowItem,
                 playing = playing,
                 miniFocus = miniFocus,
@@ -727,6 +736,7 @@ fun IvanaFinMusicLibrary(
                 )
             }
             }
+            }
         }
     }
 }
@@ -738,7 +748,8 @@ private fun MusicTopBar(
     viewModel: IvanaFinMusicViewModel,
     current: MusicView,
     rootView: MusicView,
-    scrolled: Boolean,
+    scrolled: Float,
+    onTopFocus: () -> Unit,
     nowItem: AudioItem?,
     playing: Boolean,
     miniFocus: FocusRequester,
@@ -752,7 +763,9 @@ private fun MusicTopBar(
         Modifier
             .fillMaxWidth()
             .height(104.dp)
-            .then(if (scrolled) Modifier.background(Brush.verticalGradient(0f to MuBg, .55f to MuBg, 1f to Color.Transparent)) else Modifier),
+            // the tabs stay at their place on the page and scroll away with it; selecting one scrolls back up
+            .offset { IntOffset(0, -min(scrolled, 4000f).roundToInt()) }
+            .onFocusChanged { if (it.hasFocus) onTopFocus() },
     ) {
         Row(
             verticalAlignment = Alignment.Top,
@@ -844,7 +857,7 @@ private fun MusicHomeView(
     nowAlbumId: UUID?,
     onFocusKey: (String) -> Unit,
     onOpen: (String) -> Unit,
-    onScrolled: (Boolean) -> Unit,
+    onScrolled: (Float) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val home by viewModel.home.collectAsState()
@@ -856,8 +869,11 @@ private fun MusicHomeView(
         if (restoreKey == null || !focusRestore.tryRequestFocus()) focusFirst.tryRequestFocus()
     }
     LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 4 }.collect { onScrolled(it) }
+        snapshotFlow { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 100000f }.collect { onScrolled(it) }
     }
+    val toTop = LocalMuToTop.current
+    val toTopStart = remember { toTop }
+    LaunchedEffect(toTop) { if (toTop != toTopStart) listState.scrollToItem(0) }
     // the hero follows the selected card (a moment later, so quick scrolling doesn't redraw it every step)
     var shownKey by remember { mutableStateOf(heroKey) }
     LaunchedEffect(heroKey) {
@@ -877,6 +893,7 @@ private fun MusicHomeView(
         HeroArt(
             url = hero.art,
             liked = hero.liked,
+            square = hero.square,
             scrollPx = { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 100000f },
             modifier = Modifier.align(Alignment.TopEnd),
         )
@@ -981,7 +998,7 @@ private fun heroFor(
         ((data.recent + data.added + data.all).firstOrNull { "album:${it.id}" == key } ?: data.recent.firstOrNull())?.let { a ->
             val artist = a.data.albumArtists?.firstOrNull()
             val bits = listOfNotNull(a.data.albumArtist ?: artist?.name, "Album", a.data.childCount?.takeIf { it > 0 }?.let { songsLabel(it) })
-            return Hero(a.name ?: "", bits.joinToString(" • "), vm.imageUrl(a.id, maxWidth = 2000), avatar = artist?.let { vm.imageUrl(it.id, maxWidth = 48) })
+            return Hero(a.name ?: "", bits.joinToString(" • "), vm.imageUrl(a.id, maxWidth = 2000), avatar = artist?.let { vm.imageUrl(it.id, maxWidth = 48) }, square = true)
         }
     }
     return Hero("Music", "", null)
@@ -994,7 +1011,7 @@ private fun MusicLibraryView(
     viewModel: IvanaFinMusicViewModel,
     nowAlbumId: UUID?,
     onOpen: (String) -> Unit,
-    onScrolled: (Boolean) -> Unit,
+    onScrolled: (Float) -> Unit,
 ) {
     val items by viewModel.library.collectAsState()
     val artists by viewModel.libraryArtists.collectAsState()
@@ -1007,8 +1024,11 @@ private fun MusicLibraryView(
         first.tryRequestFocus()
     }
     LaunchedEffect(gridState) {
-        snapshotFlow { gridState.firstVisibleItemIndex > 0 || gridState.firstVisibleItemScrollOffset > 4 }.collect { onScrolled(it) }
+        snapshotFlow { if (gridState.firstVisibleItemIndex == 0) gridState.firstVisibleItemScrollOffset.toFloat() else 100000f }.collect { onScrolled(it) }
     }
+    val toTop = LocalMuToTop.current
+    val toTopStart = remember { toTop }
+    LaunchedEffect(toTop) { if (toTop != toTopStart) gridState.scrollToItem(0) }
     LazyVerticalGrid(
         state = gridState,
         columns = GridCells.Fixed(7),
@@ -1093,7 +1113,7 @@ private fun MusicSearchView(
     nowId: UUID?,
     playing: Boolean,
     onOpen: (String) -> Unit,
-    onScrolled: (Boolean) -> Unit,
+    onScrolled: (Float) -> Unit,
 ) {
     val results by viewModel.search.collectAsState()
     var text by remember { mutableStateOf("") }
@@ -1104,8 +1124,11 @@ private fun MusicSearchView(
         boxFocus.tryRequestFocus()
     }
     LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 4 }.collect { onScrolled(it) }
+        snapshotFlow { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 100000f }.collect { onScrolled(it) }
     }
+    val toTop = LocalMuToTop.current
+    val toTopStart = remember { toTop }
+    LaunchedEffect(toTop) { if (toTop != toTopStart) listState.scrollToItem(0) }
     LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 48.dp), modifier = Modifier.fillMaxSize()) {
         item("box") {
             EditTextBox(
@@ -1175,7 +1198,7 @@ private fun MusicLikedView(
     viewModel: IvanaFinMusicViewModel,
     nowId: UUID?,
     playing: Boolean,
-    onScrolled: (Boolean) -> Unit,
+    onScrolled: (Float) -> Unit,
 ) {
     val songs by viewModel.liked.collectAsState()
     LaunchedEffect(Unit) { viewModel.loadLiked() }
@@ -1187,8 +1210,11 @@ private fun MusicLikedView(
         playFocus.tryRequestFocus()
     }
     LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 4 }.collect { onScrolled(it) }
+        snapshotFlow { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 100000f }.collect { onScrolled(it) }
     }
+    val toTop = LocalMuToTop.current
+    val toTopStart = remember { toTop }
+    LaunchedEffect(toTop) { if (toTop != toTopStart) listState.scrollToItem(0) }
     val listPlaying = list.any { it.id == nowId }
     Box(Modifier.fillMaxSize()) {
         HeroArt(
@@ -1259,7 +1285,7 @@ private fun MusicArtistView(
     id: UUID,
     nowAlbumId: UUID?,
     onOpen: (String) -> Unit,
-    onScrolled: (Boolean) -> Unit,
+    onScrolled: (Float) -> Unit,
 ) {
     val state by viewModel.artist.collectAsState()
     LaunchedEffect(id) { viewModel.loadArtist(id) }
@@ -1271,8 +1297,11 @@ private fun MusicArtistView(
         playFocus.tryRequestFocus()
     }
     LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 4 }.collect { onScrolled(it) }
+        snapshotFlow { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 100000f }.collect { onScrolled(it) }
     }
+    val toTop = LocalMuToTop.current
+    val toTopStart = remember { toTop }
+    LaunchedEffect(toTop) { if (toTop != toTopStart) listState.scrollToItem(0) }
     val a = data.artist
     Box(Modifier.fillMaxSize()) {
         HeroArt(
