@@ -132,11 +132,12 @@ fun IvanaFinLibraryHome(
             val rows = ((tileCount + columns - 1) / columns).coerceAtLeast(1)
             val gap = 16.dp
             val tileWidth = (maxWidth - gap * (columns - 1)) / columns
-            val tileHeight = (maxHeight - gap * (rows - 1)) / rows
+            // widescreen 16:9 tiles (no taller than the space allows), the grid centred on the screen
+            val tileHeight = minOf((maxHeight - gap * (rows - 1)) / rows, tileWidth * 9 / 16)
             // libraries (BaseItem), then Discover / Games (DiscoverTile)
             val tiles: List<Any> = libraries + extraTiles
             Column(
-                verticalArrangement = Arrangement.spacedBy(gap),
+                verticalArrangement = Arrangement.spacedBy(gap, Alignment.CenterVertically),
                 modifier = Modifier.fillMaxSize(),
             ) {
                 tiles.chunked(columns).forEachIndexed { rowIndex, rowItems ->
