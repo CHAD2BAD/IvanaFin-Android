@@ -54,6 +54,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -265,10 +270,21 @@ fun IvanaFinAlbumPage(
                 }
             }
 
+            // Full screen width: the navigation container pads pages left/right, the colour band
+            // and page background should still run edge to edge (like Spotify).
+            val screenW = LocalWindowInfo.current.containerSize.width
+            var leftPx by remember { mutableStateOf(0f) }
+            Box(modifier = modifier.fillMaxSize().onGloballyPositioned { leftPx = it.positionInWindow().x }) {
             LazyColumn(
                 state = listState,
                 contentPadding = PaddingValues(bottom = 48.dp),
-                modifier = modifier.fillMaxSize().background(PageBg),
+                modifier =
+                    Modifier
+                        .layout { m, c ->
+                            val w = if (screenW > 0) screenW else c.maxWidth
+                            val p = m.measure(Constraints.fixed(w, c.maxHeight))
+                            layout(c.maxWidth, c.maxHeight) { p.place(-leftPx.roundToInt(), 0) }
+                        }.background(PageBg),
             ) {
                 // ---- header ----
                 item("header") {
@@ -356,7 +372,10 @@ fun IvanaFinAlbumPage(
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(22.dp),
-                            modifier = Modifier.padding(22.dp),
+                            modifier =
+                                Modifier
+                                    .padding(22.dp)
+                                    .onFocusChanged { if (it.hasFocus) scope.launch { listState.animateScrollToItem(0) } },
                         ) {
                             val pauseShown = albumPlaying && isPlayingNow
                             RoundButton(
@@ -488,6 +507,7 @@ fun IvanaFinAlbumPage(
                         }
                     }
                 }
+            }
             }
         }
     }
