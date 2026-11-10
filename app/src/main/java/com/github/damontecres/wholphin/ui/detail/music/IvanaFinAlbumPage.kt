@@ -1,39 +1,20 @@
 package com.github.damontecres.wholphin.ui.detail.music
 
-import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicText
-import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -42,43 +23,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.layout
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
-import androidx.compose.ui.platform.LocalWindowInfo
-import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.tv.material3.Border
-import androidx.tv.material3.ClickableSurfaceDefaults
-import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
-import coil3.SingletonImageLoader
-import coil3.compose.AsyncImage
-import coil3.request.ImageRequest
-import coil3.request.SuccessResult
-import coil3.request.allowHardware
-import coil3.toBitmap
 import com.github.damontecres.wholphin.R
 import com.github.damontecres.wholphin.data.model.BaseItem
 import com.github.damontecres.wholphin.preferences.UserPreferences
@@ -108,25 +66,17 @@ import org.jellyfin.sdk.model.api.ItemSortBy
 import org.jellyfin.sdk.model.api.SortOrder
 import org.jellyfin.sdk.model.api.request.GetItemsRequest
 import java.util.UUID
-import kotlin.math.abs
-import kotlin.math.max
-import kotlin.math.min
 import kotlin.math.roundToInt
 
 /*
- * IvanaFin: a music album laid out like Spotify's album page (same as the web/Samsung album-page.js):
- *   coloured header (colour from the cover): cover, "Album", big bold title,
- *   "(artist photo) Artist • 2024 • 16 songs, 55 min 41 sec"
- *   round green Play (Pause while this album plays), Shuffle, Favourite, More
+ * IvanaFin: a music album in the Spotify TV look (same as the web/Samsung music-page.js):
+ *   the cover large top-right fading into the dark, "Album", the big title,
+ *   "(artist photo) Artist • 2010 • 14 songs, 1 hr 14 min"
+ *   white Play (Pause while this album plays), Shuffle, Favourite, More
  *   # | Title (artists under it) | duration, the playing track green with moving bars
- *   release year, then "More by <artist>"
+ *   then "More by <artist>"
  * Playing, queueing and the More menu are Wholphin's own (AlbumViewModel / MusicService).
  */
-
-private val SpotifyGreen = Color(0xFF1ED760)
-private val SpotifyGreenLight = Color(0xFF3BE477)
-private val PageBg = Color(0xFF121212)
-private val Dim = Color.White.copy(alpha = .7f)
 
 private const val ROW_BUTTONS = 0
 private const val ROW_SONGS = 1
@@ -138,9 +88,10 @@ fun IvanaFinAlbumPage(
     preferences: UserPreferences,
     modifier: Modifier = Modifier,
     initialSongId: UUID? = null,
-    // IvanaFin music layout: the album sits in the right-hand panel; other albums open there too
+    // IvanaFin music layout: other albums ("More by") open inside Music too
     onOpenAlbum: ((UUID) -> Unit)? = null,
     requestInitialFocus: Boolean = true,
+    onScrolled: ((Boolean) -> Unit)? = null,
     viewModel: AlbumViewModel =
         hiltViewModel<AlbumViewModel, AlbumViewModel.Factory>(
             key = "album-$itemId",
@@ -148,7 +99,6 @@ fun IvanaFinAlbumPage(
         ),
     playlistViewModel: AddPlaylistViewModel = hiltViewModel(),
 ) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val state by viewModel.state.collectAsState()
     val currentMusic by viewModel.currentMusic.collectAsState()
@@ -189,34 +139,11 @@ fun IvanaFinAlbumPage(
 
     when (val loading = state.loading) {
         is LoadingState.Error -> ErrorMessage(loading, modifier)
-        LoadingState.Loading, LoadingState.Pending -> LoadingPage(modifier)
+        LoadingState.Loading, LoadingState.Pending -> LoadingPage(modifier.background(MuBg))
         LoadingState.Success -> {
             val album = state.album!!
             val songs = state.songs
             val api = viewModel.api
-
-            // Header colour from the cover (same recipe as the web page)
-            var coverColor by remember(album.id) { mutableStateOf(Color(0xFF3A3A3A)) }
-            val bandColor by animateColorAsState(coverColor, tween(400), label = "band")
-            LaunchedEffect(state.imageUrl) {
-                val url = state.imageUrl ?: return@LaunchedEffect
-                val bmp =
-                    withContext(Dispatchers.IO) {
-                        try {
-                            val req =
-                                ImageRequest
-                                    .Builder(context)
-                                    .data(url)
-                                    .size(48)
-                                    .allowHardware(false)
-                                    .build()
-                            (SingletonImageLoader.get(context).execute(req) as? SuccessResult)?.image?.toBitmap()
-                        } catch (_: Exception) {
-                            null
-                        }
-                    }
-                bmp?.let { coverColor = coverTone(it) }
-            }
 
             // More by <album artist>
             val artist = album.data.albumArtists?.firstOrNull()
@@ -267,6 +194,10 @@ fun IvanaFinAlbumPage(
                     else -> playFocus.tryRequestFocus()
                 }
             }
+            LaunchedEffect(listState) {
+                snapshotFlow { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 4 }
+                    .collect { onScrolled?.invoke(it) }
+            }
             // Back from further down the page: first back to the top (Play)
             BackHandler(listState.firstVisibleItemIndex > 2) {
                 scope.launch {
@@ -275,110 +206,49 @@ fun IvanaFinAlbumPage(
                 }
             }
 
-            LazyColumn(
-                state = listState,
-                contentPadding = PaddingValues(bottom = 48.dp),
-                modifier = modifier.fillMaxSize().background(PageBg),
-            ) {
-                // ---- header ----
-                item("header") {
-                    Row(
-                        verticalAlignment = Alignment.Bottom,
-                        horizontalArrangement = Arrangement.spacedBy(22.dp),
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .background(bandColor)
-                                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = .5f))))
-                                .padding(start = 22.dp, end = 22.dp, top = 40.dp, bottom = 22.dp),
-                    ) {
-                        AsyncImage(
-                            model = state.imageUrl,
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier =
-                                Modifier
-                                    .size(193.dp)
-                                    .shadow(24.dp, RoundedCornerShape(4.dp))
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(Color(0xFF282828)),
-                        )
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(text = "Album", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                            val name = album.name ?: ""
-                            val maxSp = if (name.length > 40) 44 else if (name.length > 22) 58 else 73
-                            BasicText(
-                                text = name,
-                                style =
-                                    TextStyle(
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Black,
-                                        letterSpacing = (-0.04).em,
-                                        lineHeight = 1.05.em,
-                                    ),
-                                maxLines = 3,
-                                overflow = TextOverflow.Ellipsis,
-                                autoSize = TextAutoSize.StepBased(minFontSize = 26.sp, maxFontSize = maxSp.sp, stepSize = 2.sp),
-                                modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
+            Box(modifier = modifier.fillMaxSize().background(MuBg)) {
+                HeroArt(
+                    url = api.imageApi.getItemImageUrl(itemId = album.id, imageType = ImageType.PRIMARY, maxWidth = 1000),
+                    liked = false,
+                    scrollPx = { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 100000f },
+                    modifier = Modifier.align(Alignment.TopEnd),
+                )
+                LazyColumn(
+                    state = listState,
+                    contentPadding = PaddingValues(bottom = 48.dp),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    // ---- header ----
+                    item("header") {
+                        val count = songs.size
+                        val bits =
+                            listOfNotNull(
+                                album.data.albumArtist ?: artist?.name,
+                                album.data.productionYear?.toString(),
+                                songsLabel(count) + if (totalTicks > 0) ", ${longDuration(totalTicks)}" else "",
                             )
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                var showAvatar by remember(artist?.id) { mutableStateOf(artist != null) }
-                                if (artist != null && showAvatar) {
-                                    AsyncImage(
-                                        model = api.imageApi.getItemImageUrl(itemId = artist.id, imageType = ImageType.PRIMARY, maxWidth = 96),
-                                        contentDescription = null,
-                                        contentScale = ContentScale.Crop,
-                                        onError = { showAvatar = false },
-                                        modifier = Modifier.size(22.dp).clip(CircleShape),
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                }
-                                val bits = mutableListOf<String>()
-                                album.data.productionYear?.let { bits.add(it.toString()) }
-                                val count = songs.size
-                                bits.add("$count ${if (count == 1) "song" else "songs"}" + if (totalTicks > 0) ", ${longDuration(totalTicks)}" else "")
-                                Text(
-                                    text = album.data.albumArtist ?: artist?.name ?: "",
-                                    color = Color.White,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                                Text(
-                                    text = (if (album.data.albumArtist != null || artist != null) " • " else "") + bits.joinToString(" • "),
-                                    color = Dim,
-                                    fontSize = 13.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                        }
+                        HeroText(
+                            kind = "Album",
+                            title = album.name ?: "",
+                            meta = bits.joinToString(" • "),
+                            avatarUrl = artist?.let { api.imageApi.getItemImageUrl(itemId = it.id, imageType = ImageType.PRIMARY, maxWidth = 48) },
+                        )
                     }
-                }
-                // ---- buttons + table head on a dark wash that fades into the page ----
-                item("actions") {
-                    Column(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .background(bandColor)
-                                .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = .6f), PageBg))),
-                    ) {
+                    // ---- Play / Shuffle / Favourite / More ----
+                    item("actions") {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(22.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
                             modifier =
                                 Modifier
-                                    .padding(22.dp)
+                                    .padding(start = 40.dp, end = 40.dp, top = 16.dp, bottom = 10.dp)
                                     .onFocusChanged { if (it.hasFocus) scope.launch { listState.animateScrollToItem(0) } },
                         ) {
                             val pauseShown = albumPlaying && isPlayingNow
-                            RoundButton(
-                                glyph = if (pauseShown) "" else "",
-                                size = 51,
-                                glyphSize = 20,
-                                container = SpotifyGreen,
-                                focusedContainer = SpotifyGreenLight,
-                                content = Color.Black,
+                            MuPill(
+                                glyph = if (pauseShown) Fa.PAUSE else Fa.PLAY,
+                                text = if (pauseShown) "Pause" else "Play",
+                                primary = true,
                                 onClick = {
                                     position = RowColumn(ROW_BUTTONS, 0)
                                     if (albumPlaying) {
@@ -390,112 +260,80 @@ fun IvanaFinAlbumPage(
                                 },
                                 modifier = Modifier.focusRequester(playFocus),
                             )
-                            RoundButton(glyph = "", size = 40, glyphSize = 22, onClick = {
+                            MuPill(glyph = Fa.SHUFFLE, text = "Shuffle", onClick = {
                                 position = RowColumn(ROW_BUTTONS, 1)
                                 viewModel.play(true, 0)
                             })
-                            RoundButton(
-                                glyph = if (album.favorite) "" else "",
-                                size = 40,
-                                glyphSize = 26,
-                                content = if (album.favorite) SpotifyGreen else Dim,
+                            MuPill(
+                                glyph = Fa.HEART,
+                                tint = if (album.favorite) MuGreen else Color.White,
                                 onClick = { viewModel.setFavorite(album.id, !album.favorite) },
                             )
-                            RoundButton(glyph = "", size = 40, glyphSize = 22, onClick = { menuFor(album, 0, false) })
-                        }
-                        Column(modifier = Modifier.padding(horizontal = 22.dp)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                modifier = Modifier.fillMaxWidth().height(36.dp).padding(horizontal = 14.dp),
-                            ) {
-                                Text("#", color = Dim, fontSize = 13.sp, textAlign = TextAlign.End, modifier = Modifier.width(30.dp))
-                                Text("Title", color = Dim, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                                Text("", fontFamily = FontAwesome, color = Dim, fontSize = 14.sp, textAlign = TextAlign.End, modifier = Modifier.width(110.dp))
-                            }
-                            Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = .1f)))
-                            Spacer(Modifier.height(14.dp))
+                            MuPill(glyph = Fa.MORE, onClick = { menuFor(album, 0, false) })
                         }
                     }
-                }
-                // ---- tracks ----
-                itemsIndexed(songs) { index, song ->
-                    val disc = song?.data?.parentIndexNumber
-                    val prevDisc = if (index > 0) songs.getOrNull(index - 1)?.data?.parentIndexNumber else null
-                    Column(modifier = Modifier.padding(horizontal = 22.dp)) {
-                        if (multiDisc && disc != null && (index == 0 || disc != prevDisc)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                modifier = Modifier.height(40.dp).padding(start = 14.dp, top = 10.dp),
-                            ) {
-                                Text("", fontFamily = FontAwesome, color = Dim, fontSize = 16.sp, textAlign = TextAlign.End, modifier = Modifier.width(30.dp))
-                                Text("Disc $disc", color = Dim, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                        TrackRow(
-                            number = (song?.data?.indexNumber ?: (index + 1)).toString(),
-                            title = song?.name ?: "",
-                            artists = song?.data?.artists?.joinToString(", ")?.takeIf { it.isNotBlank() } ?: album.data.albumArtist ?: "",
-                            duration = song?.data?.runTimeTicks?.let { minSec(it) } ?: "",
-                            playing = song != null && song.id == currentMusic.currentItemId,
-                            paused = !isPlayingNow,
-                            onClick = {
-                                position = RowColumn(ROW_SONGS, index)
-                                if (song != null && song.id == currentMusic.currentItemId) {
-                                    val p = viewModel.musicService.player
-                                    if (p.isPlaying) p.pause() else p.play()
-                                } else {
-                                    viewModel.play(false, index)
+                    // ---- tracks ----
+                    itemsIndexed(songs) { index, song ->
+                        val disc = song?.data?.parentIndexNumber
+                        val prevDisc = if (index > 0) songs.getOrNull(index - 1)?.data?.parentIndexNumber else null
+                        Column {
+                            if (multiDisc && disc != null && (index == 0 || disc != prevDisc)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier = Modifier.height(34.dp).padding(start = 44.dp, top = 8.dp),
+                                ) {
+                                    Text(Fa.DISC, fontFamily = FontAwesome, color = MuDim, fontSize = 13.sp, textAlign = TextAlign.End, modifier = Modifier.width(28.dp))
+                                    Text("Disc $disc", color = MuDim, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
-                            },
-                            onLongClick = { if (song != null) menuFor(song, index, true) },
-                            modifier =
-                                if (position.row == ROW_SONGS && position.column == index) {
-                                    Modifier.focusRequester(songFocus)
-                                } else {
-                                    Modifier
+                            }
+                            MuTrackRow(
+                                number = (song?.data?.indexNumber ?: (index + 1)).toString(),
+                                title = song?.name ?: "",
+                                sub = song?.data?.artists?.joinToString(", ")?.takeIf { it.isNotBlank() } ?: album.data.albumArtist ?: "",
+                                duration = song?.data?.runTimeTicks?.let { minSecTicks(it) } ?: "",
+                                playing = song != null && song.id == currentMusic.currentItemId,
+                                paused = !isPlayingNow,
+                                onClick = {
+                                    position = RowColumn(ROW_SONGS, index)
+                                    if (song != null && song.id == currentMusic.currentItemId) {
+                                        val p = viewModel.musicService.player
+                                        if (p.isPlaying) p.pause() else p.play()
+                                    } else {
+                                        viewModel.play(false, index)
+                                    }
                                 },
-                        )
-                    }
-                }
-                // ---- release + More by ----
-                item("release") {
-                    val year = album.data.productionYear
-                    val studios = album.data.studios.orEmpty().mapNotNull { it.name }
-                    if (year != null || studios.isNotEmpty()) {
-                        Column(modifier = Modifier.padding(start = 36.dp, end = 36.dp, top = 28.dp)) {
-                            year?.let { Text(it.toString(), color = Dim, fontSize = 14.sp) }
-                            if (studios.isNotEmpty()) Text("© " + studios.joinToString(", "), color = Dim, fontSize = 13.sp)
+                                onLongClick = { if (song != null) menuFor(song, index, true) },
+                                modifier =
+                                    if (position.row == ROW_SONGS && position.column == index) {
+                                        Modifier.focusRequester(songFocus)
+                                    } else {
+                                        Modifier
+                                    },
+                            )
                         }
                     }
-                }
-                if (moreBy.isNotEmpty()) {
-                    item("more") {
-                        Column(modifier = Modifier.padding(top = 36.dp)) {
-                            Text(
-                                text = "More by " + (album.data.albumArtist ?: artist?.name ?: ""),
-                                color = Color.White,
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(start = 22.dp, bottom = 8.dp),
-                            )
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                            ) {
-                                itemsIndexed(moreBy) { i, a ->
-                                    AlbumCard(
-                                        title = a.name ?: "",
-                                        subtitle = listOfNotNull(a.data.productionYear?.toString(), "Album").joinToString(" • "),
-                                        imageUrl = api.imageApi.getItemImageUrl(itemId = a.id, imageType = ImageType.PRIMARY, maxWidth = 300),
-                                        onClick = {
-                                            position = RowColumn(ROW_MORE, i)
-                                            onOpenAlbum?.invoke(a.id) ?: viewModel.navigationManager.navigateTo(a.destination())
-                                        },
-                                        modifier =
-                                            if (position.row == ROW_MORE && position.column == i) Modifier.focusRequester(moreFocus) else Modifier,
-                                    )
+                    // ---- More by ----
+                    if (moreBy.isNotEmpty()) {
+                        item("more") {
+                            Column {
+                                MuSectionTitle("More by " + (album.data.albumArtist ?: artist?.name ?: ""))
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(20.dp),
+                                    contentPadding = PaddingValues(horizontal = 40.dp, vertical = 3.dp),
+                                ) {
+                                    itemsIndexed(moreBy) { i, a ->
+                                        CoverCard(
+                                            name = a.name ?: "",
+                                            imageUrl = api.imageApi.getItemImageUrl(itemId = a.id, imageType = ImageType.PRIMARY, maxWidth = 240),
+                                            onClick = {
+                                                position = RowColumn(ROW_MORE, i)
+                                                onOpenAlbum?.invoke(a.id) ?: viewModel.navigationManager.navigateTo(a.destination())
+                                            },
+                                            modifier =
+                                                if (position.row == ROW_MORE && position.column == i) Modifier.focusRequester(moreFocus) else Modifier,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -532,228 +370,9 @@ fun IvanaFinAlbumPage(
     }
 }
 
-@Composable
-private fun RoundButton(
-    glyph: String,
-    size: Int,
-    glyphSize: Int,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    container: Color = Color.Transparent,
-    focusedContainer: Color = Color.Transparent,
-    content: Color = Dim,
-) {
-    val interaction = remember { MutableInteractionSource() }
-    val focused by interaction.collectIsFocusedAsState()
-    Surface(
-        onClick = onClick,
-        interactionSource = interaction,
-        shape = ClickableSurfaceDefaults.shape(CircleShape),
-        colors =
-            ClickableSurfaceDefaults.colors(
-                containerColor = container,
-                focusedContainerColor = focusedContainer,
-                pressedContainerColor = focusedContainer,
-            ),
-        border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, Color.White))),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.06f),
-        modifier = modifier.size(size.dp),
-    ) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(
-                text = glyph,
-                fontFamily = FontAwesome,
-                fontSize = glyphSize.sp,
-                color = if (focused && content == Dim) Color.White else content,
-                // the play triangle looks centred when nudged right a little
-                modifier = if (glyph == "") Modifier.padding(start = 3.dp) else Modifier,
-            )
-        }
-    }
-}
-
-@Composable
-private fun TrackRow(
-    number: String,
-    title: String,
-    artists: String,
-    duration: String,
-    playing: Boolean,
-    paused: Boolean,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val interaction = remember { MutableInteractionSource() }
-    val focused by interaction.collectIsFocusedAsState()
-    Surface(
-        onClick = onClick,
-        onLongClick = onLongClick,
-        interactionSource = interaction,
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(4.dp)),
-        colors =
-            ClickableSurfaceDefaults.colors(
-                containerColor = Color.Transparent,
-                focusedContainerColor = Color.White.copy(alpha = .1f),
-                pressedContainerColor = Color.White.copy(alpha = .1f),
-                contentColor = Color.White,
-                focusedContentColor = Color.White,
-            ),
-        border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, Color.White))),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-        modifier = modifier.fillMaxWidth().height(51.dp),
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
-        ) {
-            Box(Modifier.width(30.dp), contentAlignment = Alignment.CenterEnd) {
-                when {
-                    focused -> Text("", fontFamily = FontAwesome, fontSize = 13.sp, color = Color.White)
-                    playing -> EqualizerBars(paused)
-                    else -> Text(number, fontSize = 14.sp, color = Dim)
-                }
-            }
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    fontSize = 15.sp,
-                    color = if (playing) SpotifyGreen else Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(text = artists, fontSize = 13.sp, color = Dim, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            Text(duration, fontSize = 13.sp, color = Dim, textAlign = TextAlign.End, modifier = Modifier.width(110.dp))
-        }
-    }
-}
-
-@Composable
-private fun EqualizerBars(paused: Boolean) {
-    val t = rememberInfiniteTransition(label = "eq")
-    val phase by t.animateFloat(0f, 1f, infiniteRepeatable(tween(900), RepeatMode.Restart), label = "eqp")
-    Row(horizontalArrangement = Arrangement.spacedBy(1.5.dp), verticalAlignment = Alignment.Bottom, modifier = Modifier.height(13.dp)) {
-        listOf(0f, .33f, .66f, .5f).forEach { off ->
-            val p = (phase + off) % 1f
-            val h = if (paused) .4f else .25f + .75f * (1f - abs(2f * p - 1f))
-            Box(
-                Modifier
-                    .width(2.5.dp)
-                    .fillMaxHeight()
-                    .graphicsLayer {
-                        scaleY = h
-                        transformOrigin = TransformOrigin(.5f, 1f)
-                    }.background(SpotifyGreen),
-            )
-        }
-    }
-}
-
-@Composable
-private fun AlbumCard(
-    title: String,
-    subtitle: String,
-    imageUrl: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        onClick = onClick,
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(6.dp)),
-        colors =
-            ClickableSurfaceDefaults.colors(
-                containerColor = Color.Transparent,
-                focusedContainerColor = Color.White.copy(alpha = .1f),
-                contentColor = Color.White,
-                focusedContentColor = Color.White,
-            ),
-        border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, Color.White))),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-        modifier = modifier.width(140.dp),
-    ) {
-        Column(Modifier.padding(10.dp)) {
-            AsyncImage(
-                model = imageUrl,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(1f)
-                        .shadow(8.dp, RoundedCornerShape(4.dp))
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color(0xFF282828)),
-            )
-            Text(
-                text = title,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-            Text(text = subtitle, fontSize = 13.sp, color = Color.White.copy(alpha = .6f), maxLines = 1)
-        }
-    }
-}
-
-private fun minSec(ticks: Long): String {
-    val s = (ticks / 10_000_000.0).roundToInt()
-    return "${s / 60}:${(s % 60).toString().padStart(2, '0')}"
-}
-
 private fun longDuration(ticks: Long): String {
     val s = (ticks / 10_000_000.0).roundToInt()
     val h = s / 3600
     val m = s % 3600 / 60
     return if (h > 0) "$h hr $m min" else "$m min ${s % 60} sec"
-}
-
-/** Average colour of the cover (colourful pixels count more), darkened and calmed like Spotify. */
-private fun coverTone(bmp: Bitmap): Color {
-    val small = Bitmap.createScaledBitmap(bmp, 24, 24, true)
-    var r = 0.0
-    var g = 0.0
-    var b = 0.0
-    var w = 0.0
-    for (y in 0 until 24) {
-        for (x in 0 until 24) {
-            val p = small.getPixel(x, y)
-            val pr = (p shr 16) and 0xFF
-            val pg = (p shr 8) and 0xFF
-            val pb = p and 0xFF
-            val k = 1.0 + (max(pr, max(pg, pb)) - min(pr, min(pg, pb))) / 32.0
-            r += pr * k
-            g += pg * k
-            b += pb * k
-            w += k
-        }
-    }
-    val rf = (r / w / 255).toFloat()
-    val gf = (g / w / 255).toFloat()
-    val bf = (b / w / 255).toFloat()
-    val mx = max(rf, max(gf, bf))
-    val mn = min(rf, min(gf, bf))
-    val l = (mx + mn) / 2
-    val d = mx - mn
-    var h = 0f
-    var s = 0f
-    if (d > 0f) {
-        s = d / (1 - abs(2 * l - 1))
-        h =
-            when (mx) {
-                rf -> ((gf - bf) / d) % 6
-                gf -> (bf - rf) / d + 2
-                else -> (rf - gf) / d + 4
-            } * 60
-        if (h < 0) h += 360
-    }
-    // same rounding as the web page
-    val hh = h.roundToInt().toFloat()
-    val ss = (min(s, .55f) * 100).roundToInt() / 100f
-    val ll = (max(.16f, min(l, .3f)) * 100).roundToInt() / 100f
-    return Color.hsl(hh % 360, ss.coerceIn(0f, 1f), ll)
 }
