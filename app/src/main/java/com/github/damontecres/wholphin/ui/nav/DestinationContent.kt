@@ -32,7 +32,7 @@ import com.github.damontecres.wholphin.ui.detail.discover.DiscoverPersonPage
 import com.github.damontecres.wholphin.ui.detail.discover.DiscoverSeriesDetails
 import com.github.damontecres.wholphin.ui.detail.episode.EpisodeDetails
 import com.github.damontecres.wholphin.ui.detail.movie.MovieDetails
-import com.github.damontecres.wholphin.ui.detail.music.AlbumDetailsPage
+import com.github.damontecres.wholphin.ui.detail.music.IvanaFinAlbumPage
 import com.github.damontecres.wholphin.ui.detail.music.ArtistDetailsPage
 import com.github.damontecres.wholphin.ui.detail.music.NowPlayingPage
 import com.github.damontecres.wholphin.ui.detail.music.SongDetailsPage
@@ -257,7 +257,8 @@ fun DestinationContent(
 
                 BaseItemKind.MUSIC_ALBUM -> {
                     LaunchedEffect(Unit) { onClearBackdrop.invoke() }
-                    AlbumDetailsPage(
+                    // IvanaFin: Spotify-style album page
+                    IvanaFinAlbumPage(
                         preferences = preferences,
                         itemId = destination.itemId,
                         initialSongId = destination.initialSongId,
