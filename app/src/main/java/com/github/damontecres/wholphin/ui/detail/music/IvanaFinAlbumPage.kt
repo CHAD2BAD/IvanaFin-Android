@@ -138,8 +138,12 @@ fun IvanaFinAlbumPage(
     preferences: UserPreferences,
     modifier: Modifier = Modifier,
     initialSongId: UUID? = null,
+    // IvanaFin music layout: the album sits in the right-hand panel; other albums open there too
+    onOpenAlbum: ((UUID) -> Unit)? = null,
+    requestInitialFocus: Boolean = true,
     viewModel: AlbumViewModel =
         hiltViewModel<AlbumViewModel, AlbumViewModel.Factory>(
+            key = "album-$itemId",
             creationCallback = { it.create(itemId, initialSongId) },
         ),
     playlistViewModel: AddPlaylistViewModel = hiltViewModel(),
@@ -256,6 +260,7 @@ fun IvanaFinAlbumPage(
             val moreFocus = remember { FocusRequester() }
             val listState = rememberLazyListState()
             LaunchedEffect(Unit) {
+                if (!requestInitialFocus) return@LaunchedEffect
                 when (position.row) {
                     ROW_SONGS -> songFocus.tryRequestFocus()
                     ROW_MORE -> moreFocus.tryRequestFocus()
@@ -270,21 +275,10 @@ fun IvanaFinAlbumPage(
                 }
             }
 
-            // Full screen width: the navigation container pads pages left/right, the colour band
-            // and page background should still run edge to edge (like Spotify).
-            val screenW = LocalWindowInfo.current.containerSize.width
-            var leftPx by remember { mutableStateOf(0f) }
-            Box(modifier = modifier.fillMaxSize().onGloballyPositioned { leftPx = it.positionInWindow().x }) {
             LazyColumn(
                 state = listState,
                 contentPadding = PaddingValues(bottom = 48.dp),
-                modifier =
-                    Modifier
-                        .layout { m, c ->
-                            val w = if (screenW > 0) screenW else c.maxWidth
-                            val p = m.measure(Constraints.fixed(w, c.maxHeight))
-                            layout(c.maxWidth, c.maxHeight) { p.place(-leftPx.roundToInt(), 0) }
-                        }.background(PageBg),
+                modifier = modifier.fillMaxSize().background(PageBg),
             ) {
                 // ---- header ----
                 item("header") {
@@ -497,7 +491,7 @@ fun IvanaFinAlbumPage(
                                         imageUrl = api.imageApi.getItemImageUrl(itemId = a.id, imageType = ImageType.PRIMARY, maxWidth = 300),
                                         onClick = {
                                             position = RowColumn(ROW_MORE, i)
-                                            viewModel.navigationManager.navigateTo(a.destination())
+                                            onOpenAlbum?.invoke(a.id) ?: viewModel.navigationManager.navigateTo(a.destination())
                                         },
                                         modifier =
                                             if (position.row == ROW_MORE && position.column == i) Modifier.focusRequester(moreFocus) else Modifier,
@@ -507,7 +501,6 @@ fun IvanaFinAlbumPage(
                         }
                     }
                 }
-            }
             }
         }
     }

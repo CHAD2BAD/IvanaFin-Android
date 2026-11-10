@@ -17,7 +17,6 @@ import com.github.damontecres.wholphin.ui.data.rememberSortOptions
 import com.github.damontecres.wholphin.ui.detail.CollectionFolderMixed
 import com.github.damontecres.wholphin.ui.detail.CollectionFolderGeneric
 import com.github.damontecres.wholphin.ui.detail.CollectionFolderMovie
-import com.github.damontecres.wholphin.ui.detail.CollectionFolderMusic
 import com.github.damontecres.wholphin.ui.detail.CollectionFolderPhotoAlbum
 import com.github.damontecres.wholphin.ui.detail.CollectionFolderPlaylist
 import com.github.damontecres.wholphin.ui.detail.CollectionFolderTv
@@ -32,7 +31,7 @@ import com.github.damontecres.wholphin.ui.detail.discover.DiscoverPersonPage
 import com.github.damontecres.wholphin.ui.detail.discover.DiscoverSeriesDetails
 import com.github.damontecres.wholphin.ui.detail.episode.EpisodeDetails
 import com.github.damontecres.wholphin.ui.detail.movie.MovieDetails
-import com.github.damontecres.wholphin.ui.detail.music.IvanaFinAlbumPage
+import com.github.damontecres.wholphin.ui.detail.music.IvanaFinMusicLibrary
 import com.github.damontecres.wholphin.ui.detail.music.ArtistDetailsPage
 import com.github.damontecres.wholphin.ui.detail.music.NowPlayingPage
 import com.github.damontecres.wholphin.ui.detail.music.SongDetailsPage
@@ -257,11 +256,11 @@ fun DestinationContent(
 
                 BaseItemKind.MUSIC_ALBUM -> {
                     LaunchedEffect(Unit) { onClearBackdrop.invoke() }
-                    // IvanaFin: Spotify-style album page
-                    IvanaFinAlbumPage(
+                    // IvanaFin: albums open inside the Spotify-style music library
+                    IvanaFinMusicLibrary(
                         preferences = preferences,
-                        itemId = destination.itemId,
-                        initialSongId = destination.initialSongId,
+                        libraryId = null,
+                        initialAlbumId = destination.itemId,
                         modifier = modifier,
                     )
                 }
@@ -472,10 +471,12 @@ fun CollectionFolder(
         }
 
         CollectionType.MUSIC -> {
-            CollectionFolderMusic(
-                preferences,
-                destination,
-                modifier,
+            // IvanaFin: Spotify-style music library (album list + album + player bar)
+            IvanaFinMusicLibrary(
+                preferences = preferences,
+                libraryId = destination.itemId,
+                initialAlbumId = null,
+                modifier = modifier,
             )
         }
 
