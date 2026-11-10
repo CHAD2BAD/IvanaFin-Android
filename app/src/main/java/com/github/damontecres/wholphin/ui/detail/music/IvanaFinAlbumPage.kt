@@ -208,7 +208,7 @@ fun IvanaFinAlbumPage(
 
             Box(modifier = modifier.fillMaxSize().background(MuBg)) {
                 HeroArt(
-                    url = api.imageApi.getItemImageUrl(itemId = album.id, imageType = ImageType.PRIMARY, maxWidth = 1000),
+                    url = api.imageApi.getItemImageUrl(itemId = album.id, imageType = ImageType.PRIMARY, maxWidth = 2000),
                     liked = false,
                     scrollPx = { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 100000f },
                     modifier = Modifier.align(Alignment.TopEnd),

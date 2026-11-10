@@ -325,8 +325,8 @@ class IvanaFinMusicViewModel
                 val all = request(albumsRequest(listOf(ItemSortBy.SORT_NAME), SortOrder.ASCENDING)).toBaseItems(api, false)
                 val byId = all.associateBy { it.id }
                 val recent = mutableListOf<BaseItem>()
-                played.mapNotNull { it.albumId }.distinct().forEach { a -> if (recent.size < 7) byId[a]?.let { recent.add(it) } }
-                added.forEach { a -> if (recent.size < 7 && recent.none { it.id == a.id }) recent.add(a) }
+                played.mapNotNull { it.albumId }.distinct().forEach { a -> if (recent.size < 8) byId[a]?.let { recent.add(it) } }
+                added.forEach { a -> if (recent.size < 8 && recent.none { it.id == a.id }) recent.add(a) }
                 home.value = MusicHomeData(likedCount, recent, added, all, loadArtists())
             } catch (ex: Exception) {
                 Timber.w(ex, "Loading music home failed")
@@ -891,10 +891,11 @@ private fun MusicHomeView(
         shownKey = heroKey
     }
     val hero = remember(shownKey, data) { heroFor(viewModel, data, shownKey) }
+    val firstKey = data.recent.firstOrNull()?.let { "album:${it.id}" }
     fun keyMod(k: String): Modifier =
         when {
             k == restoreKey -> Modifier.focusRequester(focusRestore)
-            k == "liked" -> Modifier.focusRequester(focusFirst)
+            k == firstKey -> Modifier.focusRequester(focusFirst)
             else -> Modifier
         }
 
@@ -910,7 +911,7 @@ private fun MusicHomeView(
                 HeroText(title = hero.title, meta = hero.meta, avatarUrl = hero.avatar, likedAvatar = hero.liked)
             }
             item("shortcuts") {
-                val cards = listOf<BaseItem?>(null) + data.recent
+                val cards: List<BaseItem?> = data.recent
                 // on the shortcuts the whole hero stays in view
                 Column(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -1001,14 +1002,15 @@ private fun heroFor(
             return Hero(it.name ?: "", "Artist", vm.artistArt(it), avatar = vm.imageUrl(it.id, maxWidth = 48))
         }
     }
-    if (key.startsWith("album:")) {
-        (data.recent + data.added + data.all).firstOrNull { "album:${it.id}" == key }?.let { a ->
+    // an album (the first shortcut when nothing is selected yet)
+    run {
+        ((data.recent + data.added + data.all).firstOrNull { "album:${it.id}" == key } ?: data.recent.firstOrNull())?.let { a ->
             val artist = a.data.albumArtists?.firstOrNull()
             val bits = listOfNotNull(a.data.albumArtist ?: artist?.name, "Album", a.data.childCount?.takeIf { it > 0 }?.let { songsLabel(it) })
-            return Hero(a.name ?: "", bits.joinToString(" • "), vm.imageUrl(a.id, maxWidth = 1000), avatar = artist?.let { vm.imageUrl(it.id, maxWidth = 48) })
+            return Hero(a.name ?: "", bits.joinToString(" • "), vm.imageUrl(a.id, maxWidth = 2000), avatar = artist?.let { vm.imageUrl(it.id, maxWidth = 48) })
         }
     }
-    return Hero("Liked Songs", "Playlist • " + songsLabel(data.liked), null, liked = true)
+    return Hero("Music", "", null)
 }
 
 // ---- Your Library ----------------------------------------------------------------------------------
