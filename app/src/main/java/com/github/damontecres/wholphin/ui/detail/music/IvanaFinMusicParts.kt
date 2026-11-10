@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
@@ -472,6 +473,7 @@ internal object MuNoAutoScroll : BringIntoViewSpec {
     ): Float = 0f
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun MuScroll(
     start: Dp,
