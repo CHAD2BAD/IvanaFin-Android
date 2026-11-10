@@ -643,6 +643,8 @@ fun IvanaFinMusicLibrary(
                         layout(c.maxWidth, c.maxHeight) { p.place(-leftPx.roundToInt(), 0) }
                     }.background(MuBg),
         ) {
+            // pages scroll only when the selected item would leave the screen, and keep it clear of the top bar
+            MuScroll(start = 100.dp) {
             val onScrolled: (Boolean) -> Unit = { scrolled = it }
             when (current) {
                 MusicView.Home ->
@@ -723,6 +725,7 @@ fun IvanaFinMusicLibrary(
                     onSeek = { player.seekTo((player.currentPosition + it).coerceIn(0L, max(0L, player.duration - 500))) },
                     modifier = Modifier.zIndex(10f),
                 )
+            }
             }
         }
     }
@@ -869,6 +872,7 @@ private fun MusicHomeView(
     onOpen: (String) -> Unit,
     onScrolled: (Boolean) -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
     val home by viewModel.home.collectAsState()
     val data = home ?: return
     val focusFirst = remember { FocusRequester() }
@@ -907,7 +911,14 @@ private fun MusicHomeView(
             }
             item("shortcuts") {
                 val cards = listOf<BaseItem?>(null) + data.recent
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(start = 40.dp, end = 40.dp, top = 2.dp)) {
+                // on the shortcuts the whole hero stays in view
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier =
+                        Modifier
+                            .padding(start = 40.dp, end = 40.dp, top = 2.dp)
+                            .onFocusChanged { if (it.hasFocus) scope.launch { listState.animateScrollToItem(0) } },
+                ) {
                     cards.chunked(4).forEach { rowCards ->
                         Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                             rowCards.forEach { a ->
@@ -938,11 +949,7 @@ private fun MusicHomeView(
                 item(id) {
                     Column {
                         MuSectionTitle(title)
-                        LazyRow(
-                            state = rowState(id),
-                            horizontalArrangement = Arrangement.spacedBy(20.dp),
-                            contentPadding = PaddingValues(horizontal = 40.dp, vertical = 3.dp),
-                        ) {
+                        MuLazyRow(state = rowState(id)) {
                             itemsIndexed(albums, key = { _, a -> a.id }) { _, a ->
                                 val k = "album:${a.id}"
                                 CoverCard(
@@ -964,11 +971,7 @@ private fun MusicHomeView(
                 item("artists") {
                     Column {
                         MuSectionTitle("Artists")
-                        LazyRow(
-                            state = rowState("artists"),
-                            horizontalArrangement = Arrangement.spacedBy(20.dp),
-                            contentPadding = PaddingValues(horizontal = 40.dp, vertical = 3.dp),
-                        ) {
+                        MuLazyRow(state = rowState("artists")) {
                             itemsIndexed(data.artists, key = { _, a -> a.id }) { _, a ->
                                 val k = "artist:${a.id}"
                                 CoverCard(
@@ -1166,7 +1169,7 @@ private fun MusicSearchView(
             item("albums") {
                 Column {
                     MuSectionTitle("Albums")
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(horizontal = 40.dp, vertical = 3.dp)) {
+                    MuLazyRow() {
                         itemsIndexed(results.albums, key = { _, a -> a.id }) { _, a ->
                             CoverCard(name = a.name ?: "", imageUrl = viewModel.imageUrl(a.id), onClick = { onOpen("album:${a.id}") })
                         }
@@ -1178,7 +1181,7 @@ private fun MusicSearchView(
             item("artists") {
                 Column {
                     MuSectionTitle("Artists")
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp), contentPadding = PaddingValues(horizontal = 40.dp, vertical = 3.dp)) {
+                    MuLazyRow() {
                         itemsIndexed(results.artists, key = { _, a -> a.id }) { _, a ->
                             CoverCard(name = a.name ?: "", imageUrl = viewModel.imageUrl(a.id), round = true, onClick = { onOpen("artist:${a.id}") })
                         }

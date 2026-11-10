@@ -6,6 +6,15 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.gestures.BringIntoViewSpec
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -431,3 +440,61 @@ internal fun minSecTicks(ticks: Long): String {
 }
 
 internal fun songsLabel(n: Int) = "$n ${if (n == 1) "song" else "songs"}"
+
+/**
+ * Scroll only when the selected item is out of view, keeping it [start] clear of the top (under the
+ * top bar) or the left edge, and [end] clear of the bottom / right edge.
+ */
+internal class MuBringIntoView(
+    private val start: Float,
+    private val end: Float,
+) : BringIntoViewSpec {
+    override fun calculateScrollDistance(
+        offset: Float,
+        size: Float,
+        containerSize: Float,
+    ): Float {
+        val endEdge = containerSize - end
+        return when {
+            offset < start -> offset - start
+            offset + size > endEdge -> kotlin.math.min(offset + size - endEdge, offset - start)
+            else -> 0f
+        }
+    }
+}
+
+/** Never scrolls by itself (Now Playing scrolls on its own) */
+internal object MuNoAutoScroll : BringIntoViewSpec {
+    override fun calculateScrollDistance(
+        offset: Float,
+        size: Float,
+        containerSize: Float,
+    ): Float = 0f
+}
+
+@Composable
+internal fun MuScroll(
+    start: Dp,
+    end: Dp = 24.dp,
+    content: @Composable () -> Unit,
+) {
+    val d = LocalDensity.current
+    val spec = remember(start, end, d) { MuBringIntoView(with(d) { start.toPx() }, with(d) { end.toPx() }) }
+    CompositionLocalProvider(LocalBringIntoViewSpec provides spec, content = content)
+}
+
+/** A row of cards, 40dp in from the sides like the page */
+@Composable
+internal fun MuLazyRow(
+    state: LazyListState = rememberLazyListState(),
+    content: LazyListScope.() -> Unit,
+) {
+    MuScroll(start = 40.dp, end = 40.dp) {
+        LazyRow(
+            state = state,
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
+            contentPadding = PaddingValues(horizontal = 40.dp, vertical = 3.dp),
+            content = content,
+        )
+    }
+}

@@ -318,10 +318,7 @@ fun IvanaFinAlbumPage(
                         item("more") {
                             Column {
                                 MuSectionTitle("More by " + (album.data.albumArtist ?: artist?.name ?: ""))
-                                LazyRow(
-                                    horizontalArrangement = Arrangement.spacedBy(20.dp),
-                                    contentPadding = PaddingValues(horizontal = 40.dp, vertical = 3.dp),
-                                ) {
+                                MuLazyRow() {
                                     itemsIndexed(moreBy) { i, a ->
                                         CoverCard(
                                             name = a.name ?: "",
