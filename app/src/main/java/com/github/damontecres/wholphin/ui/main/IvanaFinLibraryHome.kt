@@ -21,8 +21,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.layout
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -128,24 +126,17 @@ fun IvanaFinLibraryHome(
                 Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    // 16dp wider on each side than the page: the tiles reach closer to the screen edges
-                    .layout { m, c ->
-                        val e = 16.dp.roundToPx()
-                        val w = c.maxWidth + 2 * e
-                        val p = m.measure(Constraints(w, w, c.minHeight, c.maxHeight))
-                        layout(c.maxWidth, p.height) { p.place(-e, 0) }
-                    }.padding(top = 8.dp, bottom = 32.dp, end = 16.dp),
+                    .padding(top = 8.dp, bottom = 32.dp, end = 16.dp), // bottom gap = side margins
         ) {
             val columns = 4
             val rows = ((tileCount + columns - 1) / columns).coerceAtLeast(1)
             val gap = 16.dp
             val tileWidth = (maxWidth - gap * (columns - 1)) / columns
-            // 5:3 tiles (no taller than the space allows), the grid centred on the screen
-            val tileHeight = minOf((maxHeight - gap * (rows - 1)) / rows, tileWidth * 3 / 5)
+            val tileHeight = (maxHeight - gap * (rows - 1)) / rows
             // libraries (BaseItem), then Discover / Games (DiscoverTile)
             val tiles: List<Any> = libraries + extraTiles
             Column(
-                verticalArrangement = Arrangement.spacedBy(gap, Alignment.CenterVertically),
+                verticalArrangement = Arrangement.spacedBy(gap),
                 modifier = Modifier.fillMaxSize(),
             ) {
                 tiles.chunked(columns).forEachIndexed { rowIndex, rowItems ->
