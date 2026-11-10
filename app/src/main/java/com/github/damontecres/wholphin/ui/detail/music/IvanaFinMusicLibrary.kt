@@ -793,40 +793,14 @@ private fun MusicTopBar(
             // Home / Search / Your Library
             Row(
                 horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
-                modifier = Modifier.weight(1f).padding(start = 40.dp),
+                modifier = Modifier.weight(1f),
             ) {
                 NavPill(Fa.HOME, "Home", rootView == MusicView.Home, { onNav(MusicView.Home) }, if (rootView == MusicView.Home) Modifier.focusRequester(navFocus) else Modifier)
                 NavPill(Fa.SEARCH, "Search", rootView == MusicView.Search, { onNav(MusicView.Search) }, if (rootView == MusicView.Search) Modifier.focusRequester(navFocus) else Modifier)
                 NavPill(Fa.MUSIC, "Your Library", rootView == MusicView.Library, { onNav(MusicView.Library) }, if (rootView == MusicView.Library) Modifier.focusRequester(navFocus) else Modifier)
             }
-            // Welcome <name>
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier =
-                    Modifier
-                        .offset(y = (-8).dp)
-                        .width(212.dp)
-                        .height(52.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color(0xFF1C1C1C))
-                        .padding(horizontal = 8.dp),
-            ) {
-                Box(Modifier.size(36.dp).clip(CircleShape).background(Color(0xFF535353)), contentAlignment = Alignment.Center) {
-                    Text(viewModel.userName.take(1).uppercase(), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    var showImg by remember { mutableStateOf(true) }
-                    if (showImg) {
-                        AsyncImage(
-                            model = viewModel.userImageUrl(),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            onError = { showImg = false },
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
-                }
-                Text("Welcome ${viewModel.userName}", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
+            // as wide as the now-playing pill, so Home / Search / Your Library stay centred
+            Spacer(Modifier.width(200.dp))
         }
     }
 }
