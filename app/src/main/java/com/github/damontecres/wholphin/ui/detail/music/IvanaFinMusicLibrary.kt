@@ -57,6 +57,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -1248,6 +1249,7 @@ private fun MuChip(
     modifier: Modifier = Modifier,
     glyph: String? = null,
 ) {
+    var focused by remember { mutableStateOf(false) }
     Surface(
         onClick = onClick,
         shape = ClickableSurfaceDefaults.shape(CircleShape),
@@ -1256,10 +1258,28 @@ private fun MuChip(
                 containerColor = if (on) Color.White else Color(0xFF2A2A2A),
                 focusedContainerColor = if (on) Color.White else Color(0xFF3A3A3A),
             ),
-        // the selected chip is white: its ring sits further out so a dark gap shows between them
-        border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, Color.White), inset = if (on) (-5).dp else (-3).dp)),
+        // the selected chip is white: a ring right on it vanished, so it gets one drawn further out
+        // (below) with a dark gap between them
+        border = ClickableSurfaceDefaults.border(focusedBorder = if (on) Border.None else Border(BorderStroke(2.dp, Color.White), inset = (-3).dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-        modifier = modifier.height(26.dp),
+        modifier =
+            modifier
+                .height(26.dp)
+                .onFocusChanged { focused = it.hasFocus || it.isFocused }
+                .drawWithContent {
+                    drawContent()
+                    if (on && focused) {
+                        val g = 4.dp.toPx()
+                        val w = 2.dp.toPx()
+                        drawRoundRect(
+                            color = Color.White,
+                            topLeft = androidx.compose.ui.geometry.Offset(-g - w / 2, -g - w / 2),
+                            size = androidx.compose.ui.geometry.Size(size.width + 2 * g + w, size.height + 2 * g + w),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2 + g),
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(w),
+                        )
+                    }
+                },
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxHeight().padding(horizontal = 12.dp)) {
             val c = if (on) Color.Black else Color.White
