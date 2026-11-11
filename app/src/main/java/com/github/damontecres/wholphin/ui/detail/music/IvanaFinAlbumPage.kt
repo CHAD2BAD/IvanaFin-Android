@@ -90,6 +90,8 @@ fun IvanaFinAlbumPage(
     initialSongId: UUID? = null,
     // IvanaFin music layout: other albums ("More by") open inside Music too
     onOpenAlbum: ((UUID) -> Unit)? = null,
+    // the artist name in the header opens the artist's page (inside Music)
+    onOpenArtist: ((UUID) -> Unit)? = null,
     requestInitialFocus: Boolean = true,
     onScrolled: ((Float) -> Unit)? = null,
     viewModel: AlbumViewModel =
@@ -226,9 +228,11 @@ fun IvanaFinAlbumPage(
                     // ---- header ----
                     item("header") {
                         val count = songs.size
+                        val who = album.data.albumArtist ?: artist?.name
+                        val link = artist != null && who != null && onOpenArtist != null
                         val bits =
                             listOfNotNull(
-                                album.data.albumArtist ?: artist?.name,
+                                who.takeIf { !link },
                                 album.data.productionYear?.toString(),
                                 songsLabel(count) + if (totalTicks > 0) ", ${longDuration(totalTicks)}" else "",
                             )
@@ -237,6 +241,8 @@ fun IvanaFinAlbumPage(
                             title = album.name ?: "",
                             meta = bits.joinToString(" • "),
                             avatarUrl = artist?.let { api.imageApi.getItemImageUrl(itemId = it.id, imageType = ImageType.PRIMARY, maxWidth = 48) },
+                            artistName = who.takeIf { link },
+                            onArtist = if (link) ({ onOpenArtist?.invoke(artist!!.id) }) else null,
                         )
                     }
                     // ---- Play / Shuffle / Favourite / More ----

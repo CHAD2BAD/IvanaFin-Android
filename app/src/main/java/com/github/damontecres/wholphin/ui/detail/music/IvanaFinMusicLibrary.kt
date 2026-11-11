@@ -78,6 +78,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -375,8 +378,9 @@ class IvanaFinMusicViewModel
             loadLibrary()
         }
 
-        fun cycleSort() {
-            sort.value = (sort.value + 1) % MusicSorts.size
+        fun setSort(i: Int) {
+            if (i !in MusicSorts.indices || i == sort.value) return
+            sort.value = i
             prefs.edit().putInt("music_sort", sort.value).apply()
             loadLibrary()
         }
@@ -763,6 +767,7 @@ fun IvanaFinMusicLibrary(
                             itemId = current.id,
                             preferences = preferences,
                             onOpenAlbum = { go(MusicView.Album(it)) },
+                            onOpenArtist = { go(MusicView.Artist(it)) },
                             onScrolled = onScrolled,
                             modifier = Modifier.fillMaxSize(),
                         )
@@ -808,6 +813,13 @@ fun IvanaFinMusicLibrary(
                             }
                     },
                     onSeek = { player.seekTo((player.currentPosition + it).coerceIn(0L, max(0L, player.duration - 500))) },
+                    // About the artist / the artist's name: close Now Playing, open the artist's page
+                    // (Back from there returns to the page underneath, like on the web)
+                    onArtist = {
+                        npOpen = false
+                        npAuto = false
+                        go(MusicView.Artist(it))
+                    },
                     modifier = Modifier.zIndex(10f),
                 )
             }
@@ -1123,7 +1135,7 @@ private fun MusicLibraryView(
                 MuChip("Albums", on = !artists, onClick = { viewModel.setLibraryArtists(false) }, modifier = Modifier.focusRequester(first))
                 MuChip("Artists", on = artists, onClick = { viewModel.setLibraryArtists(true) })
                 Spacer(Modifier.weight(1f))
-                if (!artists) MuChip(MusicSorts[sortIdx].label, glyph = Fa.SORT, on = false, onClick = { viewModel.cycleSort() })
+                if (!artists) SortChip(sortIdx, onPick = { viewModel.setSort(it) })
             }
         }
         itemsIndexed(items, key = { _, a -> a.id }) { _, a ->
@@ -1145,6 +1157,84 @@ private fun MusicLibraryView(
                     width = null,
                     onClick = { onOpen("album:${a.id}") },
                 )
+            }
+        }
+    }
+}
+
+/** The sort chip: opens a "Sort by" list under it (current order ticked, Back closes it). */
+@Composable
+private fun SortChip(
+    sortIdx: Int,
+    onPick: (Int) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    val chipFocus = remember { FocusRequester() }
+    val scope = rememberCoroutineScope()
+    fun close() {
+        open = false
+        scope.launch {
+            delay(50)
+            chipFocus.tryRequestFocus()
+        }
+    }
+    Box {
+        MuChip(MusicSorts[sortIdx].label, glyph = Fa.SORT, on = false, onClick = { open = true }, modifier = Modifier.focusRequester(chipFocus))
+        if (open) {
+            val dy = with(LocalDensity.current) { 34.dp.roundToPx() }
+            Popup(
+                alignment = Alignment.TopEnd,
+                offset = IntOffset(0, dy),
+                onDismissRequest = { close() },
+                properties = PopupProperties(focusable = true),
+            ) {
+                val curFocus = remember { FocusRequester() }
+                LaunchedEffect(Unit) {
+                    delay(30)
+                    curFocus.tryRequestFocus()
+                }
+                Column(
+                    Modifier
+                        .width(180.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF282828))
+                        .padding(6.dp),
+                ) {
+                    Text(
+                        "SORT BY",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = .45.sp,
+                        color = Color.White.copy(alpha = .6f),
+                        modifier = Modifier.padding(start = 10.dp, end = 10.dp, top = 6.dp, bottom = 4.dp),
+                    )
+                    MusicSorts.forEachIndexed { i, s ->
+                        val on = i == sortIdx
+                        Surface(
+                            onClick = {
+                                onPick(i)
+                                close()
+                            },
+                            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(4.dp)),
+                            colors =
+                                ClickableSurfaceDefaults.colors(
+                                    containerColor = Color.Transparent,
+                                    focusedContainerColor = Color.White.copy(alpha = .12f),
+                                ),
+                            scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+                            modifier = Modifier.fillMaxWidth().then(if (on) Modifier.focusRequester(curFocus) else Modifier),
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
+                            ) {
+                                val c = if (on) MuGreen else Color.White
+                                Text(s.label, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = c, modifier = Modifier.weight(1f))
+                                if (on) Text(Fa.CHECK, fontFamily = FontAwesome, fontSize = 11.sp, color = c)
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -1520,6 +1610,7 @@ private fun NowPlayingView(
     onNext: () -> Unit,
     onRepeat: () -> Unit,
     onSeek: (Long) -> Unit,
+    onArtist: (UUID) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -1569,7 +1660,17 @@ private fun NowPlayingView(
                 )
                 Column {
                     Text(item.title ?: "", fontSize = 29.sp, lineHeight = 33.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text(item.artistNames ?: "", fontSize = 12.sp, color = Color.White.copy(alpha = .85f), modifier = Modifier.padding(top = 6.dp))
+                    // the artist's name opens the artist's page (like the About the artist card)
+                    Surface(
+                        onClick = { artist?.id?.let(onArtist) },
+                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(4.dp)),
+                        colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
+                        border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, Color.White))),
+                        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+                        modifier = Modifier.padding(top = 4.dp).offset(x = (-4).dp),
+                    ) {
+                        Text(item.artistNames ?: "", fontSize = 12.sp, color = Color.White.copy(alpha = .85f), modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
+                    }
                 }
             }
             // progress: Left/Right on it skip 10 seconds
@@ -1633,7 +1734,7 @@ private fun NowPlayingView(
             Text("About the artist", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(top = 34.dp, bottom = 10.dp))
             val a = artist
             Surface(
-                onClick = {},
+                onClick = { a?.id?.let(onArtist) },
                 shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
                 colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF333333), focusedContainerColor = Color(0xFF333333)),
                 border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White))),

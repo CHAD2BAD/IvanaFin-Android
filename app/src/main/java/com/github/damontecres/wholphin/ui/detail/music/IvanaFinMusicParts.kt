@@ -112,6 +112,7 @@ internal object Fa {
     const val DISC = ""
     const val MORE = ""
     const val SORT = ""
+    const val CHECK = ""
 }
 
 /** The selected item's picture, top-right, fading into the page on the left and at the bottom. */
@@ -174,6 +175,9 @@ internal fun HeroText(
     avatarUrl: String? = null,
     likedAvatar: Boolean = false,
     minHeight: Dp = 141.dp,
+    // album pages: the artist (avatar + name) is a button to the artist's page; meta is the rest
+    artistName: String? = null,
+    onArtist: (() -> Unit)? = null,
 ) {
     Column(
         verticalArrangement = Arrangement.Top,
@@ -189,6 +193,36 @@ internal fun HeroText(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
+        if (artistName != null && onArtist != null) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
+                Surface(
+                    onClick = onArtist,
+                    shape = ClickableSurfaceDefaults.shape(CircleShape),
+                    colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
+                    border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, Color.White))),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 2.dp, end = 5.dp, top = 2.dp, bottom = 2.dp)) {
+                        if (avatarUrl != null) {
+                            var show by remember(avatarUrl) { mutableStateOf(true) }
+                            if (show) {
+                                AsyncImage(
+                                    model = avatarUrl,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    onError = { show = false },
+                                    modifier = Modifier.size(16.dp).clip(CircleShape).background(Color(0xFF535353)),
+                                )
+                                Spacer(Modifier.width(5.dp))
+                            }
+                        }
+                        Text(artistName, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+                    }
+                }
+                if (meta.isNotEmpty()) Text(" • $meta", fontSize = 11.sp, color = Color.White.copy(alpha = .75f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            return@Column
+        }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
             if (likedAvatar) {
                 Box(Modifier.size(16.dp).clip(CircleShape).background(LikedBrush))
