@@ -4,6 +4,8 @@ package com.github.damontecres.wholphin.ui.detail.series
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import com.github.damontecres.wholphin.ui.tryRequestFocus
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -104,6 +106,8 @@ fun SeriesOverview(
 
     // IvanaFin: a show opens with "Play next episode" focused
     var rowFocused by rememberInt(PLAY_NEXT_ROW)
+    // IvanaFin: the episode last played from this page (-1 = none) - Back from the player selects it
+    var playedIndex by rememberInt(-1)
     val playNextFocusRequester = remember { FocusRequester() }
 
     val contextActions =
@@ -188,6 +192,41 @@ fun SeriesOverview(
                 },
                 "series_overview",
             )
+            // IvanaFin: the request above runs while the episodes are still loading (nothing to focus
+            // yet - the page opened with nothing selected, and Back from an episode fell on episode 1).
+            // Ask again once they are there: Play Next Episode, or the episode you were on.
+            val episodesReady = state.episodes is EpisodeList.Success
+            val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+            LaunchedEffect(episodesReady) {
+                if (!episodesReady) return@LaunchedEffect
+                // back from playing an episode: that episode, even if the list was reset while reloading
+                val target = playedIndex
+                if (target >= 0) rowFocused = EPISODE_ROW
+                // The header is rebuilt just after the first request (the button that got the focus is
+                // replaced, so the page kept the focus with nothing drawn as selected). Ask again a few
+                // times in the first 1.5 s; it follows rowFocused, so if you've moved on to an episode
+                // it just re-selects that one.
+                for (wait in listOf(60L, 250L, 500L, 900L, 1500L)) {
+                    delay(wait)
+                    // (the button could hold the focus without being drawn as selected: clear it first
+                    // so it gets a fresh focus event)
+                    if (wait == 250L) focusManager.clearFocus(force = true)
+                    // (the reload can select episode 1 and overwrite the position: put it back - only in
+                    // the first half second, so it never fights you moving to another episode)
+                    if (target >= 0 && wait <= 500L && viewModel.position.value.episodeRowIndex != target) {
+                        viewModel.position.update { it.copy(episodeRowIndex = target) }
+                        delay(40) // (the episode's focus requester moves with the position)
+                    }
+                    when (rowFocused) {
+                        PLAY_NEXT_ROW -> playNextFocusRequester
+                        CAST_AND_CREW_ROW -> castCrewRowFocusRequester
+                        GUEST_STAR_ROW -> guestStarRowFocusRequester
+                        EXTRAS_ROW -> extrasRowFocusRequester
+                        else -> episodeRowFocusRequester
+                    }.tryRequestFocus()
+                }
+                playedIndex = -1
+            }
             LifecycleResumeEffect(destination.itemId) {
                 viewModel.onResumePage()
 
@@ -221,6 +260,7 @@ fun SeriesOverview(
                 },
                 onPlayEpisode = { ep ->
                     rowFocused = EPISODE_ROW
+                    playedIndex = episodeList?.indexOfFirst { it?.id == ep.id } ?: -1
                     viewModel.navigateTo(Destination.Playback(ep.id, ep.resumeMs))
                 },
                 onEpisodeMenu = { ep ->

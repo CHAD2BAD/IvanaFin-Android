@@ -9,6 +9,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -27,6 +28,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -60,6 +62,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -676,6 +679,10 @@ fun IvanaFinMusicLibrary(
 
     val miniFocus = remember { FocusRequester() }
     val navFocus = remember { FocusRequester() }
+    val pageFocus = remember { FocusRequester() }
+    // Your Library keeps its place (scroll + the card you opened) while you're in an album/artist
+    val libGrid = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+    var libFocus by remember { mutableStateOf<UUID?>(null) }
     fun go(
         v: MusicView,
         root: Boolean = false,
@@ -731,6 +738,8 @@ fun IvanaFinMusicLibrary(
             CompositionLocalProvider(LocalMuToTop provides toTop) {
             val onScrolled: (Float) -> Unit = { scrolled = it }
             CompositionLocalProvider(LocalMuLastClicked provides lastClicked) {
+            // the page as one focus group: Down from the top bar goes into it (see MusicTopBar onDown)
+            Box(Modifier.fillMaxSize().focusRequester(pageFocus).focusRestorer().focusGroup()) {
             when (current) {
                 MusicView.Home ->
                     MusicHomeView(
@@ -749,10 +758,18 @@ fun IvanaFinMusicLibrary(
                     )
 
                 MusicView.Library ->
-                    MusicLibraryView(viewModel, nowItem?.albumId, onOpen = ::open, onScrolled = onScrolled)
+                    MusicLibraryView(
+                        viewModel,
+                        nowItem?.albumId,
+                        onOpen = ::open,
+                        onScrolled = onScrolled,
+                        gridState = libGrid,
+                        lastOpened = libFocus,
+                        onOpened = { libFocus = it },
+                    )
 
                 MusicView.Search ->
-                    MusicSearchView(viewModel, nowItem?.id, playing, onOpen = ::open, onScrolled = onScrolled)
+                    MusicSearchView(viewModel, nowItem?.id, playing, onOpen = ::open, onScrolled = onScrolled, onUp = { navFocus.tryRequestFocus() })
 
                 MusicView.Liked ->
                     MusicLikedView(viewModel, nowItem?.id, playing, onScrolled = onScrolled)
@@ -775,6 +792,7 @@ fun IvanaFinMusicLibrary(
                     }
             }
             }
+            }
             MusicTopBar(
                 viewModel = viewModel,
                 current = current,
@@ -791,6 +809,9 @@ fun IvanaFinMusicLibrary(
                 },
                 onPlayPause = { if (player.isPlaying) player.pause() else player.play() },
                 onNav = { go(it, root = true) },
+                // Down from the bar into the page (the page is a focus group: it returns to what was
+                // selected there, else its first item) - plain focus search found nothing below the bar
+                onDown = { pageFocus.tryRequestFocus() },
             )
             if (npOpen && nowItem != null) {
                 NowPlayingView(
@@ -846,6 +867,7 @@ private fun MusicTopBar(
     onMini: () -> Unit,
     onPlayPause: () -> Unit,
     onNav: (MusicView) -> Unit,
+    onDown: () -> Boolean,
 ) {
     val context = LocalContext.current
     Box(
@@ -854,7 +876,8 @@ private fun MusicTopBar(
             .height(104.dp)
             // the tabs stay at their place on the page and scroll away with it; selecting one scrolls back up
             .offset { IntOffset(0, -min(scrolled, 4000f).roundToInt()) }
-            .onFocusChanged { if (it.hasFocus) onTopFocus() },
+            .onFocusChanged { if (it.hasFocus) onTopFocus() }
+            .onPreviewKeyEvent { if (it.type == KeyEventType.KeyDown && it.key == Key.DirectionDown) onDown() else false },
     ) {
         Row(
             verticalAlignment = Alignment.Top,
@@ -1101,16 +1124,21 @@ private fun MusicLibraryView(
     nowAlbumId: UUID?,
     onOpen: (String) -> Unit,
     onScrolled: (Float) -> Unit,
+    // kept by the caller so Back from an album/artist returns to that card, scrolled as it was
+    gridState: LazyGridState,
+    lastOpened: UUID?,
+    onOpened: (UUID) -> Unit,
 ) {
     val items by viewModel.library.collectAsState()
     val artists by viewModel.libraryArtists.collectAsState()
     val sortIdx by viewModel.sort.collectAsState()
-    val gridState = rememberLazyGridState()
     val first = remember { FocusRequester() }
+    val back = remember { FocusRequester() }
     LaunchedEffect(Unit) {
         viewModel.loadLibrary()
         delay(80)
-        first.tryRequestFocus()
+        // the card you opened, else the selected chip (Albums or Artists)
+        if (lastOpened == null || !back.tryRequestFocus()) first.tryRequestFocus()
     }
     LaunchedEffect(gridState) {
         snapshotFlow { if (gridState.firstVisibleItemIndex == 0) gridState.firstVisibleItemScrollOffset.toFloat() else 100000f }.collect { onScrolled(it) }
@@ -1133,13 +1161,14 @@ private fun MusicLibraryView(
                 modifier = Modifier.padding(top = 110.dp, bottom = 0.dp),
             ) {
                 Text("Your Library", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(end = 12.dp))
-                MuChip("Albums", on = !artists, onClick = { viewModel.setLibraryArtists(false) }, modifier = Modifier.focusRequester(first))
-                MuChip("Artists", on = artists, onClick = { viewModel.setLibraryArtists(true) })
+                MuChip("Albums", on = !artists, onClick = { viewModel.setLibraryArtists(false) }, modifier = if (!artists) Modifier.focusRequester(first) else Modifier)
+                MuChip("Artists", on = artists, onClick = { viewModel.setLibraryArtists(true) }, modifier = if (artists) Modifier.focusRequester(first) else Modifier)
                 Spacer(Modifier.weight(1f))
                 if (!artists) SortChip(sortIdx, onPick = { viewModel.setSort(it) })
             }
         }
         itemsIndexed(items, key = { _, a -> a.id }) { _, a ->
+            val mod = if (a.id == lastOpened) Modifier.focusRequester(back) else Modifier
             if (artists) {
                 CoverCard(
                     name = a.name ?: "",
@@ -1147,7 +1176,11 @@ private fun MusicLibraryView(
                     round = true,
                     sub = "Artist",
                     width = null,
-                    onClick = { onOpen("artist:${a.id}") },
+                    onClick = {
+                        onOpened(a.id)
+                        onOpen("artist:${a.id}")
+                    },
+                    modifier = mod,
                 )
             } else {
                 CoverCard(
@@ -1156,7 +1189,11 @@ private fun MusicLibraryView(
                     sub = listOfNotNull(a.data.productionYear?.toString(), a.data.albumArtist ?: "Album").joinToString(" • "),
                     playing = a.id == nowAlbumId,
                     width = null,
-                    onClick = { onOpen("album:${a.id}") },
+                    onClick = {
+                        onOpened(a.id)
+                        onOpen("album:${a.id}")
+                    },
+                    modifier = mod,
                 )
             }
         }
@@ -1301,10 +1338,13 @@ private fun MusicSearchView(
     playing: Boolean,
     onOpen: (String) -> Unit,
     onScrolled: (Float) -> Unit,
+    onUp: () -> Boolean,
 ) {
     val results by viewModel.search.collectAsState()
     var text by remember { mutableStateOf("") }
     val boxFocus = remember { FocusRequester() }
+    // Down from the search box goes to the first result (the text field kept Down to itself)
+    val firstResult = remember { FocusRequester() }
     val listState = rememberLazyListState()
     LaunchedEffect(Unit) {
         delay(80)
@@ -1327,13 +1367,29 @@ private fun MusicSearchView(
                 keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { viewModel.search(text) }),
                 leadingIcon = { Text(Fa.SEARCH, fontFamily = FontAwesome, fontSize = 16.sp, color = MuDim) },
-                modifier = Modifier.padding(start = 40.dp, top = 110.dp, bottom = 6.dp).width(480.dp).focusRequester(boxFocus),
+                modifier =
+                    Modifier
+                        .padding(start = 40.dp, top = 110.dp, bottom = 6.dp)
+                        .width(480.dp)
+                        .focusRequester(boxFocus)
+                        .onPreviewKeyEvent {
+                            if (it.type != KeyEventType.KeyDown) {
+                                false
+                            } else if (it.key == Key.DirectionDown) {
+                                firstResult.tryRequestFocus()
+                            } else if (it.key == Key.DirectionUp) {
+                                onUp() // Up from the box goes to the top bar (the text field kept it too)
+                            } else {
+                                false
+                            }
+                        },
             )
         }
         if (results.songs.isNotEmpty()) {
             item("songsTitle") { MuSectionTitle("Songs") }
             itemsIndexed(results.songs, key = { _, s -> "s" + s.id }) { i, s ->
                 MuTrackRow(
+                    modifier = if (i == 0) Modifier.focusRequester(firstResult) else Modifier,
                     number = (i + 1).toString(),
                     title = s.name ?: "",
                     sub = listOfNotNull(s.data.artists?.joinToString(", ")?.takeIf { it.isNotBlank() } ?: s.data.albumArtist, s.data.album).joinToString(" • "),
@@ -1356,8 +1412,13 @@ private fun MusicSearchView(
                 Column {
                     MuSectionTitle("Albums")
                     MuLazyRow() {
-                        itemsIndexed(results.albums, key = { _, a -> a.id }) { _, a ->
-                            CoverCard(name = a.name ?: "", imageUrl = viewModel.imageUrl(a.id), onClick = { onOpen("album:${a.id}") })
+                        itemsIndexed(results.albums, key = { _, a -> a.id }) { i, a ->
+                            CoverCard(
+                                name = a.name ?: "",
+                                imageUrl = viewModel.imageUrl(a.id),
+                                onClick = { onOpen("album:${a.id}") },
+                                modifier = if (i == 0 && results.songs.isEmpty()) Modifier.focusRequester(firstResult) else Modifier,
+                            )
                         }
                     }
                 }
