@@ -93,7 +93,7 @@ private fun launchGames(context: android.content.Context) {
 
 /**
  * IvanaFin home: just the top buttons and the libraries as big tiles filling the screen,
- * four per row in the server's library order (Movies, Shows, Star Wars, Movies (Special) /
+ * three per row (3 x 3) in the server's library order (Movies, Shows, Star Wars, Movies (Special) /
  * Archive, Music) followed by a Discover tile and a Games tile.
  */
 @Composable
@@ -172,7 +172,7 @@ fun IvanaFinLibraryHome(
                     .fillMaxWidth()
                     .padding(top = 8.dp, bottom = 32.dp, end = 16.dp), // bottom gap = side margins
         ) {
-            val columns = 4
+            val columns = 3 // IvanaFin: 3 x 3 (7 libraries incl. Ivana + Discover + Games)
             val rows = ((tileCount + columns - 1) / columns).coerceAtLeast(1)
             val gap = 16.dp
             val tileWidth = (maxWidth - gap * (columns - 1)) / columns
@@ -450,6 +450,9 @@ fun tileBackdropUrl(
     if (item.type == org.jellyfin.sdk.model.api.BaseItemKind.MUSIC_ALBUM) {
         // Music tile: the album's (square) cover
         imageUrlService.getItemImageUrl(item, ImageType.PRIMARY, fillWidth = 900, fillHeight = 900)
+    } else if (item.type == org.jellyfin.sdk.model.api.BaseItemKind.PHOTO) {
+        // Picture library tile: the photo itself
+        imageUrlService.getItemImageUrl(item, ImageType.PRIMARY, fillWidth = 1280, fillHeight = 720)
     } else {
         imageUrlService.getItemImageUrl(
             item,

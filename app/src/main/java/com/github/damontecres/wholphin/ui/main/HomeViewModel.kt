@@ -169,8 +169,32 @@ class HomeViewModel
         suspend fun randomLibraryBackdrop(library: BaseItem): BaseItem? =
             if (library.data.collectionType == org.jellyfin.sdk.model.api.CollectionType.MUSIC) {
                 randomAlbumCover(library.id)
+            } else if (library.data.collectionType == org.jellyfin.sdk.model.api.CollectionType.HOMEVIDEOS) {
+                randomPhoto(library.id) ?: randomLibraryBackdrop(library.id)
             } else {
                 randomLibraryBackdrop(library.id)
+            }
+
+        /** IvanaFin: picture libraries (Ivana) - a random photo (tileBackdropUrl shows the photo itself). */
+        private suspend fun randomPhoto(libraryId: java.util.UUID): BaseItem? =
+            try {
+                api.itemsApi
+                    .getItems(
+                        org.jellyfin.sdk.model.api.request.GetItemsRequest(
+                            userId = serverRepository.currentUser?.id,
+                            parentId = libraryId,
+                            recursive = true,
+                            includeItemTypes = listOf(BaseItemKind.PHOTO),
+                            imageTypes = listOf(org.jellyfin.sdk.model.api.ImageType.PRIMARY),
+                            sortBy = listOf(org.jellyfin.sdk.model.api.ItemSortBy.RANDOM),
+                            limit = 1,
+                        ),
+                    ).content.items
+                    .firstOrNull()
+                    ?.let { BaseItem(it, false) }
+            } catch (ex: Exception) {
+                Timber.w(ex, "Could not get a random photo for %s", libraryId)
+                null
             }
 
         /** IvanaFin: Music tile - a random album with a cover (tileBackdropUrl shows its cover). */
