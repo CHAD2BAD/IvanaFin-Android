@@ -60,8 +60,35 @@ class DiscoverTile(
     val onClick: () -> Unit,
 )
 
-/** IvanaFin: the "Games" home tile - a placeholder for now (name on black, does nothing). */
-private val GamesTile = DiscoverTile(name = "Games", backdropUrl = null, onClick = {})
+/**
+ * IvanaFin: the "Games" home tile opens Moonlight straight into the "IvanaFin Games" app
+ * (ES-DE) on the Sunshine host PC, through Moonlight's own shortcut entry point.
+ * The app id is Sunshine's CRC32 of the app name - renaming the app (or giving it an
+ * image) in Sunshine changes it.
+ */
+private const val MOONLIGHT_PACKAGE = "com.limelight"
+private const val GAMES_HOST_UUID = "F5D46348-9F3D-5C20-7110-4C2F65FCC0A5"
+private const val GAMES_HOST_NAME = "DesktopVerde"
+private const val GAMES_APP_ID = "302243709"
+private const val GAMES_APP_NAME = "IvanaFin Games"
+
+private fun launchGames(context: android.content.Context) {
+    val intent =
+        android.content.Intent(android.content.Intent.ACTION_VIEW)
+            .setClassName(MOONLIGHT_PACKAGE, "$MOONLIGHT_PACKAGE.ShortcutTrampoline")
+            .putExtra("UUID", GAMES_HOST_UUID)
+            .putExtra("Name", GAMES_HOST_NAME)
+            .putExtra("AppId", GAMES_APP_ID)
+            .putExtra("AppName", GAMES_APP_NAME)
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+    try {
+        context.startActivity(intent)
+    } catch (e: android.content.ActivityNotFoundException) {
+        android.widget.Toast
+            .makeText(context, "Games needs the Moonlight app", android.widget.Toast.LENGTH_LONG)
+            .show()
+    }
+}
 
 /**
  * IvanaFin home: just the top buttons and the libraries as big tiles filling the screen,
@@ -88,7 +115,12 @@ fun IvanaFinLibraryHome(
     discover: DiscoverTile? = null,
 ) {
     // Tiles after the libraries: Discover (when Seerr is connected), then Games
-    val extraTiles = listOfNotNull(discover, GamesTile)
+    val context = LocalContext.current
+    val gamesTile =
+        remember(context) {
+            DiscoverTile(name = "Games", backdropUrl = null, onClick = { launchGames(context) })
+        }
+    val extraTiles = listOfNotNull(discover, gamesTile)
     val tileCount = libraries.size + extraTiles.size
     val currentOnShown by rememberUpdatedState(onShown)
     // Bumped every time Home comes (back) on screen, to re-run the focus choice below
