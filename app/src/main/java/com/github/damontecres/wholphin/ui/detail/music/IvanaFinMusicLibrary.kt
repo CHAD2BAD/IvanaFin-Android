@@ -3,8 +3,6 @@ package com.github.damontecres.wholphin.ui.detail.music
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.focusGroup
-import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
@@ -638,7 +636,7 @@ fun IvanaFinMusicLibrary(
     // Starting a song (a new queue, or a jump to a song in a list) opens Now Playing; Back returns
     // to the page it was started from. A song ending and the next one starting does not.
     var npAuto by remember { mutableStateOf(false) }
-    var npRestoring by remember { mutableStateOf(false) }
+    val lastClicked = remember { mutableStateOf<FocusRequester?>(null) }
     DisposableEffect(player) {
         val listener =
             object : Player.Listener {
@@ -666,7 +664,6 @@ fun IvanaFinMusicLibrary(
 
     val miniFocus = remember { FocusRequester() }
     val navFocus = remember { FocusRequester() }
-    val pageFocus = remember { FocusRequester() }
     fun go(
         v: MusicView,
         root: Boolean = false,
@@ -691,14 +688,11 @@ fun IvanaFinMusicLibrary(
         if (npOpen) {
             npOpen = false
             // opened from the top-left pill: back to the pill; opened by starting a song: back to
-            // the page, on the song that was picked (focusRestorer remembers it)
+            // the song row (or Play/Shuffle button) that started it
             val auto = npAuto
-            npRestoring = auto
             scope.launch {
                 delay(50)
-                if (!auto || !pageFocus.tryRequestFocus()) miniFocus.tryRequestFocus()
-                delay(150)
-                npRestoring = false
+                if (!auto || lastClicked.value?.tryRequestFocus() != true) miniFocus.tryRequestFocus()
             }
             npAuto = false
         } else {
@@ -724,13 +718,7 @@ fun IvanaFinMusicLibrary(
             MuScroll(start = 100.dp) {
             CompositionLocalProvider(LocalMuToTop provides toTop) {
             val onScrolled: (Float) -> Unit = { scrolled = it }
-            // While Now Playing is open (and while Back hands the focus back) the page is one focus
-            // group that remembers its selected item; the rest of the time normal remote movement
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .then(if (npOpen || npRestoring) Modifier.focusRequester(pageFocus).focusRestorer().focusGroup() else Modifier),
-            ) {
+            CompositionLocalProvider(LocalMuLastClicked provides lastClicked) {
             when (current) {
                 MusicView.Home ->
                     MusicHomeView(

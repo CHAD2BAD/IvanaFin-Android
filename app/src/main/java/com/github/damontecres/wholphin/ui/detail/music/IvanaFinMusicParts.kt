@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -78,6 +79,19 @@ internal val MuCard = Color(0xFF282828)
 internal val MuDim = Color.White.copy(alpha = .7f)
 /** Goes up by one each time a tab in the Music top bar gets the focus: pages then scroll back to the top. */
 internal val LocalMuToTop = compositionLocalOf { 0 }
+
+/**
+ * The song row / pill button that was selected last: starting a song opens Now Playing, and Back
+ * from it puts the selection back on that row (IvanaFinMusicLibrary provides the holder).
+ */
+internal val LocalMuLastClicked = compositionLocalOf<androidx.compose.runtime.MutableState<androidx.compose.ui.focus.FocusRequester?>?> { null }
+
+@Composable
+internal fun rememberClickMark(): Pair<androidx.compose.ui.focus.FocusRequester, () -> Unit> {
+    val fr = remember { androidx.compose.ui.focus.FocusRequester() }
+    val holder = LocalMuLastClicked.current
+    return fr to { holder?.value = fr }
+}
 
 internal val LikedBrush = Brush.linearGradient(listOf(Color(0xFF450AF5), Color(0xFF8E8EE5), Color(0xFFC4EFD9)))
 
@@ -207,8 +221,12 @@ internal fun MuPill(
     primary: Boolean = false,
     tint: Color? = null,
 ) {
+    val (markFocus, mark) = rememberClickMark()
     Surface(
-        onClick = onClick,
+        onClick = {
+            mark()
+            onClick()
+        },
         shape = ClickableSurfaceDefaults.shape(CircleShape),
         colors =
             ClickableSurfaceDefaults.colors(
@@ -222,7 +240,7 @@ internal fun MuPill(
                 focusedBorder = Border(BorderStroke(2.dp, Color.White), inset = if (primary) (-4).dp else 0.dp),
             ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
-        modifier = modifier.height(36.dp).then(if (text == null) Modifier.width(36.dp) else Modifier),
+        modifier = modifier.focusRequester(markFocus).height(36.dp).then(if (text == null) Modifier.width(36.dp) else Modifier),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -388,8 +406,12 @@ internal fun MuTrackRow(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
+    val (markFocus, mark) = rememberClickMark()
     Surface(
-        onClick = onClick,
+        onClick = {
+            mark()
+            onClick()
+        },
         onLongClick = onLongClick,
         interactionSource = interaction,
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(4.dp)),
@@ -402,7 +424,7 @@ internal fun MuTrackRow(
                 focusedContentColor = Color.White,
             ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-        modifier = modifier.fillMaxWidth().padding(horizontal = 34.dp).height(44.dp),
+        modifier = modifier.focusRequester(markFocus).fillMaxWidth().padding(horizontal = 34.dp).height(44.dp),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
