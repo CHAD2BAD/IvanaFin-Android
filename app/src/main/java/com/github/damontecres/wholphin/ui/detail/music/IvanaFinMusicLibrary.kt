@@ -3,6 +3,8 @@ package com.github.damontecres.wholphin.ui.detail.music
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.focusGroup
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
@@ -633,6 +635,28 @@ fun IvanaFinMusicLibrary(
     }
     LaunchedEffect(nowItem?.id) { viewModel.loadNow(nowItem) }
     LaunchedEffect(nowItem == null) { if (nowItem == null) npOpen = false }
+    // Starting a song (a new queue, or a jump to a song in a list) opens Now Playing; Back returns
+    // to the page it was started from. A song ending and the next one starting does not.
+    var npAuto by remember { mutableStateOf(false) }
+    var npRestoring by remember { mutableStateOf(false) }
+    DisposableEffect(player) {
+        val listener =
+            object : Player.Listener {
+                override fun onMediaItemTransition(
+                    mediaItem: androidx.media3.common.MediaItem?,
+                    reason: Int,
+                ) {
+                    if (mediaItem != null && !npOpen &&
+                        (reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED || reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK)
+                    ) {
+                        npAuto = true
+                        npOpen = true
+                    }
+                }
+            }
+        player.addListener(listener)
+        onDispose { player.removeListener(listener) }
+    }
 
     // Home keeps its place (scroll, rows, selected card) while you're in a page opened from it
     val homeList = rememberLazyListState()
@@ -642,6 +666,7 @@ fun IvanaFinMusicLibrary(
 
     val miniFocus = remember { FocusRequester() }
     val navFocus = remember { FocusRequester() }
+    val pageFocus = remember { FocusRequester() }
     fun go(
         v: MusicView,
         root: Boolean = false,
@@ -665,10 +690,17 @@ fun IvanaFinMusicLibrary(
     BackHandler(enabled = npOpen || stack.size > 1) {
         if (npOpen) {
             npOpen = false
+            // opened from the top-left pill: back to the pill; opened by starting a song: back to
+            // the page, on the song that was picked (focusRestorer remembers it)
+            val auto = npAuto
+            npRestoring = auto
             scope.launch {
                 delay(50)
-                miniFocus.tryRequestFocus()
+                if (!auto || !pageFocus.tryRequestFocus()) miniFocus.tryRequestFocus()
+                delay(150)
+                npRestoring = false
             }
+            npAuto = false
         } else {
             stack.removeAt(stack.lastIndex)
             scrolled = 0f
@@ -692,6 +724,13 @@ fun IvanaFinMusicLibrary(
             MuScroll(start = 100.dp) {
             CompositionLocalProvider(LocalMuToTop provides toTop) {
             val onScrolled: (Float) -> Unit = { scrolled = it }
+            // While Now Playing is open (and while Back hands the focus back) the page is one focus
+            // group that remembers its selected item; the rest of the time normal remote movement
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .then(if (npOpen || npRestoring) Modifier.focusRequester(pageFocus).focusRestorer().focusGroup() else Modifier),
+            ) {
             when (current) {
                 MusicView.Home ->
                     MusicHomeView(
@@ -734,6 +773,7 @@ fun IvanaFinMusicLibrary(
                         )
                     }
             }
+            }
             MusicTopBar(
                 viewModel = viewModel,
                 current = current,
@@ -744,7 +784,10 @@ fun IvanaFinMusicLibrary(
                 playing = playing,
                 miniFocus = miniFocus,
                 navFocus = navFocus,
-                onMini = { npOpen = true },
+                onMini = {
+                    npAuto = false
+                    npOpen = true
+                },
                 onPlayPause = { if (player.isPlaying) player.pause() else player.play() },
                 onNav = { go(it, root = true) },
             )
