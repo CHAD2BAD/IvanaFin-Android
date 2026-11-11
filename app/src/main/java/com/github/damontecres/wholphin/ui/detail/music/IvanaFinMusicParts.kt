@@ -83,6 +83,8 @@ internal val LikedBrush = Brush.linearGradient(listOf(Color(0xFF450AF5), Color(0
 
 /** Font Awesome (solid) glyphs */
 internal object Fa {
+    const val CHEVRON_UP = ""
+    const val CHEVRON_DOWN = ""
     const val PLAY = ""
     const val PAUSE = ""
     const val SHUFFLE = ""

@@ -166,7 +166,34 @@ class HomeViewModel
         /**
          * IvanaFin: picture for a home tile - a random movie or series backdrop from the library.
          */
-        suspend fun randomLibraryBackdrop(library: BaseItem): BaseItem? = randomLibraryBackdrop(library.id)
+        suspend fun randomLibraryBackdrop(library: BaseItem): BaseItem? =
+            if (library.data.collectionType == org.jellyfin.sdk.model.api.CollectionType.MUSIC) {
+                randomAlbumCover(library.id)
+            } else {
+                randomLibraryBackdrop(library.id)
+            }
+
+        /** IvanaFin: Music tile - a random album with a cover (tileBackdropUrl shows its cover). */
+        private suspend fun randomAlbumCover(libraryId: java.util.UUID): BaseItem? =
+            try {
+                api.itemsApi
+                    .getItems(
+                        org.jellyfin.sdk.model.api.request.GetItemsRequest(
+                            userId = serverRepository.currentUser?.id,
+                            parentId = libraryId,
+                            recursive = true,
+                            includeItemTypes = listOf(BaseItemKind.MUSIC_ALBUM),
+                            imageTypes = listOf(org.jellyfin.sdk.model.api.ImageType.PRIMARY),
+                            sortBy = listOf(org.jellyfin.sdk.model.api.ItemSortBy.RANDOM),
+                            limit = 1,
+                        ),
+                    ).content.items
+                    .firstOrNull()
+                    ?.let { BaseItem(it, false) }
+            } catch (ex: Exception) {
+                Timber.w(ex, "Could not get a random album cover for %s", libraryId)
+                null
+            }
 
         /** IvanaFin: a random movie or series with a backdrop from [libraryId], for the home tiles. */
         suspend fun randomLibraryBackdrop(libraryId: java.util.UUID): BaseItem? =

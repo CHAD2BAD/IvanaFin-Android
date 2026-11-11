@@ -118,6 +118,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.jellyfin.sdk.model.serializer.toUUIDOrNull
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.artistsApi
 import org.jellyfin.sdk.api.client.extensions.imageApi
@@ -200,8 +201,22 @@ data class MusicSearchResults(
 
 data class MusicArtistData(
     val artist: BaseItem,
+    /** newest first */
     val albums: List<BaseItem>,
+    /** Popular songs (server ProviderIds.IvfPopular, from Deezer via jellyfin-web-custom/backup/music-artist-data.ps1) */
+    val popular: List<BaseItem> = emptyList(),
+    val songCount: Int = 0,
 )
+
+/** Discography row of an album: server ProviderIds.IvfType (album/compile/ep/single/mixtape), unknown = album */
+internal fun discographyRow(album: BaseItem): Int =
+    when (album.data.providerIds?.get("IvfType")) {
+        "ep", "single" -> 1
+        "mixtape" -> 2
+        else -> 0
+    }
+
+internal val DiscographyTitles = listOf("Albums", "EPs & Singles", "Mixtapes & More")
 
 @HiltViewModel
 class IvanaFinMusicViewModel
@@ -429,10 +444,33 @@ class IvanaFinMusicViewModel
                                 recursive = true,
                                 sortBy = listOf(ItemSortBy.PRODUCTION_YEAR, ItemSortBy.SORT_NAME),
                                 sortOrder = listOf(SortOrder.DESCENDING),
-                                fields = listOf(ItemFields.CHILD_COUNT),
+                                fields = listOf(ItemFields.CHILD_COUNT, ItemFields.PROVIDER_IDS),
                             ),
                         ).toBaseItems(api, false)
-                    artist.value = MusicArtistData(a, albums)
+                    val songCount =
+                        request(
+                            GetItemsRequest(
+                                albumArtistIds = listOf(id),
+                                includeItemTypes = listOf(BaseItemKind.AUDIO),
+                                recursive = true,
+                                limit = 0,
+                                enableTotalRecordCount = true,
+                            ),
+                        ).content.totalRecordCount
+                    val popularIds =
+                        a.data.providerIds
+                            ?.get("IvfPopular")
+                            ?.split(',')
+                            ?.mapNotNull { it.trim().toUUIDOrNull() }
+                            .orEmpty()
+                    val popular =
+                        if (popularIds.isEmpty()) {
+                            emptyList()
+                        } else {
+                            val found = request(GetItemsRequest(ids = popularIds, enableImages = false)).toBaseItems(api, false).associateBy { it.id }
+                            popularIds.mapNotNull { found[it] } // keep Deezer's order
+                        }
+                    artist.value = MusicArtistData(a, albums, popular, songCount)
                 } catch (ex: Exception) {
                     Timber.w(ex, "Loading artist failed")
                 }
@@ -682,7 +720,7 @@ fun IvanaFinMusicLibrary(
 
                 is MusicView.Artist ->
                     key(current.id) {
-                        MusicArtistView(viewModel, current.id, nowItem?.albumId, onOpen = ::open, onScrolled = onScrolled)
+                        MusicArtistView(viewModel, current.id, nowItem?.albumId, nowItem?.id, playing, onOpen = ::open, onScrolled = onScrolled)
                     }
 
                 is MusicView.Album ->
@@ -1284,11 +1322,15 @@ private fun MusicArtistView(
     viewModel: IvanaFinMusicViewModel,
     id: UUID,
     nowAlbumId: UUID?,
+    nowId: UUID?,
+    playing: Boolean,
     onOpen: (String) -> Unit,
     onScrolled: (Float) -> Unit,
 ) {
     val state by viewModel.artist.collectAsState()
     LaunchedEffect(id) { viewModel.loadArtist(id) }
+    var popularAll by remember(id) { mutableStateOf(false) }
+    var aboutOpen by remember(id) { mutableStateOf(false) }
     val data = state?.takeIf { it.artist.id == id } ?: return
     val listState = rememberLazyListState()
     val playFocus = remember { FocusRequester() }
@@ -1313,7 +1355,13 @@ private fun MusicArtistView(
         LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 48.dp), modifier = Modifier.fillMaxSize()) {
             item("hero") {
                 val n = data.albums.size
-                HeroText(kind = "Artist", title = a.name ?: "", meta = "Artist • $n ${if (n == 1) "album" else "albums"}", avatarUrl = viewModel.imageUrl(a.id, maxWidth = 48))
+                val meta =
+                    listOfNotNull(
+                        "Artist",
+                        "$n ${if (n == 1) "album" else "albums"}",
+                        data.songCount.takeIf { it > 0 }?.let { songsLabel(it) },
+                    ).joinToString(" • ")
+                HeroText(kind = "Artist", title = a.name ?: "", meta = meta, avatarUrl = viewModel.imageUrl(a.id, maxWidth = 48))
             }
             item("acts") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(start = 40.dp, top = 16.dp, bottom = 10.dp)) {
@@ -1321,30 +1369,95 @@ private fun MusicArtistView(
                     MuPill(glyph = Fa.SHUFFLE, text = "Shuffle", onClick = { viewModel.playArtist(id, true) })
                 }
             }
-            item("albumsTitle") { MuSectionTitle("Albums") }
-            data.albums.chunked(7).forEachIndexed { ri, rowAlbums ->
-                item("r$ri") {
-                    Row(horizontalArrangement = Arrangement.spacedBy(18.dp), modifier = Modifier.padding(horizontal = 40.dp, vertical = 8.dp)) {
-                        rowAlbums.forEach { al ->
-                            CoverCard(
-                                name = al.name ?: "",
-                                imageUrl = viewModel.imageUrl(al.id),
-                                sub = listOfNotNull(al.data.productionYear?.toString(), "Album").joinToString(" • "),
-                                playing = al.id == nowAlbumId,
-                                width = null,
-                                onClick = { onOpen("album:${al.id}") },
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                        repeat(7 - rowAlbums.size) { Spacer(Modifier.weight(1f)) }
+            // Popular: Deezer's top songs that are in the library; 5 shown, "See more" for the rest
+            if (data.popular.isNotEmpty()) {
+                item("popularTitle") { MuSectionTitle("Popular") }
+                val shown = if (popularAll) data.popular else data.popular.take(5)
+                itemsIndexed(shown, key = { _, s -> "p" + s.id }) { i, s ->
+                    MuTrackRow(
+                        number = (i + 1).toString(),
+                        title = s.name ?: "",
+                        sub = s.data.album ?: "",
+                        duration = s.data.runTimeTicks?.let { minSecTicks(it) } ?: "",
+                        playing = s.id == nowId,
+                        paused = !playing,
+                        onClick = {
+                            if (s.id == nowId) {
+                                val p = viewModel.musicService.player
+                                if (p.isPlaying) p.pause() else p.play()
+                            } else {
+                                viewModel.playList(data.popular, data.popular.indexOf(s), false)
+                            }
+                        },
+                    )
+                }
+                if (data.popular.size > 5) {
+                    item("popularMore") {
+                        MuPill(
+                            glyph = if (popularAll) Fa.CHEVRON_UP else Fa.CHEVRON_DOWN,
+                            text = if (popularAll) "Show less" else "See more",
+                            onClick = { popularAll = !popularAll },
+                            modifier = Modifier.padding(start = 40.dp, top = 6.dp),
+                        )
                     }
                 }
             }
+            // Discography: Albums / EPs & Singles / Mixtapes & More (server ProviderIds.IvfType)
+            val rows = data.albums.groupBy { discographyRow(it) }
+            DiscographyTitles.forEachIndexed { ri, title ->
+                val rowAlbums = rows[ri].orEmpty()
+                if (rowAlbums.isEmpty()) return@forEachIndexed
+                item("disc$ri") {
+                    Column {
+                        MuSectionTitle(title)
+                        MuLazyRow {
+                            itemsIndexed(rowAlbums, key = { _, al -> al.id }) { _, al ->
+                                CoverCard(
+                                    name = al.name ?: "",
+                                    imageUrl = viewModel.imageUrl(al.id),
+                                    sub = al.data.productionYear?.toString() ?: "",
+                                    playing = al.id == nowAlbumId,
+                                    onClick = { onOpen("album:${al.id}") },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            // About: the artist's photo + bio; select it to read the whole text
             a.data.overview?.takeIf { it.isNotBlank() }?.let { text ->
                 item("about") {
-                    Column(Modifier.padding(start = 40.dp, end = 40.dp, top = 26.dp).width(560.dp)) {
-                        Text("About", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(bottom = 6.dp))
-                        Text(text, fontSize = 12.sp, lineHeight = 18.sp, color = Color.White.copy(alpha = .75f), maxLines = 6, overflow = TextOverflow.Ellipsis)
+                    Column(Modifier.padding(start = 40.dp, end = 40.dp, top = 26.dp)) {
+                        Text("About", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(bottom = 10.dp))
+                        Surface(
+                            onClick = { aboutOpen = !aboutOpen },
+                            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+                            colors = ClickableSurfaceDefaults.colors(containerColor = MuCard, focusedContainerColor = MuCard),
+                            border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, Color.White))),
+                            scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+                            modifier = Modifier.width(760.dp),
+                        ) {
+                            Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                                AsyncImage(
+                                    model = viewModel.imageUrl(a.id, maxWidth = 400),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.size(170.dp).clip(RoundedCornerShape(6.dp)),
+                                )
+                                Column(Modifier.weight(1f)) {
+                                    Text(a.name ?: "", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(bottom = 6.dp))
+                                    Text(
+                                        text,
+                                        fontSize = 12.sp,
+                                        lineHeight = 18.sp,
+                                        color = Color.White.copy(alpha = .8f),
+                                        maxLines = if (aboutOpen) Int.MAX_VALUE else 6,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    if (!aboutOpen) Text("Read more", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(top = 6.dp))
+                                }
+                            }
+                        }
                     }
                 }
             }

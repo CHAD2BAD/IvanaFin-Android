@@ -447,12 +447,17 @@ fun tileBackdropUrl(
     imageUrlService: com.github.damontecres.wholphin.services.ImageUrlService,
     item: BaseItem,
 ): String? =
-    imageUrlService.getItemImageUrl(
-        item,
-        ImageType.BACKDROP,
-        fillWidth = 1280,
-        fillHeight = 720,
-    )
+    if (item.type == org.jellyfin.sdk.model.api.BaseItemKind.MUSIC_ALBUM) {
+        // Music tile: the album's (square) cover
+        imageUrlService.getItemImageUrl(item, ImageType.PRIMARY, fillWidth = 900, fillHeight = 900)
+    } else {
+        imageUrlService.getItemImageUrl(
+            item,
+            ImageType.BACKDROP,
+            fillWidth = 1280,
+            fillHeight = 720,
+        )
+    }
 
 /**
  * The one image request used for tile backdrops, both to preload and to show - same URL, size
