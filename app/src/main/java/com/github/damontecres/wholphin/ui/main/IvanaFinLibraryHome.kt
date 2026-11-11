@@ -46,6 +46,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import kotlinx.coroutines.launch
 import com.github.damontecres.wholphin.data.model.BaseItem
@@ -116,9 +117,20 @@ fun IvanaFinLibraryHome(
 ) {
     // Tiles after the libraries: Discover (when Seerr is connected), then Games
     val context = LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    // Games picture: the current one shows now, the next is preloaded and swapped in after leaving Home
+    var gamesArt by remember { mutableStateOf(GamesArt.current) }
+    LifecycleResumeEffect(Unit) {
+        gamesArt = GamesArt.current
+        val next = GamesArt.next
+        scope.launch {
+            coil3.SingletonImageLoader.get(context).execute(tileBackdropRequest(context, next))
+        }
+        onPauseOrDispose { GamesArt.swap() }
+    }
     val gamesTile =
-        remember(context) {
-            DiscoverTile(name = "Games", backdropUrl = null, onClick = { launchGames(context) })
+        remember(context, gamesArt) {
+            DiscoverTile(name = "Games", backdropUrl = gamesArt, onClick = { launchGames(context) })
         }
     val extraTiles = listOfNotNull(discover, gamesTile)
     val tileCount = libraries.size + extraTiles.size
@@ -274,21 +286,7 @@ private fun LibraryTile(
                                 .background(Color.Black.copy(alpha = .35f)),
                     )
                 }
-                Text(
-                    text = displayName,
-                    style =
-                        // long names (e.g. "Movies (Alternative Format)") get a smaller size so they fit on 2 lines
-                        (if (displayName.length > 14) MaterialTheme.typography.displaySmall else MaterialTheme.typography.displayMedium).copy(
-                            fontWeight = FontWeight.Bold,
-                            shadow = Shadow(Color.Black.copy(alpha = .8f), Offset(0f, 2f), blurRadius = 16f),
-                        ),
-                    color = Color.White,
-                    textAlign = TextAlign.Center,
-                    modifier =
-                        Modifier
-                            .align(Alignment.Center)
-                            .padding(horizontal = 24.dp),
-                )
+                TileTitle(text = displayName, shadow = true, modifier = Modifier.align(Alignment.Center))
             } else if (!imageError && imageUrl != null) {
                 AsyncImage(
                     model = imageUrl,
@@ -299,19 +297,7 @@ private fun LibraryTile(
                 )
             } else {
                 // No picture at all (e.g. an empty library): the same bold white name as the others
-                Text(
-                    text = displayName,
-                    style =
-                        (if (displayName.length > 14) MaterialTheme.typography.displaySmall else MaterialTheme.typography.displayMedium).copy(
-                            fontWeight = FontWeight.Bold,
-                        ),
-                    color = Color.White,
-                    textAlign = TextAlign.Center,
-                    modifier =
-                        Modifier
-                            .align(Alignment.Center)
-                            .padding(horizontal = 24.dp),
-                )
+                TileTitle(text = displayName, shadow = false, modifier = Modifier.align(Alignment.Center))
             }
         }
     }
@@ -357,21 +343,86 @@ private fun PictureTile(
                             .background(Color.Black.copy(alpha = .35f)),
                 )
             }
-            Text(
-                text = name,
-                style =
-                    (if (name.length > 14) MaterialTheme.typography.displaySmall else MaterialTheme.typography.displayMedium).copy(
-                        fontWeight = FontWeight.Bold,
-                        shadow = Shadow(Color.Black.copy(alpha = .8f), Offset(0f, 2f), blurRadius = 16f),
-                    ),
-                color = Color.White,
-                textAlign = TextAlign.Center,
-                modifier =
-                    Modifier
-                        .align(Alignment.Center)
-                        .padding(horizontal = 24.dp),
-            )
+            TileTitle(text = name, shadow = true, modifier = Modifier.align(Alignment.Center))
         }
+    }
+}
+
+/**
+ * IvanaFin: the big bold name on a home tile. Starts at the usual size (smaller for long names)
+ * and shrinks until every word fits on one line, so a word is never split ("Discove / r").
+ */
+@Composable
+private fun TileTitle(
+    text: String,
+    shadow: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val base =
+        (if (text.length > 14) MaterialTheme.typography.displaySmall else MaterialTheme.typography.displayMedium)
+            .copy(
+                fontWeight = FontWeight.Bold,
+                shadow = if (shadow) Shadow(Color.Black.copy(alpha = .8f), Offset(0f, 2f), blurRadius = 16f) else null,
+            )
+    val measurer = rememberTextMeasurer()
+    BoxWithConstraints(
+        contentAlignment = Alignment.Center,
+        modifier = modifier.padding(horizontal = 24.dp),
+    ) {
+        val maxPx = constraints.maxWidth
+        val style =
+            remember(text, base, maxPx) {
+                val words = text.split(' ').filter { it.isNotEmpty() }
+                var scale = 1f
+                fun widest(s: Float) =
+                    words.maxOfOrNull { word ->
+                        measurer
+                            .measure(
+                                text = word,
+                                style = base.copy(fontSize = base.fontSize * s),
+                                softWrap = false,
+                                maxLines = 1,
+                            ).size.width
+                    } ?: 0
+                while (scale > .4f && widest(scale) > maxPx) scale *= .92f
+                if (scale == 1f) base else base.copy(fontSize = base.fontSize * scale, lineHeight = base.lineHeight * scale)
+            }
+        Text(
+            text = text,
+            style = style,
+            color = Color.White,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+/**
+ * IvanaFin: Games tile pictures - Steam "library hero" art (1920x620, art centred, no logo) for
+ * the Steam games in the PC's ES-DE menu, from Steam's public image server. A different one
+ * each time Home is shown, like the library tiles. Same list in jellyfin-web-custom home-grid.js.
+ */
+private object GamesArt {
+    private val steamAppIds =
+        listOf(
+            "1808500", "2379780", "1086940", "2807960", "1478500", "311210", "730", "435150",
+            "2483190", "553850", "976730", "686810", "274170", "219150", "594650", "1538550",
+            "3405340", "1127500", "1118520", "1144200", "252950", "2075800", "2001120", "393380",
+            "413150", "489830",
+        )
+
+    private fun url(id: String) = "https://cdn.cloudflare.steamstatic.com/steam/apps/$id/library_hero.jpg"
+
+    private fun pick(not: String?) = steamAppIds.map(::url).filter { it != not }.random()
+
+    var current: String = pick(null)
+        private set
+    var next: String = pick(current)
+        private set
+
+    /** Home was left: show the (already preloaded) next picture on the next visit. */
+    fun swap() {
+        current = next
+        next = pick(current)
     }
 }
 
