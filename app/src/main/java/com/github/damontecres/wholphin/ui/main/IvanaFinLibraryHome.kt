@@ -108,6 +108,8 @@ fun IvanaFinLibraryHome(
     backdrops: Map<java.util.UUID, BaseItem?> = emptyMap(),
     // Home shown: prepare the next set in the background (the swap is triggered on navigation).
     onShown: () -> Unit = {},
+    // Discover / Games pressed: their place in the grid (to select them again on the way back)
+    onExtraOpened: (Int) -> Unit = {},
     // index of the library last opened from Home (kept by the caller across visits), -1 = none
     lastOpenedIndex: Int = -1,
     // returns true only the first time it is called per visit to Home
@@ -177,8 +179,12 @@ fun IvanaFinLibraryHome(
             val gap = 16.dp
             val tileWidth = (maxWidth - gap * (columns - 1)) / columns
             val tileHeight = (maxHeight - gap * (rows - 1)) / rows
-            // libraries (BaseItem), then Discover / Games (DiscoverTile)
-            val tiles: List<Any> = libraries + extraTiles
+            // libraries (BaseItem) and Discover / Games (DiscoverTile) in the user's order (HOME_ORDER)
+            val tiles: List<Any> =
+                (libraries + extraTiles).withIndex().sortedBy { (i, t) ->
+                    val name = if (t is BaseItem) t.name else (t as DiscoverTile).name
+                    HOME_ORDER.indexOf(name).let { if (it < 0) 100 + i else it }
+                }.map { it.value }
             Column(
                 verticalArrangement = Arrangement.spacedBy(gap),
                 modifier = Modifier.fillMaxSize(),
@@ -208,7 +214,10 @@ fun IvanaFinLibraryHome(
                                     backdropUrl = tile.backdropUrl,
                                     width = tileWidth,
                                     height = tileHeight,
-                                    onClick = tile.onClick,
+                                    onClick = {
+                                        onExtraOpened(index)
+                                        tile.onClick()
+                                    },
                                     modifier = Modifier.focusRequester(focusRequesters[index]),
                                 )
                             }
@@ -431,6 +440,12 @@ private object GamesArt {
         next = pick(current)
     }
 }
+
+/**
+ * IvanaFin: the home tiles' order, left to right, row by row (the user's choice, 2026-11-11) - same
+ * list in jellyfin-web-custom home-grid.js HOME_ORDER. Libraries not named here follow at the end.
+ */
+private val HOME_ORDER = listOf("Movies", "Shows", "Star Wars", "Movies (Special)", "Discover", "Music", "Games", "Archive", "Ivana")
 
 /** IvanaFin: names shown on the home tiles (the server keeps its own names). */
 private fun ivanaFinLibraryDisplayName(name: String?): String =

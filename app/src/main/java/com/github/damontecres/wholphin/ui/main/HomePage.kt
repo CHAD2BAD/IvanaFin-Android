@@ -294,7 +294,6 @@ fun HomePage(
                                 name = discoverName,
                                 backdropUrl = discoverBackdrop,
                                 onClick = {
-                                    viewModel.homeLastOpenedIndex.intValue = libraries.size // come back to this tile
                                     viewModel.swapTileBackdropsAfterLeaving()
                                     viewModel.navigationManager.navigateTo(Destination.Discover)
                                 },
@@ -303,6 +302,7 @@ fun HomePage(
                             null
                         },
                     lastOpenedIndex = viewModel.homeLastOpenedIndex.intValue,
+                    onExtraOpened = { viewModel.homeLastOpenedIndex.intValue = it }, // come back to Discover / Games
                     consumeSelectionRestore = viewModel::consumeHomeSelectionRestore,
                     onClickLibrary = { index, item ->
                         viewModel.homeLastOpenedIndex.intValue = index
