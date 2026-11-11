@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -259,17 +260,14 @@ fun SearchPage(
             var isTextFieldFocused by remember { mutableStateOf(false) }
             val textFieldFocusRequester = remember { FocusRequester() }
 
-            BackHandler(isTextFieldFocused) {
-                when {
-                    isSearchActive -> {
-                        isSearchActive = false
-                        keyboardController?.hide()
-                    }
-
-                    else -> {
-                        focusManager.moveFocus(FocusDirection.Next)
-                    }
-                }
+            // IvanaFin: Back only stays on the page while the keyboard is up (it closes the keyboard);
+            // otherwise Back leaves Search. Before, it took 3-4 presses: keyboard, a hidden "stop typing"
+            // step, then a jump to View options.
+            @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+            val imeVisible = androidx.compose.foundation.layout.WindowInsets.isImeVisible
+            BackHandler(isTextFieldFocused && isSearchActive && imeVisible) {
+                isSearchActive = false
+                keyboardController?.hide()
             }
 
             Row(

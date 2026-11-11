@@ -45,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -256,6 +257,7 @@ internal fun MuPill(
     tint: Color? = null,
 ) {
     val (markFocus, mark) = rememberClickMark()
+    var focused by remember { mutableStateOf(false) }
     Surface(
         onClick = {
             mark()
@@ -269,12 +271,33 @@ internal fun MuPill(
                 contentColor = if (primary) Color.Black else Color.White,
                 focusedContentColor = if (primary) Color.Black else Color.White,
             ),
+        // the white (primary) pill: a ring with a negative inset never showed, so it gets one drawn
+        // outside it (below) with a dark gap between - same as the selected white chip
         border =
             ClickableSurfaceDefaults.border(
-                focusedBorder = Border(BorderStroke(2.dp, Color.White), inset = if (primary) (-4).dp else 0.dp),
+                focusedBorder = if (primary) Border.None else Border(BorderStroke(2.dp, Color.White)),
             ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
-        modifier = modifier.focusRequester(markFocus).height(36.dp).then(if (text == null) Modifier.width(36.dp) else Modifier),
+        modifier =
+            modifier
+                .focusRequester(markFocus)
+                .height(36.dp)
+                .then(if (text == null) Modifier.width(36.dp) else Modifier)
+                .onFocusChanged { focused = it.hasFocus || it.isFocused }
+                .drawWithContent {
+                    drawContent()
+                    if (primary && focused) {
+                        val g = 4.dp.toPx()
+                        val w = 2.dp.toPx()
+                        drawRoundRect(
+                            color = Color.White,
+                            topLeft = androidx.compose.ui.geometry.Offset(-g - w / 2, -g - w / 2),
+                            size = androidx.compose.ui.geometry.Size(size.width + 2 * g + w, size.height + 2 * g + w),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2 + g),
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(w),
+                        )
+                    }
+                },
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -458,7 +481,9 @@ internal fun MuTrackRow(
                 focusedContentColor = Color.White,
             ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-        modifier = modifier.focusRequester(markFocus).fillMaxWidth().padding(horizontal = 34.dp).height(44.dp),
+        // the page colour across the whole row, so the cover on the right never shows through the
+        // song lengths (same as the web)
+        modifier = modifier.fillMaxWidth().background(MuBg).focusRequester(markFocus).padding(horizontal = 34.dp).height(44.dp),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,

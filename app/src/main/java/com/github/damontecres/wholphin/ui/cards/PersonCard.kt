@@ -27,6 +27,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
@@ -166,6 +167,8 @@ fun PersonCard(
             Text(
                 text = name ?: "",
                 maxLines = 1,
+                // IvanaFin: "..." on a long name; the selected card scrolls it instead (marquee)
+                overflow = if (focusedAfterDelay) TextOverflow.Clip else TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
@@ -179,6 +182,8 @@ fun PersonCard(
                 Text(
                     text = role,
                     maxLines = 1,
+                    // IvanaFin: "..." on a long name; the selected card scrolls it instead (marquee)
+                    overflow = if (focusedAfterDelay) TextOverflow.Clip else TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Normal,

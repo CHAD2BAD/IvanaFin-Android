@@ -994,10 +994,12 @@ private fun MusicHomeView(
     }
     val hero = remember(shownKey, data) { heroFor(viewModel, data, shownKey) }
     val firstKey = data.recent.firstOrNull()?.let { "album:${it.id}" }
-    fun keyMod(k: String): Modifier =
+    fun keyMod(k: String, shortcut: Boolean = false): Modifier =
         when {
             k == restoreKey -> Modifier.focusRequester(focusRestore)
-            k == firstKey -> Modifier.focusRequester(focusFirst)
+            // (only on the shortcut: the same album also sits in the rows below, and selecting that
+            // one opened Music Home scrolled down)
+            shortcut && k == firstKey -> Modifier.focusRequester(focusFirst)
             else -> Modifier
         }
 
@@ -1036,7 +1038,7 @@ private fun MusicHomeView(
                                     onFocus = {
                                         onFocusKey(k)
                                     },
-                                    modifier = Modifier.weight(1f).then(keyMod(k)),
+                                    modifier = Modifier.weight(1f).then(keyMod(k, shortcut = true)),
                                 )
                             }
                             repeat(4 - rowCards.size) { Spacer(Modifier.weight(1f)) }
@@ -1567,7 +1569,7 @@ private fun MusicArtistView(
                 val n = data.albums.size
                 val meta =
                     listOfNotNull(
-                        "Artist",
+                        // ("Artist" is already the small label above the name)
                         "$n ${if (n == 1) "album" else "albums"}",
                         data.songCount.takeIf { it > 0 }?.let { songsLabel(it) },
                     ).joinToString(" • ")

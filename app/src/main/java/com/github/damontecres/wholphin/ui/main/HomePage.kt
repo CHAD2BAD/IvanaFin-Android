@@ -222,6 +222,7 @@ fun HomePage(
             // IvanaFin: with no side menu, Discover, Search & Settings live top-right (left of the clock)
             // IvanaFin: Search is selected on launch; Down from any top button goes to the first library (Movies)
             val searchFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+            val settingsFocus = remember { androidx.compose.ui.focus.FocusRequester() } // IvanaFin: Back from Settings selects Settings
             val firstTileFocus = remember { androidx.compose.ui.focus.FocusRequester() }
             val downToFirstTile =
                 Modifier.focusProperties { down = firstTileFocus }
@@ -251,14 +252,14 @@ fun HomePage(
                             icon = androidx.compose.material.icons.Icons.Default.Settings,
                             onClick = {
                                 viewModel.swapTileBackdropsAfterLeaving()
-                                viewModel.homeLastOpenedIndex.intValue = -1 // come back to Search
+                                viewModel.homeLastOpenedIndex.intValue = -2 // come back to Settings (launchFocus below)
                                 viewModel.navigationManager.navigateTo(
                                     Destination.Settings(
                                         com.github.damontecres.wholphin.ui.preferences.PreferenceScreenOption.BASIC,
                                     ),
                                 )
                             },
-                            modifier = downToFirstTile,
+                            modifier = downToFirstTile.focusRequester(settingsFocus),
                         )
                     }
             }
@@ -309,7 +310,7 @@ fun HomePage(
                         viewModel.navigationManager.navigateTo(item.destination())
                     },
                     header = topButtons,
-                    launchFocus = searchFocus,
+                    launchFocus = if (viewModel.homeLastOpenedIndex.intValue == -2) settingsFocus else searchFocus,
                     firstTileFocus = firstTileFocus,
                     backdrops = tileBackdrops,
                     onShown = {

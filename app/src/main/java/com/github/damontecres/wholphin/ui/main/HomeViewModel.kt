@@ -185,15 +185,36 @@ class HomeViewModel
                             includeItemTypes = listOf(BaseItemKind.MUSIC_ALBUM),
                             imageTypes = listOf(org.jellyfin.sdk.model.api.ImageType.PRIMARY),
                             sortBy = listOf(org.jellyfin.sdk.model.api.ItemSortBy.RANDOM),
-                            limit = 1,
+                            enableImageTypes = listOf(org.jellyfin.sdk.model.api.ImageType.PRIMARY),
+                            limit = 8,
                         ),
                     ).content.items
-                    .firstOrNull()
+                    .let { all -> all.firstOrNull { !nearBlackCover(it) } ?: all.firstOrNull() }
                     ?.let { BaseItem(it, false) }
             } catch (ex: Exception) {
                 Timber.w(ex, "Could not get a random album cover for %s", libraryId)
                 null
             }
+
+        /**
+         * IvanaFin: true when an album cover is almost black (e.g. Donda) - the Music tile would be a
+         * plain black box. Reads the average colour from the cover's blurhash (characters 2-5, base 83);
+         * same test as jellyfin-web-custom library-tile-backdrops.js.
+         */
+        private fun nearBlackCover(item: org.jellyfin.sdk.model.api.BaseItemDto): Boolean {
+            val tag = item.imageTags?.get(org.jellyfin.sdk.model.api.ImageType.PRIMARY) ?: return false
+            val hash = item.imageBlurHashes?.get(org.jellyfin.sdk.model.api.ImageType.PRIMARY)?.get(tag) ?: return false
+            if (hash.length < 6) return false
+            val chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz#$%*+,-.:;=?@[]^_{|}~"
+            var v = 0
+            for (k in 2..5) {
+                val x = chars.indexOf(hash[k])
+                if (x < 0) return false
+                v = v * 83 + x
+            }
+            val lum = 0.2126 * ((v shr 16) and 255) + 0.7152 * ((v shr 8) and 255) + 0.0722 * (v and 255)
+            return lum < 28
+        }
 
         /** IvanaFin: a random movie or series with a backdrop from [libraryId], for the home tiles. */
         suspend fun randomLibraryBackdrop(libraryId: java.util.UUID): BaseItem? =
