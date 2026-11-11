@@ -644,9 +644,16 @@ fun IvanaFinMusicLibrary(
                     mediaItem: androidx.media3.common.MediaItem?,
                     reason: Int,
                 ) {
-                    if (mediaItem != null && !npOpen &&
+                    if (mediaItem == null) return
+                    // show the new song now, not at the next 500 ms poll (a queue + jump to song N
+                    // is two transitions: the second must replace the first straight away)
+                    (mediaItem.localConfiguration?.tag as? AudioItem)?.let { nowItem = it }
+                    posMs = 0L
+                    durMs = player.duration.takeIf { it > 0 } ?: 0L
+                    if (!npOpen &&
                         (reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED || reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK)
                     ) {
+                        playing = true
                         npAuto = true
                         npOpen = true
                     }
