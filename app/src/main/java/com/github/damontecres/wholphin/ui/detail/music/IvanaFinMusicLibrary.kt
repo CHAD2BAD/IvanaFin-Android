@@ -1256,7 +1256,8 @@ private fun MuChip(
                 containerColor = if (on) Color.White else Color(0xFF2A2A2A),
                 focusedContainerColor = if (on) Color.White else Color(0xFF3A3A3A),
             ),
-        border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, Color.White), inset = (-3).dp)),
+        // the selected chip is white: its ring sits further out so a dark gap shows between them
+        border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, Color.White), inset = if (on) (-5).dp else (-3).dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         modifier = modifier.height(26.dp),
     ) {
