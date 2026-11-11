@@ -11,9 +11,11 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -34,6 +36,7 @@ import com.github.damontecres.wholphin.ui.ifElse
 import com.github.damontecres.wholphin.ui.rememberInt
 import com.github.damontecres.wholphin.ui.tryRequestFocus
 import com.github.damontecres.wholphin.util.DataLoadingState
+import kotlinx.coroutines.launch
 
 @Composable
 fun DiscoverRow(
@@ -107,12 +110,29 @@ fun DiscoverItemRow(
     val currentOnLongClickItem by rememberUpdatedState(onLongClickItem)
     val currentOnCardFocus by rememberUpdatedState(onCardFocus)
 
+    // IvanaFin: Up/Down into this row lands on its first card, row scrolled back to the start
+    // (user request 2026-11-11 - not the card above/below, not the one last selected here)
+    val scope = rememberCoroutineScope()
+    val startFocus = remember { FocusRequester() }
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier =
             modifier.focusProperties {
                 onEnter = {
-                    focusRequester.tryRequestFocus()
+                    if (requestedFocusDirection == FocusDirection.Up || requestedFocusDirection == FocusDirection.Down) {
+                        if (state.firstVisibleItemIndex == 0 && state.firstVisibleItemScrollOffset == 0) {
+                            if (!startFocus.tryRequestFocus()) focusRequester.tryRequestFocus()
+                        } else {
+                            // the first card isn't on screen: scroll back first, then select it
+                            cancelFocusChange()
+                            scope.launch {
+                                state.scrollToItem(0)
+                                if (!startFocus.tryRequestFocus()) focusRequester.tryRequestFocus()
+                            }
+                        }
+                    } else {
+                        focusRequester.tryRequestFocus()
+                    }
                 }
             },
     ) {
@@ -136,7 +156,8 @@ fun DiscoverItemRow(
                             Modifier.focusRequester(firstFocus)
                         } else {
                             Modifier
-                        }.onFocusChanged {
+                        }.ifElse(index == 0, Modifier.focusRequester(startFocus))
+                            .onFocusChanged {
                             if (it.isFocused) {
                                 currentOnCardFocus.invoke(index)
                             }
