@@ -402,17 +402,23 @@ private fun TileTitle(
  * each time Home is shown, like the library tiles. Same list in jellyfin-web-custom home-grid.js.
  */
 private object GamesArt {
-    private val steamAppIds =
+    // Each checked as a centre crop on 2026-11-11. CS2 + Halo MCC heroes crop to empty
+    // background, so they use their portrait art; Mini Motorways + Stardew Valley left out.
+    private val steamArt =
         listOf(
-            "1808500", "2379780", "1086940", "2807960", "1478500", "311210", "730", "435150",
-            "2483190", "553850", "976730", "686810", "274170", "219150", "594650", "1538550",
-            "3405340", "1127500", "1118520", "1144200", "252950", "2075800", "2001120", "393380",
-            "413150", "489830",
+            "1808500/library_hero.jpg", "2379780/library_hero.jpg", "1086940/library_hero.jpg",
+            "2807960/library_hero.jpg", "1478500/library_hero.jpg", "311210/library_hero.jpg",
+            "730/library_600x900_2x.jpg", "435150/library_hero.jpg", "2483190/library_hero.jpg",
+            "553850/library_hero.jpg", "976730/library_600x900_2x.jpg", "686810/library_hero.jpg",
+            "274170/library_hero.jpg", "219150/library_hero.jpg", "594650/library_hero.jpg",
+            "1538550/library_hero.jpg", "3405340/library_hero.jpg", "1118520/library_hero.jpg",
+            "1144200/library_hero.jpg", "252950/library_hero.jpg", "2075800/library_hero.jpg",
+            "2001120/library_hero.jpg", "393380/library_hero.jpg", "489830/library_hero.jpg",
         )
 
-    private fun url(id: String) = "https://cdn.cloudflare.steamstatic.com/steam/apps/$id/library_hero.jpg"
+    private fun url(path: String) = "https://cdn.cloudflare.steamstatic.com/steam/apps/$path"
 
-    private fun pick(not: String?) = steamAppIds.map(::url).filter { it != not }.random()
+    private fun pick(not: String?) = steamArt.map(::url).filter { it != not }.random()
 
     var current: String = pick(null)
         private set
