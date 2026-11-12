@@ -12,6 +12,8 @@ import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.foundation.background
+import androidx.compose.ui.layout.layout
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -371,18 +373,56 @@ fun MovieDetailsContent(
 
     RequestOrRestoreFocus(focusRequesters.getOrNull(position))
 
+    // IvanaFin (2026-11-12, user design): the backdrop fills the whole screen, darkened towards the
+    // bottom where the title and buttons sit; once the page is scrolled down to the rows it dims
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val scrolledDown by remember {
+        androidx.compose.runtime.derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 80 }
+    }
+    val dim by androidx.compose.animation.core.animateFloatAsState(if (scrolledDown) .72f else 0f, label = "backdropDim")
+    val imageUrlService = com.github.damontecres.wholphin.ui.LocalImageUrlService.current
+    val backdropUrl =
+        remember(movie) {
+            imageUrlService.getItemImageUrl(movie, org.jellyfin.sdk.model.api.ImageType.BACKDROP, fillWidth = 1920)
+        }
     Box(modifier = modifier) {
+        if (backdropUrl != null) {
+            coil3.compose.AsyncImage(
+                model = backdropUrl,
+                contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                alignment = androidx.compose.ui.Alignment.TopCenter,
+                modifier = Modifier.fillMaxSize().bleedToScreenEdges(),
+            )
+        }
+        Box(
+            Modifier
+                .fillMaxSize()
+                .bleedToScreenEdges()
+                .background(
+                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                        0f to androidx.compose.ui.graphics.Color.Transparent,
+                        .2f to androidx.compose.ui.graphics.Color.Transparent,
+                        .4f to androidx.compose.ui.graphics.Color.Black.copy(alpha = .18f),
+                        .7f to androidx.compose.ui.graphics.Color.Black.copy(alpha = .72f),
+                        1f to androidx.compose.ui.graphics.Color.Black.copy(alpha = .94f),
+                    ),
+                ).background(androidx.compose.ui.graphics.Color.Black.copy(alpha = dim)),
+        )
         LazyColumn(
+            state = listState,
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(bottom = 8.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
             item {
+                // the first screen: the header at the bottom of a full-height block
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(0.dp),
+                    verticalArrangement = Arrangement.Bottom,
                     modifier =
                         Modifier
                             .fillMaxWidth()
+                            .fillParentMaxHeight()
                             .bringIntoViewRequester(bringIntoViewRequester),
                 ) {
                     MovieDetailsHeader(
@@ -394,7 +434,8 @@ fun MovieDetailsContent(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .padding(top = HeaderUtils.topPadding, bottom = 16.dp),
+                                // (end 16dp more than start: the page sits 32dp from the left and 16dp from the right edge)
+                                .padding(start = 40.dp, end = 56.dp, bottom = 28.dp),
                         // IvanaFin: buttons sit under the info line, like Jellyfin web
                         buttons = {
                     ExpandablePlayButtons(
@@ -432,10 +473,7 @@ fun MovieDetailsContent(
                                     onChooseVersion = onChooseVersion,
                                 )
                             },
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .focusRequester(focusRequesters[HEADER_ROW]),
+                        modifier = Modifier.focusRequester(focusRequesters[HEADER_ROW]), // centred by the header
                         onChooseAudio = onChooseTracks?.let { { it(MediaStreamType.AUDIO) } },
                         onChooseSubtitles = onChooseTracks?.let { { it(MediaStreamType.SUBTITLE) } },
                     )
@@ -558,3 +596,16 @@ fun MovieDetailsContent(
         }
     }
 }
+
+/**
+ * IvanaFin: the app lays every page out 32dp from the left and 16dp from the right screen edge
+ * (ApplicationContent); the film page's backdrop reaches the screen edges anyway.
+ */
+private fun Modifier.bleedToScreenEdges(): Modifier =
+    this.layout { measurable, constraints ->
+        val left = 32.dp.roundToPx()
+        val right = 16.dp.roundToPx()
+        val w = constraints.maxWidth + left + right
+        val placeable = measurable.measure(constraints.copy(minWidth = w, maxWidth = w))
+        layout(constraints.maxWidth, placeable.height) { placeable.place(-left, 0) }
+    }

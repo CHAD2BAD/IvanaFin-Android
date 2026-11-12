@@ -2,15 +2,18 @@ package com.github.damontecres.wholphin.ui.detail.movie
 
 import com.github.damontecres.wholphin.ui.theme.compactDetailHeader
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
@@ -28,8 +31,9 @@ import com.github.damontecres.wholphin.util.ExceptionHandler
 import kotlinx.coroutines.launch
 
 /**
- * IvanaFin: laid out in Jellyfin web item-page order:
- * logo -> misc info -> buttons -> track info -> tagline -> overview -> details group
+ * IvanaFin (2026-11-12, user design): the film page's first screen - centred at the bottom, over the
+ * full-screen backdrop: logo (or title) -> info line -> buttons -> tagline -> description.
+ * (Cast & Crew and the other rows start below this screen.)
  */
 @Composable
 fun MovieDetailsHeader(
@@ -44,51 +48,38 @@ fun MovieDetailsHeader(
     val dto = movie.data
     val scope = rememberCoroutineScope()
     Column(
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Bottom),
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier,
     ) {
-        // Title
-        TitleOrLogo(
-            item = movie,
-            showLogo = preferences.appPreferences.interfacePreferences.showLogos,
-            modifier =
-                Modifier
-                    .fillMaxWidth(.75f)
-                    .padding(start = HeaderUtils.startPadding),
-        )
-
-        Column(
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.fillMaxWidth(.60f),
-        ) {
-            QuickDetails(
-                movie.ui.quickDetails,
-                movie.timeRemainingOrRuntime,
-                Modifier.padding(start = HeaderUtils.startPadding),
+        // Title / logo, centred
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
+            TitleOrLogo(
+                item = movie,
+                showLogo = preferences.appPreferences.interfacePreferences.showLogos,
             )
         }
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
+            QuickDetails(movie.ui.quickDetails, movie.timeRemainingOrRuntime)
+        }
 
-        // Web: .mainDetailButtons directly under the misc info
-        Column(modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)) {
+        // Buttons, centred under the info line
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp)) {
             buttons()
         }
 
         Column(
             verticalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.fillMaxWidth(.60f),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth(.70f),
         ) {
             // IvanaFin: compact (web-like) header = fewer words on screen
             val compact = compactDetailHeader()
-            // Web: track selections (version / video / audio / subtitles)
             if (!compact) {
                 VideoStreamDetails(
                     chosenStreams = chosenStreams,
                     numberOfVersions = movie.data.mediaSourceCount ?: 0,
-                    modifier =
-                        Modifier.padding(
-                            start = HeaderUtils.startPadding,
-                            bottom = 12.dp,
-                        ),
+                    modifier = Modifier.padding(bottom = 12.dp),
                 )
             }
             dto.taglines?.firstOrNull()?.let { tagline ->
@@ -96,24 +87,26 @@ fun MovieDetailsHeader(
                     text = tagline,
                     style = if (compact) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodyLarge,
                     fontStyle = FontStyle.Italic,
+                    textAlign = TextAlign.Center,
                     maxLines = if (compact) 1 else Int.MAX_VALUE,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(start = HeaderUtils.startPadding, top = if (compact) 8.dp else 0.dp),
+                    modifier = Modifier.padding(top = if (compact) 8.dp else 0.dp),
                 )
             }
 
-            // Description
+            // Description (whole text, centred)
             dto.overview?.let { overview ->
                 OverviewText(
                     overview = overview,
-                    // IvanaFin: whole description, never cut off
                     maxLines = if (compact) Int.MAX_VALUE else 3,
                     textStyle =
-                        if (compact) {
-                            MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        } else {
-                            MaterialTheme.typography.bodyMedium
-                        },
+                        (
+                            if (compact) {
+                                MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface)
+                            } else {
+                                MaterialTheme.typography.bodyMedium
+                            }
+                        ).copy(textAlign = TextAlign.Center),
                     onClick = overviewOnClick,
                     textBoxHeight = Dp.Unspecified,
                     modifier =
@@ -129,10 +122,7 @@ fun MovieDetailsHeader(
 
             // Web: .itemDetailsGroup - Director(s), Writer(s), Studio(s), Genre(s)
             if (!compact) {
-                IvanaFinDetailsGroup(
-                    item = dto,
-                    modifier = Modifier.padding(start = HeaderUtils.startPadding, top = 8.dp),
-                )
+                IvanaFinDetailsGroup(item = dto, modifier = Modifier.padding(top = 8.dp))
             }
         }
     }
