@@ -65,7 +65,7 @@ fun MovieDetailsHeader(
         }
 
         // Buttons, centred under the info line
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp)) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
             // smaller, see-through buttons over the backdrop (user request)
             androidx.compose.runtime.CompositionLocalProvider(com.github.damontecres.wholphin.ui.components.LocalIvfGlassButtons provides true) {
                 buttons()

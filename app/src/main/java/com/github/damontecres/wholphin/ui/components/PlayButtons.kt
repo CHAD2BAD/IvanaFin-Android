@@ -112,7 +112,7 @@ fun ExpandablePlayButtons(
 
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(8.dp),
+        contentPadding = if (LocalIvfGlassButtons.current) PaddingValues(horizontal = 8.dp, vertical = 2.dp) else PaddingValues(8.dp), // film page: less room above/below (matches Samsung spacing)
         modifier =
             modifier
                 .focusGroup()
