@@ -255,6 +255,23 @@ fun ExpandablePlayButtons(
 val MinButtonSize = 40.dp
 
 /**
+ * IvanaFin: the film page's buttons are smaller and see-through over the full-screen backdrop
+ * (white 14%; the selected one keeps the theme's light highlight). Provided by MovieDetailsHeader.
+ */
+val LocalIvfGlassButtons = androidx.compose.runtime.staticCompositionLocalOf { false }
+
+@Composable
+private fun ivfButtonSize() = if (LocalIvfGlassButtons.current) 32.dp else MinButtonSize
+
+@Composable
+private fun ivfButtonColors() =
+    if (LocalIvfGlassButtons.current) {
+        androidx.tv.material3.ButtonDefaults.colors(containerColor = Color.White.copy(alpha = .14f), contentColor = Color.White)
+    } else {
+        androidx.tv.material3.ButtonDefaults.colors()
+    }
+
+/**
  * An icon button typically used in a row for playing media
  *
  * Only shows the icon until focused when it expands to show the title
@@ -278,7 +295,7 @@ fun ExpandablePlayButton(
             contentDescription = null,
             modifier =
                 Modifier
-                    .size(28.dp)
+                    .size(if (LocalIvfGlassButtons.current) 22.dp else 28.dp)
                     .ifElse(mirrorIcon, Modifier.graphicsLayer { scaleX = -1f }),
         )
     },
@@ -307,7 +324,7 @@ fun ExpandablePlayButton(
             contentDescription = null,
             modifier =
                 Modifier
-                    .size(28.dp)
+                    .size(if (LocalIvfGlassButtons.current) 22.dp else 28.dp)
                     .ifElse(mirrorIcon, Modifier.graphicsLayer { scaleX = -1f }),
         )
     },
@@ -328,16 +345,18 @@ fun ExpandablePlayButton(
     enabled: Boolean = true,
 ) {
     val isFocused = interactionSource.collectIsFocusedAsState().value
+    val size = ivfButtonSize()
     Button(
         onClick = { onClick.invoke(resume) },
         enabled = enabled,
         modifier =
             modifier.requiredSizeIn(
-                minWidth = MinButtonSize,
-                minHeight = MinButtonSize,
-                maxHeight = MinButtonSize,
+                minWidth = size,
+                minHeight = size,
+                maxHeight = size,
             ),
         contentPadding = DefaultButtonPadding,
+        colors = ivfButtonColors(),
         interactionSource = interactionSource,
     ) {
         Box(
@@ -345,7 +364,7 @@ fun ExpandablePlayButton(
             modifier =
                 Modifier
                     .padding(start = 2.dp)
-                    .height(MinButtonSize),
+                    .height(size),
         ) {
             icon.invoke(this)
         }
@@ -353,7 +372,7 @@ fun ExpandablePlayButton(
             Spacer(Modifier.size(8.dp))
             Text(
                 text = stringResource(title),
-                style = MaterialTheme.typography.titleSmall,
+                style = if (LocalIvfGlassButtons.current) MaterialTheme.typography.labelMedium else MaterialTheme.typography.titleSmall,
                 modifier = Modifier.padding(end = 4.dp),
             )
         }
@@ -374,28 +393,31 @@ fun ExpandableFaButton(
     enabled: Boolean = true,
 ) {
     val isFocused = interactionSource.collectIsFocusedAsState().value
+    val glass = LocalIvfGlassButtons.current
+    val size = ivfButtonSize()
     Button(
         onClick = onClick,
         enabled = enabled,
         modifier =
             modifier.requiredSizeIn(
-                minWidth = MinButtonSize,
-                minHeight = MinButtonSize,
-                maxHeight = MinButtonSize,
+                minWidth = size,
+                minHeight = size,
+                maxHeight = size,
             ),
         contentPadding = DefaultButtonPadding,
+        colors = ivfButtonColors(),
         interactionSource = interactionSource,
     ) {
         Box(
             modifier =
                 Modifier
-                    .size(32.dp),
+                    .size(if (glass) 26.dp else 32.dp),
         ) {
             Text(
                 text = stringResource(iconStringRes),
                 style = MaterialTheme.typography.titleSmall,
                 color = iconColor,
-                fontSize = 16.sp,
+                fontSize = if (glass) 13.sp else 16.sp,
                 fontFamily = FontAwesome,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.align(Alignment.Center),

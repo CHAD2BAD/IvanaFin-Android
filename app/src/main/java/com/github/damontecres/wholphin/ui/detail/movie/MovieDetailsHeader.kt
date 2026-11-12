@@ -60,12 +60,16 @@ fun MovieDetailsHeader(
             )
         }
         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
-            QuickDetails(movie.ui.quickDetails, movie.timeRemainingOrRuntime)
+            // smaller info line (user request)
+            QuickDetails(movie.ui.quickDetails, movie.timeRemainingOrRuntime, textStyle = MaterialTheme.typography.labelMedium)
         }
 
         // Buttons, centred under the info line
         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp)) {
-            buttons()
+            // smaller, see-through buttons over the backdrop (user request)
+            androidx.compose.runtime.CompositionLocalProvider(com.github.damontecres.wholphin.ui.components.LocalIvfGlassButtons provides true) {
+                buttons()
+            }
         }
 
         // ElegantFin layout: tagline and description left-aligned across the full width
