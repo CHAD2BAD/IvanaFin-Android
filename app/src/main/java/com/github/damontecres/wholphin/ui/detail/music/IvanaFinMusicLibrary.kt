@@ -1464,19 +1464,6 @@ private fun MusicLikedView(
     LaunchedEffect(listState) {
         snapshotFlow { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 100000f }.collect { onScrolled(it) }
     }
-    // See more / Show less: the list grows or shrinks around the button - keep it selected and on
-    // screen (it lost the focus and the page didn't follow, so nothing looked selected)
-    val moreFocus = remember { FocusRequester() }
-    var moreClicks by remember(id) { mutableIntStateOf(0) }
-    LaunchedEffect(moreClicks) {
-        if (moreClicks == 0) return@LaunchedEffect
-        delay(30)
-        val shownN = if (popularAll) data.popular.size else minOf(5, data.popular.size)
-        // items: hero, acts, Popular title, the songs, then the button
-        listState.scrollToItem(maxOf(0, 3 + shownN - 4))
-        delay(30)
-        moreFocus.tryRequestFocus()
-    }
     val toTop = LocalMuToTop.current
     val toTopStart = remember { toTop }
     LaunchedEffect(toTop) { if (toTop != toTopStart) listState.scrollToItem(0) }
