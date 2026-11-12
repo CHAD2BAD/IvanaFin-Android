@@ -1525,6 +1525,10 @@ private fun MusicSearchView(
     val results by viewModel.search.collectAsState()
     var text by remember { mutableStateOf("") }
     val boxFocus = remember { FocusRequester() }
+    // the box only types (keyboard up) after OK on it: passing through it with the remote brought the
+    // keyboard up over the Browse tiles (round-4 beta)
+    var typing by remember { mutableStateOf(false) }
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     // Down from the search box goes to the first result (the text field kept Down to itself)
     val firstResult = remember { FocusRequester() }
     val tileFocus = remember { FocusRequester() }
@@ -1554,15 +1558,26 @@ private fun MusicSearchView(
                     viewModel.search(it)
                 },
                 keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { viewModel.search(text) }),
+                keyboardActions =
+                    KeyboardActions(onSearch = {
+                        viewModel.search(text)
+                        typing = false
+                        keyboard?.hide()
+                    }),
+                readOnly = !typing,
                 leadingIcon = { Text(Fa.SEARCH, fontFamily = FontAwesome, fontSize = 16.sp, color = MuDim) },
                 modifier =
                     Modifier
                         .padding(start = 40.dp, top = 110.dp, bottom = 6.dp)
                         .width(480.dp)
                         .focusRequester(boxFocus)
+                        .onFocusChanged { if (!it.isFocused) typing = false }
                         .onPreviewKeyEvent {
-                            if (it.type != KeyEventType.KeyDown) {
+                            if (it.type == KeyEventType.KeyUp && (it.key == Key.DirectionCenter || it.key == Key.Enter) && !typing) {
+                                typing = true
+                                keyboard?.show()
+                                true
+                            } else if (it.type != KeyEventType.KeyDown) {
                                 false
                             } else if (it.key == Key.DirectionDown) {
                                 firstResult.tryRequestFocus()

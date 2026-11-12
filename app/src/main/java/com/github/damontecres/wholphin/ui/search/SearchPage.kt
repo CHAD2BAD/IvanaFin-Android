@@ -76,6 +76,7 @@ import com.github.damontecres.wholphin.ui.onMain
 import com.github.damontecres.wholphin.ui.titleStringRes
 import com.github.damontecres.wholphin.ui.tryRequestFocus
 import com.github.damontecres.wholphin.util.WholphinDispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.jellyfin.sdk.model.api.BaseItemKind
@@ -259,6 +260,7 @@ fun SearchPage(
             var isSearchActive by remember { mutableStateOf(false) }
             var isTextFieldFocused by remember { mutableStateOf(false) }
             val textFieldFocusRequester = remember { FocusRequester() }
+            val searchScope = androidx.compose.runtime.rememberCoroutineScope()
 
             // IvanaFin: Back only stays on the page while the keyboard is up (it closes the keyboard);
             // otherwise Back leaves Search. Before, it took 3-4 presses: keyboard, a hidden "stop typing"
@@ -268,6 +270,17 @@ fun SearchPage(
             BackHandler(isTextFieldFocused && isSearchActive && imeVisible) {
                 isSearchActive = false
                 keyboardController?.hide()
+            }
+            // IvanaFin: the keyboard closing with something typed moves the selection to the results
+            // (round-4 beta: the text box kept the remote's arrows - the keyboard's input connection
+            // takes them - so no result could be reached)
+            LaunchedEffect(imeVisible) {
+                if (!imeVisible && isTextFieldFocused && query.isNotBlank()) {
+                    kotlinx.coroutines.delay(200)
+                    isSearchActive = false
+                    val rows = listOf(COMBINED_ROW, SEERR_ROW) + (RESULTS_START until focusRequesters.size)
+                    rows.any { focusRequesters.getOrNull(it)?.tryRequestFocus() == true }
+                }
             }
 
             Row(
@@ -301,7 +314,20 @@ fun SearchPage(
                         isSearchActive = true
                         query = it
                     },
-                    onSearchClick = { triggerImmediateSearch(query) },
+                    onSearchClick = {
+                        triggerImmediateSearch(query)
+                        // IvanaFin: the keyboard's search key closes it and goes to the results (the
+                        // results load first; the text box keeps the arrows while it holds the keyboard)
+                        isSearchActive = false
+                        keyboardController?.hide()
+                        searchScope.launch {
+                            repeat(20) {
+                                kotlinx.coroutines.delay(150)
+                                val rows = listOf(COMBINED_ROW, SEERR_ROW) + (RESULTS_START until focusRequesters.size)
+                                if (rows.any { r -> focusRequesters.getOrNull(r)?.tryRequestFocus() == true }) return@launch
+                            }
+                        }
+                    },
                     readOnly = !isSearchActive,
                     modifier =
                         Modifier
