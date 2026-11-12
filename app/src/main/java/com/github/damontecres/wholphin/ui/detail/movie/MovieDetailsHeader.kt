@@ -76,7 +76,7 @@ fun MovieDetailsHeader(
         Column(
             verticalArrangement = Arrangement.spacedBy(4.dp),
             horizontalAlignment = Alignment.Start,
-            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 2.dp), // was 12: logo/info/buttons sit lower (user)
         ) {
             // IvanaFin: compact (web-like) header = fewer words on screen
             val compact = compactDetailHeader()
