@@ -59,7 +59,12 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -177,6 +182,11 @@ private sealed interface MusicView {
     data class Artist(
         val id: UUID,
     ) : MusicView
+
+    /** Search's Browse all tiles: recent, d2000 (a decade), t0..t2 (album type), artists */
+    data class Browse(
+        val key: String,
+    ) : MusicView
 }
 
 private data class MusicSort(
@@ -199,7 +209,44 @@ data class MusicHomeData(
     val added: List<BaseItem>,
     val all: List<BaseItem>,
     val artists: List<BaseItem>,
+    /** albums in the order they were last played */
+    val played: List<BaseItem> = emptyList(),
 )
+
+/** Home's 8 shortcut cards: the last album played, then 7 picked at random - a new mix each visit */
+private fun pickShortcuts(
+    played: List<BaseItem>,
+    all: List<BaseItem>,
+): List<BaseItem> {
+    val first = played.firstOrNull()
+    return (listOfNotNull(first) + all.filter { it.id != first?.id }.shuffled()).take(8)
+}
+
+/** Search's Browse all: one tile each (colour from [hue]) */
+private data class BrowseList(
+    val key: String,
+    val name: String,
+    val hue: Float,
+    val items: List<BaseItem> = emptyList(),
+    val artists: List<BaseItem>? = null,
+    val liked: Boolean = false,
+)
+
+private fun browseLists(data: MusicHomeData): List<BrowseList> {
+    val l = mutableListOf<BrowseList>()
+    if (data.liked > 0) l.add(BrowseList("liked", "Liked Songs", 262f, liked = true))
+    if (data.added.isNotEmpty()) l.add(BrowseList("recent", "Recently added", 14f, data.added))
+    val decades = data.all.filter { (it.data.productionYear ?: 0) > 0 }.groupBy { it.data.productionYear!! / 10 * 10 }.toSortedMap()
+    val dHues = listOf(158f, 200f, 330f, 40f, 280f)
+    decades.entries.forEachIndexed { i, (d, list) -> l.add(BrowseList("d$d", "${d}s", dHues[i % dHues.size], list)) }
+    val tHues = listOf(4f, 186f, 300f)
+    DiscographyTitles.forEachIndexed { i, t ->
+        val list = data.all.filter { discographyRow(it) == i }
+        if (list.isNotEmpty()) l.add(BrowseList("t$i", t, tHues[i], list))
+    }
+    if (data.artists.isNotEmpty()) l.add(BrowseList("artists", "Artists", 96f, artists = data.artists))
+    return l
+}
 
 data class MusicSearchResults(
     val songs: List<BaseItem> = emptyList(),
@@ -254,6 +301,9 @@ class IvanaFinMusicViewModel
         val nowFav = MutableStateFlow(false)
         val nowArtist = MutableStateFlow<BaseItem?>(null)
 
+        /** The playing album's year (Now Playing shows the artist as they looked then) */
+        val nowYear = MutableStateFlow(0)
+
         private suspend fun request(r: GetItemsRequest) =
             GetItemsRequestHandler.execute(api, r.copy(userId = userId))
 
@@ -270,7 +320,7 @@ class IvanaFinMusicViewModel
             sortOrder = listOf(order),
             limit = limit,
             searchTerm = searchTerm,
-            fields = listOf(ItemFields.CHILD_COUNT),
+            fields = listOf(ItemFields.CHILD_COUNT, ItemFields.PROVIDER_IDS),
             enableImageTypes = listOf(ImageType.PRIMARY),
             imageTypeLimit = 1,
         )
@@ -351,13 +401,16 @@ class IvanaFinMusicViewModel
                 val added = request(albumsRequest(listOf(ItemSortBy.DATE_CREATED, ItemSortBy.SORT_NAME), SortOrder.DESCENDING, 24)).toBaseItems(api, false)
                 val all = request(albumsRequest(listOf(ItemSortBy.SORT_NAME), SortOrder.ASCENDING)).toBaseItems(api, false)
                 val byId = all.associateBy { it.id }
-                val recent = mutableListOf<BaseItem>()
-                played.mapNotNull { it.albumId }.distinct().forEach { a -> if (recent.size < 8) byId[a]?.let { recent.add(it) } }
-                added.forEach { a -> if (recent.size < 8 && recent.none { it.id == a.id }) recent.add(a) }
-                home.value = MusicHomeData(likedCount, recent, added, all, loadArtists())
+                val playedAlbums = played.mapNotNull { it.albumId }.distinct().mapNotNull { byId[it] }
+                home.value = MusicHomeData(likedCount, pickShortcuts(playedAlbums, all), added, all, loadArtists(), playedAlbums)
             } catch (ex: Exception) {
                 Timber.w(ex, "Loading music home failed")
             }
+        }
+
+        /** Home chosen in the top bar: a new mix of shortcut cards (Back to Home keeps the same) */
+        fun reshuffle() {
+            home.value = home.value?.let { it.copy(recent = pickShortcuts(it.played, it.all)) }
         }
 
         fun loadLibrary() {
@@ -545,6 +598,9 @@ class IvanaFinMusicViewModel
                     try {
                         val dto = api.userLibraryApi.getItem(itemId = item.id).content
                         nowFav.value = dto.userData?.isFavorite == true
+                        nowYear.value = dto.productionYear
+                            ?: dto.albumId?.let { aid -> runCatching { api.userLibraryApi.getItem(itemId = aid).content.productionYear }.getOrNull() }
+                            ?: 0
                         val artistId = dto.albumArtists?.firstOrNull()?.id ?: item.artistId
                         if (artistId != null && nowArtist.value?.id != artistId) {
                             nowArtist.value = BaseItem.from(api.userLibraryApi.getItem(itemId = artistId).content, api, false)
@@ -582,6 +638,40 @@ class IvanaFinMusicViewModel
             maxWidth: Int = 1280,
         ) = if (!a.data.backdropImageTags.isNullOrEmpty()) imageUrl(a.id, ImageType.BACKDROP, maxWidth) else imageUrl(a.id, ImageType.PRIMARY, maxWidth)
 
+        /** A small copy of an item's picture to read its colours from (artists: the wide one) */
+        fun tintUrl(
+            a: BaseItem,
+            artist: Boolean = false,
+        ) = if (artist) artistArt(a, 96) else imageUrl(a.id, maxWidth = 96)
+
+        /**
+         * Now Playing: the artist's picture from when the album came out. The backdrops are dated in
+         * ProviderIds.IvfEras = "fromYear:backdropIndex,..." (jellyfin-web-custom/backup/artist-eras.ps1);
+         * none: the first backdrop.
+         */
+        fun eraArt(
+            a: BaseItem,
+            year: Int,
+            maxWidth: Int = 1920,
+        ): String {
+            val tags = a.data.backdropImageTags.orEmpty()
+            val eras =
+                a.data.providerIds
+                    ?.get("IvfEras")
+                    ?.split(',')
+                    ?.mapNotNull { e ->
+                        val p = e.split(':')
+                        val y = p.getOrNull(0)?.trim()?.toIntOrNull()
+                        val i = p.getOrNull(1)?.trim()?.toIntOrNull()
+                        if (y != null && i != null && i < tags.size) y to i else null
+                    }?.sortedBy { it.first }
+                    .orEmpty()
+            if (eras.isEmpty() || year <= 0) return artistArt(a, maxWidth)
+            var pick = eras.first()
+            eras.forEach { if (it.first <= year) pick = it }
+            return api.imageApi.getItemImageUrl(itemId = a.id, imageType = ImageType.BACKDROP, imageIndex = pick.second, tag = tags[pick.second], maxWidth = maxWidth)
+        }
+
         fun userImageUrl() = userId?.let { api.imageApi.getUserImageUrl(it) }
 
         /** Leaving Music: the music stops (it only plays while you're in Music). */
@@ -599,6 +689,8 @@ private data class Hero(
     val avatar: String? = null,
     // album covers are square: shown whole, not cropped to a wide strip
     val square: Boolean = false,
+    /** the picture the page colour comes from ("liked": the Liked Songs purple) */
+    val tint: String? = null,
 )
 
 @Composable
@@ -619,6 +711,13 @@ fun IvanaFinMusicLibrary(
     var scrolled by remember { mutableFloatStateOf(0f) }
     var toTop by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) { viewModel.load(libraryId) }
+    // the page colour (Apple Music style): pages set it from their picture, it fades over 0.7 s
+    val context = LocalContext.current
+    val theme = remember { MuTheme(context, scope) }
+    val edgeC = animateColorAsState(theme.target.edge, tween(700), label = "mtc")
+    val accC = animateColorAsState(theme.target.acc, tween(700), label = "ma")
+    val inkC = animateColorAsState(theme.target.ink, tween(700), label = "mi")
+    val muColors = remember(edgeC, accC, inkC) { MuColors(edgeC, accC, inkC) }
     DisposableEffect(Unit) { onDispose { viewModel.stopMusic() } }
 
     // What's playing (polled from the player: position moves every second)
@@ -708,6 +807,8 @@ fun IvanaFinMusicLibrary(
             k == "liked" -> go(MusicView.Liked)
             k.startsWith("album:") -> go(MusicView.Album(UUID.fromString(k.removePrefix("album:"))))
             k.startsWith("artist:") -> go(MusicView.Artist(UUID.fromString(k.removePrefix("artist:"))))
+            k == "browse:liked" -> go(MusicView.Liked)
+            k.startsWith("browse:") -> go(MusicView.Browse(k.removePrefix("browse:")))
         }
     }
     BackHandler(enabled = npOpen || stack.size > 1) {
@@ -730,6 +831,7 @@ fun IvanaFinMusicLibrary(
     // Full screen width: the navigation container pads pages left/right
     val screenW = LocalWindowInfo.current.containerSize.width
     var leftPx by remember { mutableStateOf(0f) }
+    CompositionLocalProvider(LocalMuTheme provides theme, LocalMuColors provides muColors) {
     Box(modifier = modifier.fillMaxSize().onGloballyPositioned { leftPx = it.positionInWindow().x }) {
         Box(
             modifier =
@@ -738,7 +840,7 @@ fun IvanaFinMusicLibrary(
                         val w = if (screenW > 0) screenW else c.maxWidth
                         val p = m.measure(Constraints.fixed(w, c.maxHeight))
                         layout(c.maxWidth, c.maxHeight) { p.place(-leftPx.roundToInt(), 0) }
-                    }.background(MuBg),
+                    }.drawBehind { drawRect(edgeC.value) },
         ) {
             // pages scroll only when the selected item would leave the screen, and keep it clear of the top bar
             MuScroll(start = 100.dp) {
@@ -760,6 +862,7 @@ fun IvanaFinMusicLibrary(
                             homeFocus = it
                             heroKey = it
                         },
+                        onRotate = { heroKey = it },
                         onOpen = ::open,
                         onScrolled = onScrolled,
                     )
@@ -780,6 +883,11 @@ fun IvanaFinMusicLibrary(
 
                 MusicView.Liked ->
                     MusicLikedView(viewModel, nowItem?.id, playing, onScrolled = onScrolled)
+
+                is MusicView.Browse ->
+                    key(current.key) {
+                        MusicBrowseView(viewModel, current.key, nowItem?.albumId, onOpen = ::open, onScrolled = onScrolled)
+                    }
 
                 is MusicView.Artist ->
                     key(current.id) {
@@ -819,7 +927,15 @@ fun IvanaFinMusicLibrary(
                     npOpen = true
                 },
                 onPlayPause = { if (player.isPlaying) player.pause() else player.play() },
-                onNav = { go(it, root = true) },
+                onNav = {
+                    // Home from the top bar: a new mix of shortcut cards, the hero back on the first
+                    if (it == MusicView.Home) {
+                        viewModel.reshuffle()
+                        homeFocus = null
+                        heroKey = "liked"
+                    }
+                    go(it, root = true)
+                },
                 // Down from the bar into the page (the page is a focus group: it returns to what was
                 // selected there, else its first item) - plain focus search found nothing below the bar
                 onDown = { pageFocus.tryRequestFocus() },
@@ -859,6 +975,7 @@ fun IvanaFinMusicLibrary(
             }
             }
         }
+    }
     }
 }
 
@@ -979,11 +1096,18 @@ private fun MusicHomeView(
     heroKey: String,
     nowAlbumId: UUID?,
     onFocusKey: (String) -> Unit,
+    onRotate: (String) -> Unit,
     onOpen: (String) -> Unit,
     onScrolled: (Float) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val home by viewModel.home.collectAsState()
+    // selecting a card shows it in the hero and holds the rotation (below) for 15 s
+    var lastUser by remember { mutableStateOf(0L) }
+    val onFocusKey: (String) -> Unit = {
+        lastUser = System.currentTimeMillis()
+        onFocusKey(it)
+    }
     val data = home ?: return
     val focusFirst = remember { FocusRequester() }
     val focusRestore = remember { FocusRequester() }
@@ -1004,6 +1128,18 @@ private fun MusicHomeView(
         shownKey = heroKey
     }
     val hero = remember(shownKey, data) { heroFor(viewModel, data, shownKey) }
+    MuTint(hero.tint)
+    // the hero rotates through the shortcut albums every 7 s
+    LaunchedEffect(data.recent) {
+        while (true) {
+            delay(7000)
+            if (System.currentTimeMillis() - lastUser < 15000) continue
+            val keys = data.recent.map { "album:${it.id}" }
+            if (keys.isEmpty()) continue
+            val i = keys.indexOf(shownKey)
+            onRotate(keys[(if (i < 0) 1 else i + 1) % keys.size])
+        }
+    }
     val firstKey = data.recent.firstOrNull()?.let { "album:${it.id}" }
     fun keyMod(k: String, shortcut: Boolean = false): Modifier =
         when {
@@ -1115,7 +1251,7 @@ private fun heroFor(
 ): Hero {
     if (key.startsWith("artist:")) {
         data.artists.firstOrNull { "artist:${it.id}" == key }?.let {
-            return Hero(it.name ?: "", "Artist", vm.artistArt(it), avatar = vm.imageUrl(it.id, maxWidth = 48))
+            return Hero(it.name ?: "", "Artist", vm.artistArt(it), avatar = vm.imageUrl(it.id, maxWidth = 48), tint = vm.tintUrl(it, true))
         }
     }
     // an album (the first shortcut when nothing is selected yet)
@@ -1123,7 +1259,7 @@ private fun heroFor(
         ((data.recent + data.added + data.all).firstOrNull { "album:${it.id}" == key } ?: data.recent.firstOrNull())?.let { a ->
             val artist = a.data.albumArtists?.firstOrNull()
             val bits = listOfNotNull(a.data.albumArtist ?: artist?.name, "Album", a.data.childCount?.takeIf { it > 0 }?.let { songsLabel(it) })
-            return Hero(a.name ?: "", bits.joinToString(" • "), vm.imageUrl(a.id, maxWidth = 2000), avatar = artist?.let { vm.imageUrl(it.id, maxWidth = 48) }, square = true)
+            return Hero(a.name ?: "", bits.joinToString(" • "), vm.imageUrl(a.id, maxWidth = 2000), avatar = artist?.let { vm.imageUrl(it.id, maxWidth = 48) }, square = true, tint = vm.tintUrl(a))
         }
     }
     return Hero("Music", "", null)
@@ -1159,6 +1295,8 @@ private fun MusicLibraryView(
     val toTop = LocalMuToTop.current
     val toTopStart = remember { toTop }
     LaunchedEffect(toTop) { if (toTop != toTopStart) gridState.scrollToItem(0) }
+    // the page colour moves through the albums (or artists) shown
+    MuCycle(remember(items, artists) { items.map { viewModel.tintUrl(it, artists) } })
     LazyVerticalGrid(
         state = gridState,
         columns = GridCells.Fixed(7),
@@ -1174,6 +1312,7 @@ private fun MusicLibraryView(
                 modifier = Modifier.padding(top = 110.dp, bottom = 0.dp),
             ) {
                 Text("Your Library", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(end = 12.dp))
+                if (items.isNotEmpty()) Text("${items.size} ${if (artists) "artists" else "albums"}", fontSize = 11.sp, color = Color.White.copy(alpha = .65f), modifier = Modifier.padding(end = 6.dp))
                 // (Left from Albums - the first tab - stays there; it jumped down into the grid)
                 MuChip("Albums", on = !artists, onClick = { viewModel.setLibraryArtists(false) }, modifier = (if (!artists) Modifier.focusRequester(first) else Modifier).focusProperties { left = FocusRequester.Cancel })
                 MuChip("Artists", on = artists, onClick = { viewModel.setLibraryArtists(true) }, modifier = if (artists) Modifier.focusRequester(first) else Modifier)
@@ -1190,6 +1329,7 @@ private fun MusicLibraryView(
                     round = true,
                     sub = "Artist",
                     width = null,
+                    panel = true,
                     onClick = {
                         onOpened(a.id)
                         onOpen("artist:${a.id}")
@@ -1203,6 +1343,7 @@ private fun MusicLibraryView(
                     sub = listOfNotNull(a.data.productionYear?.toString(), a.data.albumArtist ?: "Album").joinToString(" • "),
                     playing = a.id == nowAlbumId,
                     width = null,
+                    panel = true,
                     onClick = {
                         onOpened(a.id)
                         onOpen("album:${a.id}")
@@ -1306,8 +1447,8 @@ private fun MuChip(
         shape = ClickableSurfaceDefaults.shape(CircleShape),
         colors =
             ClickableSurfaceDefaults.colors(
-                containerColor = if (on) Color.White else Color(0xFF2A2A2A),
-                focusedContainerColor = if (on) Color.White else Color(0xFF3A3A3A),
+                containerColor = if (on) MuGreen else Color.White.copy(alpha = .1f),
+                focusedContainerColor = if (on) MuGreen else Color.White.copy(alpha = .2f),
             ),
         // the selected chip is white: a ring right on it vanished, so it gets one drawn further out
         // (below) with a dark gap between them
@@ -1333,7 +1474,7 @@ private fun MuChip(
                 },
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxHeight().padding(horizontal = 12.dp)) {
-            val c = if (on) Color.Black else Color.White
+            val c = if (on) MuInk else Color.White
             if (glyph != null) {
                 Text(glyph, fontFamily = FontAwesome, fontSize = 11.sp, color = c)
                 Spacer(Modifier.width(5.dp))
@@ -1370,6 +1511,9 @@ private fun MusicSearchView(
     val toTop = LocalMuToTop.current
     val toTopStart = remember { toTop }
     LaunchedEffect(toTop) { if (toTop != toTopStart) listState.scrollToItem(0) }
+    val home by viewModel.home.collectAsState()
+    // the page colour moves through all the albums
+    MuCycle(remember(home) { home?.all.orEmpty().map { viewModel.tintUrl(it) } })
     LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 48.dp), modifier = Modifier.fillMaxSize()) {
         item("box") {
             EditTextBox(
@@ -1398,6 +1542,11 @@ private fun MusicSearchView(
                             }
                         },
             )
+        }
+        // nothing typed: Browse all
+        val h = home
+        if (text.isBlank() && h != null) {
+            item("browse") { BrowseTiles(viewModel, h, onOpen, firstResult) }
         }
         if (results.songs.isNotEmpty()) {
             item("songsTitle") { MuSectionTitle("Songs") }
@@ -1464,6 +1613,7 @@ private fun MusicLikedView(
 ) {
     val songs by viewModel.liked.collectAsState()
     LaunchedEffect(Unit) { viewModel.loadLiked() }
+    MuTintPal(LikedPal)
     val list = songs ?: return
     val listState = rememberLazyListState()
     val playFocus = remember { FocusRequester() }
@@ -1582,6 +1732,7 @@ private fun MusicArtistView(
     val toTopStart = remember { toTop }
     LaunchedEffect(toTop) { if (toTop != toTopStart) listState.scrollToItem(0) }
     val a = data.artist
+    MuTint(viewModel.tintUrl(a, true))
     Box(Modifier.fillMaxSize()) {
         HeroArt(
             url = viewModel.artistArt(a),
@@ -1728,6 +1879,7 @@ private fun NowPlayingView(
     val scope = rememberCoroutineScope()
     val fav by viewModel.nowFav.collectAsState()
     val artist by viewModel.nowArtist.collectAsState()
+    val year by viewModel.nowYear.collectAsState()
     val scroll = rememberScrollState()
     val ppFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
@@ -1736,22 +1888,20 @@ private fun NowPlayingView(
     }
     val bigCover = item.albumId?.let { viewModel.imageUrl(it, maxWidth = 400) } ?: item.imageUrl
     Box(modifier.fillMaxSize().background(Color.Black)) {
-        AsyncImage(
-            model = artist?.let { viewModel.artistArt(it, 1920) } ?: bigCover,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            alignment = androidx.compose.ui.BiasAlignment(0f, -.5f),
-            modifier = Modifier.fillMaxSize(),
-        )
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.verticalGradient(
-                    0f to Color(0xFF464646).copy(alpha = .55f),
-                    .6f to Color(0xFF323232).copy(alpha = .6f),
-                    1f to MuBg.copy(alpha = .92f),
-                ),
-            ),
-        )
+        // the artist as they looked when the album came out (see eraArt)
+        Crossfade(targetState = artist?.let { viewModel.eraArt(it, year, 1920) } ?: bigCover, animationSpec = tween(600), label = "npArt") { u ->
+            AsyncImage(
+                model = u,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                alignment = androidx.compose.ui.BiasAlignment(0f, -.5f),
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        // the same light shading from top to bottom, washed with the album's colour
+        val wash = rememberMuPal(item.albumId?.let { viewModel.imageUrl(it, maxWidth = 96) })?.wash ?: Color(0xFF3C3C3C).copy(alpha = .55f)
+        val washC by animateColorAsState(wash, tween(700), label = "npw")
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .25f)).background(washC))
         Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(start = 60.dp, end = 60.dp, bottom = 40.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 40.dp).height(32.dp)) {
                 Box(Modifier.size(28.dp).clip(CircleShape).background(Color.White.copy(alpha = .85f)), contentAlignment = Alignment.Center) {
@@ -1989,4 +2139,145 @@ private fun coverTint(bmp: Bitmap): Color {
         if (h < 0) h += 360
     }
     return Color.hsl(h.roundToInt().toFloat() % 360, min(s, .4f).coerceIn(0f, 1f), max(.14f, min(l, .22f)))
+}
+
+// ---- Search: Browse all ----------------------------------------------------------------------------
+
+@Composable
+private fun BrowseTiles(
+    viewModel: IvanaFinMusicViewModel,
+    data: MusicHomeData,
+    onOpen: (String) -> Unit,
+    firstFocus: FocusRequester,
+) {
+    val lists = remember(data) { browseLists(data) }
+    // each tile shows a different cover (the newest one not shown yet)
+    val covers =
+        remember(lists) {
+            val used = HashSet<UUID>()
+            lists.map { b ->
+                when {
+                    b.liked -> null
+                    b.artists != null -> b.artists.firstOrNull()?.let { viewModel.imageUrl(it.id, maxWidth = 160) }
+                    else -> {
+                        val by = b.items.sortedByDescending { it.data.productionYear ?: 0 }
+                        val a = by.firstOrNull { it.id !in used } ?: by.firstOrNull()
+                        a?.let {
+                            used.add(it.id)
+                            viewModel.imageUrl(it.id, maxWidth = 160)
+                        }
+                    }
+                }
+            }
+        }
+    Column(Modifier.padding(start = 40.dp, end = 40.dp, top = 18.dp)) {
+        Text("Browse all", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(bottom = 10.dp))
+        lists.indices.chunked(5).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.padding(bottom = 14.dp)) {
+                row.forEach { i ->
+                    val b = lists[i]
+                    val tile = huePal(b.hue).tile!!
+                    Surface(
+                        onClick = { onOpen("browse:${b.key}") },
+                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+                        colors = ClickableSurfaceDefaults.colors(containerColor = tile, focusedContainerColor = lighter(tile)),
+                        border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White))),
+                        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+                        modifier = Modifier.weight(1f).height(96.dp).then(if (i == 0) Modifier.focusRequester(firstFocus) else Modifier),
+                    ) {
+                        Box(Modifier.fillMaxSize()) {
+                            Text(
+                                b.name,
+                                fontSize = 16.sp,
+                                lineHeight = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                modifier = Modifier.padding(12.dp).fillMaxWidth(.7f),
+                            )
+                            // the tilted cover, bottom right
+                            val shape = if (b.artists != null) CircleShape else RoundedCornerShape(4.dp)
+                            Box(
+                                Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .offset(x = 12.dp, y = 6.dp)
+                                    .size(66.dp)
+                                    .graphicsLayer { rotationZ = 25f }
+                                    .clip(shape)
+                                    .background(if (b.liked) LikedBrush else Brush.linearGradient(listOf(Color(0xFF333333), Color(0xFF333333)))),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (b.liked) {
+                                    Text(Fa.HEART, fontFamily = FontAwesome, fontSize = 26.sp, color = Color.White, modifier = Modifier.graphicsLayer { rotationZ = -25f })
+                                } else {
+                                    AsyncImage(model = covers[i], contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                }
+                            }
+                        }
+                    }
+                }
+                repeat(5 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+/** A Browse all tile's page: its albums (newest first) or the artists, in the tile's colour */
+@Composable
+private fun MusicBrowseView(
+    viewModel: IvanaFinMusicViewModel,
+    key: String,
+    nowAlbumId: UUID?,
+    onOpen: (String) -> Unit,
+    onScrolled: (Float) -> Unit,
+) {
+    val home by viewModel.home.collectAsState()
+    val data = home ?: return
+    val b = remember(data, key) { browseLists(data).firstOrNull { it.key == key } } ?: return
+    MuTintPal(remember(b.hue) { huePal(b.hue) })
+    val gridState = rememberLazyGridState()
+    val first = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        delay(80)
+        first.tryRequestFocus()
+    }
+    LaunchedEffect(gridState) {
+        snapshotFlow { if (gridState.firstVisibleItemIndex == 0) gridState.firstVisibleItemScrollOffset.toFloat() else 100000f }.collect { onScrolled(it) }
+    }
+    val toTop = LocalMuToTop.current
+    val toTopStart = remember { toTop }
+    LaunchedEffect(toTop) { if (toTop != toTopStart) gridState.scrollToItem(0) }
+    val list = b.artists ?: b.items.sortedByDescending { it.data.productionYear ?: 0 }
+    LazyVerticalGrid(
+        state = gridState,
+        columns = GridCells.Fixed(7),
+        horizontalArrangement = Arrangement.spacedBy(18.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(start = 40.dp, end = 40.dp, bottom = 48.dp),
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        item(key = "head", span = { GridItemSpan(maxLineSpan) }) {
+            Column(Modifier.padding(top = 110.dp, bottom = 4.dp)) {
+                Text(if (b.artists != null) "Artists" else "Collection", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = .75f))
+                Text(b.name, fontSize = 34.sp, lineHeight = 38.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                Text("${list.size} ${if (b.artists != null) "artists" else "albums"}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = .75f))
+            }
+        }
+        itemsIndexed(list, key = { _, a -> a.id }) { i, a ->
+            val mod = if (i == 0) Modifier.focusRequester(first) else Modifier
+            if (b.artists != null) {
+                CoverCard(name = a.name ?: "", imageUrl = viewModel.imageUrl(a.id), round = true, sub = "Artist", width = null, panel = true, onClick = { onOpen("artist:${a.id}") }, modifier = mod)
+            } else {
+                CoverCard(
+                    name = a.name ?: "",
+                    imageUrl = viewModel.imageUrl(a.id),
+                    sub = listOfNotNull(a.data.productionYear?.toString(), a.data.albumArtist ?: "Album").joinToString(" • "),
+                    playing = a.id == nowAlbumId,
+                    width = null,
+                    panel = true,
+                    onClick = { onOpen("album:${a.id}") },
+                    modifier = mod,
+                )
+            }
+        }
+    }
 }

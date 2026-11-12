@@ -144,7 +144,7 @@ fun IvanaFinAlbumPage(
 
     when (val loading = state.loading) {
         is LoadingState.Error -> ErrorMessage(loading, modifier)
-        LoadingState.Loading, LoadingState.Pending -> LoadingPage(modifier.background(MuBg))
+        LoadingState.Loading, LoadingState.Pending -> LoadingPage(modifier)
         LoadingState.Success -> {
             val album = state.album!!
             val songs = state.songs
@@ -217,7 +217,9 @@ fun IvanaFinAlbumPage(
                 }
             }
 
-            Box(modifier = modifier.fillMaxSize().background(MuBg)) {
+            // the page colour: the cover's own background (the Music screen draws it, fading between pages)
+            MuTint(api.imageApi.getItemImageUrl(itemId = album.id, imageType = ImageType.PRIMARY, maxWidth = 96))
+            Box(modifier = modifier.fillMaxSize()) {
                 HeroArt(
                     url = api.imageApi.getItemImageUrl(itemId = album.id, imageType = ImageType.PRIMARY, maxWidth = 2000),
                     liked = false,

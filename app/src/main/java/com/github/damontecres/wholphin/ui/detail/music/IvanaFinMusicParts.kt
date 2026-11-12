@@ -45,7 +45,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween as tweenSpec
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -74,8 +77,7 @@ import kotlin.math.abs
  * Sizes are the same dp values the web/Samsung music-page.js uses (960 x 540 dp screen).
  */
 
-internal val MuGreen = Color(0xFF1ED760)
-internal val MuBg = Color(0xFF121212)
+// MuGreen (the accent) and MuBg (the page colour) now follow the page's picture: IvanaFinMusicColour.kt
 internal val MuCard = Color(0xFF282828)
 internal val MuDim = Color.White.copy(alpha = .7f)
 /** Goes up by one each time a tab in the Music top bar gets the focus: pages then scroll back to the top. */
@@ -145,24 +147,30 @@ internal fun HeroArt(
                 modifier = Modifier.align(BiasAlignment(.3f, -.25f)),
             )
         } else if (url != null) {
-            AsyncImage(
-                model = url,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                alignment = BiasAlignment(0f, -.4f),
-                modifier = Modifier.fillMaxSize(),
-            )
+            Crossfade(targetState = url, animationSpec = tweenSpec(500), label = "hero") { u ->
+                AsyncImage(
+                    model = u,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    alignment = BiasAlignment(0f, -.4f),
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
+        val edge = LocalMuColors.current.edge
         Box(
-            Modifier.fillMaxSize().background(
-                if (square) {
-                    Brush.horizontalGradient(0f to MuBg, .14f to MuBg.copy(alpha = .55f), .38f to Color.Transparent)
-                } else {
-                    Brush.horizontalGradient(0f to MuBg, .22f to MuBg.copy(alpha = .6f), .5f to Color.Transparent)
-                },
-            ),
+            Modifier.fillMaxSize().drawBehind {
+                val e = edge.value
+                drawRect(
+                    if (square) {
+                        Brush.horizontalGradient(0f to e, .14f to e.copy(alpha = .55f), .38f to Color.Transparent)
+                    } else {
+                        Brush.horizontalGradient(0f to e, .22f to e.copy(alpha = .6f), .5f to Color.Transparent)
+                    },
+                )
+                drawRect(Brush.verticalGradient(.45f to Color.Transparent, 1f to e))
+            },
         )
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(.45f to Color.Transparent, 1f to MuBg)))
     }
 }
 
@@ -268,10 +276,10 @@ internal fun MuPill(
         shape = ClickableSurfaceDefaults.shape(CircleShape),
         colors =
             ClickableSurfaceDefaults.colors(
-                containerColor = if (primary) Color.White else Color.White.copy(alpha = .12f),
-                focusedContainerColor = if (primary) Color.White else Color.White.copy(alpha = .22f),
-                contentColor = if (primary) Color.Black else Color.White,
-                focusedContentColor = if (primary) Color.Black else Color.White,
+                containerColor = if (primary) MuGreen else Color.White.copy(alpha = .12f),
+                focusedContainerColor = if (primary) MuGreen else Color.White.copy(alpha = .22f),
+                contentColor = if (primary) MuInk else Color.White,
+                focusedContentColor = if (primary) MuInk else Color.White,
             ),
         // the white (primary) pill: a ring with a negative inset never showed, so it gets one drawn
         // outside it (below) with a dark gap between - same as the selected white chip
@@ -306,10 +314,10 @@ internal fun MuPill(
             horizontalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxHeight().then(if (text == null) Modifier.fillMaxWidth() else Modifier.padding(horizontal = 18.dp)),
         ) {
-            Text(glyph, fontFamily = FontAwesome, fontSize = 14.sp, color = tint ?: (if (primary) Color.Black else Color.White))
+            Text(glyph, fontFamily = FontAwesome, fontSize = 14.sp, color = tint ?: (if (primary) MuInk else Color.White))
             if (text != null) {
                 Spacer(Modifier.width(7.dp))
-                Text(text, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (primary) Color.Black else Color.White)
+                Text(text, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (primary) MuInk else Color.White)
             }
         }
     }
@@ -326,10 +334,15 @@ internal fun ShortcutCard(
     liked: Boolean = false,
     playing: Boolean = false,
 ) {
+    val wash = (if (liked) LikedPal else rememberMuPal(imageUrl))?.wash
     Surface(
         onClick = onClick,
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(4.dp)),
-        colors = ClickableSurfaceDefaults.colors(containerColor = MuCard, focusedContainerColor = Color(0xFF3A3A3A)),
+        colors =
+            ClickableSurfaceDefaults.colors(
+                containerColor = wash ?: Color.White.copy(alpha = .09f),
+                focusedContainerColor = wash?.let { lighter(it) } ?: Color.White.copy(alpha = .16f),
+            ),
         border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, Color.White))),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         modifier = modifier.height(50.dp).onFocusChanged { if (it.isFocused) onFocus() },
@@ -372,10 +385,13 @@ internal fun CoverCard(
     sub: String? = null,
     nameBelow: Boolean = round || sub != null,
     width: Dp? = 106.dp,
+    // Library / Browse grids: the card sits on a panel washed with its picture's colour
+    panel: Boolean = false,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     val shape = if (round) CircleShape else RoundedCornerShape(4.dp)
+    val panelColor = if (panel) rememberMuPal(imageUrl)?.wash ?: Color.White.copy(alpha = .06f) else null
     Surface(
         onClick = onClick,
         interactionSource = interaction,
@@ -384,7 +400,7 @@ internal fun CoverCard(
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         modifier = modifier.then(if (width != null) Modifier.width(width) else Modifier).onFocusChanged { if (it.isFocused) onFocus() },
     ) {
-        Column {
+        Column(if (panelColor != null) Modifier.background(panelColor, RoundedCornerShape(8.dp)).padding(start = 7.dp, end = 7.dp, top = 7.dp, bottom = 9.dp) else Modifier) {
             Box(
                 Modifier
                     .fillMaxWidth()
@@ -483,9 +499,7 @@ internal fun MuTrackRow(
                 focusedContentColor = Color.White,
             ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-        // the page colour across the whole row, so the cover on the right never shows through the
-        // song lengths (same as the web)
-        modifier = modifier.fillMaxWidth().background(MuBg).focusRequester(markFocus).padding(horizontal = 34.dp).height(44.dp),
+        modifier = modifier.fillMaxWidth().focusRequester(markFocus).padding(horizontal = 34.dp).height(44.dp),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -594,3 +608,6 @@ internal fun MuLazyRow(
         )
     }
 }
+
+/** A card colour a step lighter (selected) */
+internal fun lighter(c: Color): Color = Color(red = c.red + (1 - c.red) * .12f, green = c.green + (1 - c.green) * .12f, blue = c.blue + (1 - c.blue) * .12f, alpha = c.alpha)
