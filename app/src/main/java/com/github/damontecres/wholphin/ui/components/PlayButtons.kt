@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -233,7 +234,7 @@ fun ExpandablePlayButtons(
             ExpandablePlayButton(
                 title = if (moreIsMediaInfo) R.string.media_information else R.string.more,
                 resume = Duration.ZERO,
-                icon = if (moreIsMediaInfo) androidx.compose.material.icons.Icons.Default.Info else Icons.Default.MoreVert,
+                icon = if (moreIsMediaInfo) Icons.Default.Info else Icons.Default.MoreVert,
                 onClick = { moreOnClick.invoke() },
                 modifier = Modifier.onFocusChanged(buttonOnFocusChanged),
             )
