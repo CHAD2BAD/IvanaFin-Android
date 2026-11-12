@@ -31,8 +31,8 @@ import com.github.damontecres.wholphin.util.ExceptionHandler
 import kotlinx.coroutines.launch
 
 /**
- * IvanaFin (2026-11-12, user design): the film page's first screen - centred at the bottom, over the
- * full-screen backdrop: logo (or title) -> info line -> buttons -> tagline -> description.
+ * IvanaFin (2026-11-12, ElegantFin layout): the film page's first screen, at the bottom over the full-screen
+ * backdrop: logo (or title) -> info line -> buttons centred, then tagline + description left-aligned, full width.
  * (Cast & Crew and the other rows start below this screen.)
  */
 @Composable
@@ -68,10 +68,11 @@ fun MovieDetailsHeader(
             buttons()
         }
 
+        // ElegantFin layout: tagline and description left-aligned across the full width
         Column(
             verticalArrangement = Arrangement.spacedBy(4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth(.70f),
+            horizontalAlignment = Alignment.Start,
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
         ) {
             // IvanaFin: compact (web-like) header = fewer words on screen
             val compact = compactDetailHeader()
@@ -87,7 +88,7 @@ fun MovieDetailsHeader(
                     text = tagline,
                     style = if (compact) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodyLarge,
                     fontStyle = FontStyle.Italic,
-                    textAlign = TextAlign.Center,
+                    textAlign = TextAlign.Start,
                     maxLines = if (compact) 1 else Int.MAX_VALUE,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = if (compact) 8.dp else 0.dp),
@@ -106,7 +107,7 @@ fun MovieDetailsHeader(
                             } else {
                                 MaterialTheme.typography.bodyMedium
                             }
-                        ).copy(textAlign = TextAlign.Center),
+                        ).copy(textAlign = TextAlign.Start),
                     onClick = overviewOnClick,
                     textBoxHeight = Dp.Unspecified,
                     modifier =
