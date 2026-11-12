@@ -92,6 +92,8 @@ fun ExpandablePlayButtons(
     // IvanaFin: when set, Audio + Subtitles buttons replace Watched / Favourite / Trailers
     onChooseAudio: (() -> Unit)? = null,
     onChooseSubtitles: (() -> Unit)? = null,
+    // IvanaFin: the last button is "Media Information" (opens it directly) instead of the More menu
+    moreIsMediaInfo: Boolean = false,
 ) {
     val resources = LocalResources.current
     val trackButtons = onChooseAudio != null && onChooseSubtitles != null
@@ -229,9 +231,9 @@ fun ExpandablePlayButtons(
         // More button
         item("more") {
             ExpandablePlayButton(
-                title = R.string.more,
+                title = if (moreIsMediaInfo) R.string.media_information else R.string.more,
                 resume = Duration.ZERO,
-                icon = Icons.Default.MoreVert,
+                icon = if (moreIsMediaInfo) androidx.compose.material.icons.Icons.Default.Info else Icons.Default.MoreVert,
                 onClick = { moreOnClick.invoke() },
                 modifier = Modifier.onFocusChanged(buttonOnFocusChanged),
             )

@@ -189,19 +189,9 @@ fun MovieDetails(
                     overviewDialog =
                         ItemDetailsDialogInfo(movie)
                 },
+                // IvanaFin (2026-11-12, user request): the More button is now "Media Information"
                 moreOnClick = {
-                    showContextMenu =
-                        ContextMenu.ForBaseItem(
-                            fromLongClick = false,
-                            item = movie,
-                            chosenStreams = chosenStreams,
-                            showGoTo = false,
-                            showStreamChoices = true,
-                            canDelete = state.canDelete,
-                            canRemoveContinueWatching = false,
-                            canRemoveNextUp = false,
-                            actions = contextActions,
-                        )
+                    overviewDialog = ItemDetailsDialogInfo(movie)
                 },
                 watchOnClick = {
                     viewModel.setWatched(movie.id, !movie.played)
@@ -472,6 +462,7 @@ fun MovieDetailsContent(
                         modifier = Modifier.focusRequester(focusRequesters[HEADER_ROW]), // centred by the header
                         onChooseAudio = onChooseTracks?.let { { it(MediaStreamType.AUDIO) } },
                         onChooseSubtitles = onChooseTracks?.let { { it(MediaStreamType.SUBTITLE) } },
+                        moreIsMediaInfo = true,
                     )
                         },
                     )
