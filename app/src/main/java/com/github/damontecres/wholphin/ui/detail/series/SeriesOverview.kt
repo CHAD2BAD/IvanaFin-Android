@@ -246,6 +246,7 @@ fun SeriesOverview(
                 focusedEpisodeIndex = position.episodeRowIndex,
                 episodeFocusRequester = episodeRowFocusRequester,
                 playNextFocusRequester = playNextFocusRequester,
+                castFocusRequester = castCrewRowFocusRequester,
                 onChangeSeason = { index ->
                     if (index != position.seasonTabIndex) {
                         state.seasons.getOrNull(index)?.let { season ->
@@ -279,6 +280,7 @@ fun SeriesOverview(
                 },
                 onPlayNextEpisode = { viewModel.playNextUp() },
                 onClickPerson = {
+                    rowFocused = CAST_AND_CREW_ROW
                     viewModel.navigateTo(Destination.MediaItem(it.id, BaseItemKind.PERSON))
                 },
                 modifier = modifier,

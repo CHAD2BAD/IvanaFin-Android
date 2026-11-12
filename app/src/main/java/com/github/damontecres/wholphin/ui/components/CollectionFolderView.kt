@@ -1022,6 +1022,9 @@ fun CollectionFolderViewContent(
     val headerRowFocusRequester = remember { FocusRequester() }
     val filterButtonFocusRequester = remember { FocusRequester() }
     val randomButtonFocusRequester = remember { FocusRequester() }
+    // IvanaFin: the Star Wars Sort pill keeps the focus after re-sorting (press again to switch back)
+    var clickedSwSort by remember { mutableStateOf(false) }
+    val swSortFocusRequester = remember { FocusRequester() }
 
     val gridActions =
         remember(actions) {
@@ -1158,7 +1161,11 @@ fun CollectionFolderViewContent(
                             ) {
                                 SwTimelineButton(
                                     timeline = state.swTimeline,
-                                    onClick = { viewActions.toggleSwTimeline() },
+                                    onClick = {
+                                        clickedSwSort = true
+                                        viewActions.toggleSwTimeline()
+                                    },
+                                    modifier = Modifier.focusRequester(swSortFocusRequester),
                                 )
                             }
                         }
@@ -1184,11 +1191,13 @@ fun CollectionFolderViewContent(
                                         contextMenu.isShowing -> null
                                         filterDropdownShowing -> filterButtonFocusRequester
                                         clickedRandom -> randomButtonFocusRequester
+                                        clickedSwSort -> swSortFocusRequester
                                         pager.data.isNotEmpty() -> gridFocusRequester
                                         else -> focusRequesterOnEmpty ?: headerRowFocusRequester
                                     }
                                 focusRequester?.tryRequestFocus()
                                 clickedRandom = false
+                                clickedSwSort = false
                             }
                             val scope =
                                 object : CollectionFolderViewScope {

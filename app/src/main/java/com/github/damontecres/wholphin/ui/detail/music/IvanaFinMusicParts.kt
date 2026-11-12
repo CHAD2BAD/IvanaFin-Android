@@ -179,6 +179,7 @@ internal fun HeroText(
     // album pages: the artist (avatar + name) is a button to the artist's page; meta is the rest
     artistName: String? = null,
     onArtist: (() -> Unit)? = null,
+    artistModifier: Modifier = Modifier,
 ) {
     Column(
         verticalArrangement = Arrangement.Top,
@@ -197,6 +198,7 @@ internal fun HeroText(
         if (artistName != null && onArtist != null) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
                 Surface(
+                    modifier = artistModifier,
                     onClick = onArtist,
                     shape = ClickableSurfaceDefaults.shape(CircleShape),
                     colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),

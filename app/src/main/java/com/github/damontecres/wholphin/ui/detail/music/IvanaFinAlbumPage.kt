@@ -81,6 +81,7 @@ import kotlin.math.roundToInt
 private const val ROW_BUTTONS = 0
 private const val ROW_SONGS = 1
 private const val ROW_MORE = 2
+private const val ROW_ARTIST = 3
 
 @Composable
 fun IvanaFinAlbumPage(
@@ -187,12 +188,14 @@ fun IvanaFinAlbumPage(
             val playFocus = remember { FocusRequester() }
             val songFocus = remember { FocusRequester() }
             val moreFocus = remember { FocusRequester() }
+            val artistFocus = remember { FocusRequester() }
             val listState = rememberLazyListState()
             LaunchedEffect(Unit) {
                 if (!requestInitialFocus) return@LaunchedEffect
                 when (position.row) {
                     ROW_SONGS -> songFocus.tryRequestFocus()
                     ROW_MORE -> moreFocus.tryRequestFocus()
+                    ROW_ARTIST -> if (!artistFocus.tryRequestFocus()) playFocus.tryRequestFocus()
                     else -> playFocus.tryRequestFocus()
                 }
             }
@@ -242,7 +245,11 @@ fun IvanaFinAlbumPage(
                             meta = bits.joinToString(" • "),
                             avatarUrl = artist?.let { api.imageApi.getItemImageUrl(itemId = it.id, imageType = ImageType.PRIMARY, maxWidth = 48) },
                             artistName = who.takeIf { link },
-                            onArtist = if (link) ({ onOpenArtist?.invoke(artist!!.id) }) else null,
+                            onArtist = if (link) ({
+                                position = RowColumn(ROW_ARTIST, 0)
+                                onOpenArtist?.invoke(artist!!.id)
+                            }) else null,
+                            artistModifier = Modifier.focusRequester(artistFocus),
                         )
                     }
                     // ---- Play / Shuffle / Favourite / More ----

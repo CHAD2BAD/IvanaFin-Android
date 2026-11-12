@@ -41,7 +41,8 @@ fun OverviewText(
     val isFocused = interactionSource.collectIsFocusedAsState().value
     val bgColor =
         if (isFocused) {
-            MaterialTheme.colorScheme.onPrimary.copy(alpha = .4f)
+            // IvanaFin: a light tint (onPrimary is near-black in this theme - the selection was invisible)
+            MaterialTheme.colorScheme.onSurface.copy(alpha = .14f)
         } else {
             Color.Unspecified
         }

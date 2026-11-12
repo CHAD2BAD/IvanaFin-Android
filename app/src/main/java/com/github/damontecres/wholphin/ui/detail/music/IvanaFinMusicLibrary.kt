@@ -61,6 +61,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
@@ -1163,7 +1164,8 @@ private fun MusicLibraryView(
                 modifier = Modifier.padding(top = 110.dp, bottom = 0.dp),
             ) {
                 Text("Your Library", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(end = 12.dp))
-                MuChip("Albums", on = !artists, onClick = { viewModel.setLibraryArtists(false) }, modifier = if (!artists) Modifier.focusRequester(first) else Modifier)
+                // (Left from Albums - the first tab - stays there; it jumped down into the grid)
+                MuChip("Albums", on = !artists, onClick = { viewModel.setLibraryArtists(false) }, modifier = (if (!artists) Modifier.focusRequester(first) else Modifier).focusProperties { left = FocusRequester.Cancel })
                 MuChip("Artists", on = artists, onClick = { viewModel.setLibraryArtists(true) }, modifier = if (artists) Modifier.focusRequester(first) else Modifier)
                 Spacer(Modifier.weight(1f))
                 if (!artists) SortChip(sortIdx, onPick = { viewModel.setSort(it) })
@@ -1462,6 +1464,19 @@ private fun MusicLikedView(
     LaunchedEffect(listState) {
         snapshotFlow { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 100000f }.collect { onScrolled(it) }
     }
+    // See more / Show less: the list grows or shrinks around the button - keep it selected and on
+    // screen (it lost the focus and the page didn't follow, so nothing looked selected)
+    val moreFocus = remember { FocusRequester() }
+    var moreClicks by remember(id) { mutableIntStateOf(0) }
+    LaunchedEffect(moreClicks) {
+        if (moreClicks == 0) return@LaunchedEffect
+        delay(30)
+        val shownN = if (popularAll) data.popular.size else minOf(5, data.popular.size)
+        // items: hero, acts, Popular title, the songs, then the button
+        listState.scrollToItem(maxOf(0, 3 + shownN - 4))
+        delay(30)
+        moreFocus.tryRequestFocus()
+    }
     val toTop = LocalMuToTop.current
     val toTopStart = remember { toTop }
     LaunchedEffect(toTop) { if (toTop != toTopStart) listState.scrollToItem(0) }
@@ -1553,6 +1568,19 @@ private fun MusicArtistView(
     LaunchedEffect(listState) {
         snapshotFlow { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 100000f }.collect { onScrolled(it) }
     }
+    // See more / Show less: the list grows or shrinks around the button - keep it selected and on
+    // screen (it lost the focus and the page didn't follow, so nothing looked selected)
+    val moreFocus = remember { FocusRequester() }
+    var moreClicks by remember(id) { mutableIntStateOf(0) }
+    LaunchedEffect(moreClicks) {
+        if (moreClicks == 0) return@LaunchedEffect
+        delay(30)
+        val shownN = if (popularAll) data.popular.size else minOf(5, data.popular.size)
+        // items: hero, acts, Popular title, the songs, then the button
+        listState.scrollToItem(maxOf(0, 3 + shownN - 4))
+        delay(30)
+        moreFocus.tryRequestFocus()
+    }
     val toTop = LocalMuToTop.current
     val toTopStart = remember { toTop }
     LaunchedEffect(toTop) { if (toTop != toTopStart) listState.scrollToItem(0) }
@@ -1608,8 +1636,11 @@ private fun MusicArtistView(
                         MuPill(
                             glyph = if (popularAll) Fa.CHEVRON_UP else Fa.CHEVRON_DOWN,
                             text = if (popularAll) "Show less" else "See more",
-                            onClick = { popularAll = !popularAll },
-                            modifier = Modifier.padding(start = 40.dp, top = 6.dp),
+                            onClick = {
+                                popularAll = !popularAll
+                                moreClicks++
+                            },
+                            modifier = Modifier.padding(start = 40.dp, top = 6.dp).focusRequester(moreFocus),
                         )
                     }
                 }
