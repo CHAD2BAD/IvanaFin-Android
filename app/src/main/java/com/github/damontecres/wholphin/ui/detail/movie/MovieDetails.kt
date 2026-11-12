@@ -381,7 +381,20 @@ fun MovieDetailsContent(
                 modifier = Modifier.fillMaxSize().bleedToScreenEdges(),
             )
         }
-        // no darkening gradient over the backdrop (user, 2026-11-12): the text keeps IvfTextShadow
+        Box(
+            Modifier
+                .fillMaxSize()
+                .bleedToScreenEdges()
+                .background(
+                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                        0f to androidx.compose.ui.graphics.Color.Transparent,
+                        .2f to androidx.compose.ui.graphics.Color.Transparent,
+                        .4f to androidx.compose.ui.graphics.Color.Black.copy(alpha = .18f),
+                        .7f to androidx.compose.ui.graphics.Color.Black.copy(alpha = .72f),
+                        1f to androidx.compose.ui.graphics.Color.Black.copy(alpha = .94f),
+                    ),
+                ),
+        )
         LazyColumn(
             state = listState,
             verticalArrangement = Arrangement.spacedBy(16.dp),
