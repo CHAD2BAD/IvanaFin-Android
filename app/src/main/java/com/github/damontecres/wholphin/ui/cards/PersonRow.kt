@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.res.stringResource
@@ -76,6 +77,8 @@ fun PersonRow(
                             .width(personRowCardWidth)
                             .ifElse(index == position, Modifier.focusRequester(firstFocus))
                             .ifElse(index == position && startCardFocusRequester != null, Modifier.focusRequester(startCardFocusRequester ?: firstFocus))
+                            // IvanaFin: Right on the last person stays put (round-4 beta: it jumped up to an episode)
+                            .ifElse(index == people.lastIndex, Modifier.focusProperties { right = FocusRequester.Cancel })
                             .animateItem(),
                 )
             }

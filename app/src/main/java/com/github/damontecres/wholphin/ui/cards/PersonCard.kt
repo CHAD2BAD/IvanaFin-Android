@@ -176,7 +176,7 @@ fun PersonCard(
                     Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 4.dp)
-                        .enableMarquee(focusedAfterDelay),
+                        .then(if (focusedAfterDelay) Modifier.enableMarquee(true) else Modifier), // (a marquee measures the whole text: unselected names never got their "...")
             )
             role?.let {
                 Text(
@@ -191,7 +191,7 @@ fun PersonCard(
                         Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 4.dp)
-                            .enableMarquee(focusedAfterDelay),
+                            .then(if (focusedAfterDelay) Modifier.enableMarquee(true) else Modifier), // (a marquee measures the whole text: unselected names never got their "...")
                 )
             }
         }

@@ -201,6 +201,13 @@ fun IvanaFinAlbumPage(
                     else -> playFocus.tryRequestFocus()
                 }
             }
+            // Back to this album from a "More by" album: that row only exists once it has loaded
+            LaunchedEffect(moreBy) {
+                if (requestInitialFocus && position.row == ROW_MORE && moreBy.isNotEmpty()) {
+                    kotlinx.coroutines.delay(50)
+                    moreFocus.tryRequestFocus()
+                }
+            }
             LaunchedEffect(listState) {
                 snapshotFlow { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 100000f }
                     .collect { onScrolled?.invoke(it) }

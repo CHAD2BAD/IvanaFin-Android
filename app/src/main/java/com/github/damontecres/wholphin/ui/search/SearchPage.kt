@@ -316,6 +316,13 @@ fun SearchPage(
                                     isSearchActive = true
                                     keyboardController?.show()
                                     true
+                                } else if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionDown) {
+                                    // IvanaFin: Down goes to the results (round-4 beta: the text field
+                                    // kept Down, so no result could be reached with the remote)
+                                    isSearchActive = false
+                                    keyboardController?.hide()
+                                    val rows = listOf(COMBINED_ROW, SEERR_ROW) + (RESULTS_START until focusRequesters.size)
+                                    rows.any { focusRequesters.getOrNull(it)?.tryRequestFocus() == true }
                                 } else {
                                     false
                                 }

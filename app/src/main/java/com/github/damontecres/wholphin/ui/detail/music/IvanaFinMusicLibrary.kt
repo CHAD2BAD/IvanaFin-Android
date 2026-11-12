@@ -785,11 +785,23 @@ fun IvanaFinMusicLibrary(
     var libFocus by remember { mutableStateOf<UUID?>(null) }
     // album whose artist link was opened (Back to that album selects the link again)
     var artistFrom by remember { mutableStateOf<UUID?>(null) }
+    // Search's Browse tile last opened (Back to Search selects it again)
+    var browseFocus by remember { mutableStateOf<String?>(null) }
+    // Each album page in the stack keeps its saved state (scroll, the row/card last pressed) while a
+    // page opened from it is on top, so Back returns to that card (round-4 beta: Back from a "More by"
+    // album went to Play). A page's state is dropped when it leaves the stack, so opening it again
+    // later starts at the top.
+    val pageStates = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
+    fun pageKey(
+        i: Int,
+        v: MusicView,
+    ) = "$i:$v"
     fun go(
         v: MusicView,
         root: Boolean = false,
     ) {
         if (root) {
+            stack.forEachIndexed { i, sv -> pageStates.removeState(pageKey(i, sv)) }
             stack.clear()
             stack.add(MusicView.Home)
             if (v != MusicView.Home) stack.add(v)
@@ -823,7 +835,8 @@ fun IvanaFinMusicLibrary(
             }
             npAuto = false
         } else {
-            stack.removeAt(stack.lastIndex)
+            val i = stack.lastIndex
+            pageStates.removeState(pageKey(i, stack.removeAt(i)))
             scrolled = 0f
         }
     }
@@ -879,7 +892,18 @@ fun IvanaFinMusicLibrary(
                     )
 
                 MusicView.Search ->
-                    MusicSearchView(viewModel, nowItem?.id, playing, onOpen = ::open, onScrolled = onScrolled, onUp = { navFocus.tryRequestFocus() })
+                    MusicSearchView(
+                        viewModel,
+                        nowItem?.id,
+                        playing,
+                        onOpen = {
+                            if (it.startsWith("browse:")) browseFocus = it
+                            open(it)
+                        },
+                        onScrolled = onScrolled,
+                        onUp = { navFocus.tryRequestFocus() },
+                        browseFocus = browseFocus,
+                    )
 
                 MusicView.Liked ->
                     MusicLikedView(viewModel, nowItem?.id, playing, onScrolled = onScrolled)
@@ -896,6 +920,7 @@ fun IvanaFinMusicLibrary(
 
                 is MusicView.Album ->
                     key(current.id) {
+                        pageStates.SaveableStateProvider(pageKey(stack.lastIndex, current)) {
                         IvanaFinAlbumPage(
                             itemId = current.id,
                             preferences = preferences,
@@ -908,6 +933,7 @@ fun IvanaFinMusicLibrary(
                             onScrolled = onScrolled,
                             modifier = Modifier.fillMaxSize(),
                         )
+                        }
                     }
             }
             }
@@ -1494,16 +1520,21 @@ private fun MusicSearchView(
     onOpen: (String) -> Unit,
     onScrolled: (Float) -> Unit,
     onUp: () -> Boolean,
+    browseFocus: String? = null,
 ) {
     val results by viewModel.search.collectAsState()
     var text by remember { mutableStateOf("") }
     val boxFocus = remember { FocusRequester() }
     // Down from the search box goes to the first result (the text field kept Down to itself)
     val firstResult = remember { FocusRequester() }
+    val tileFocus = remember { FocusRequester() }
     val listState = rememberLazyListState()
+    // Nothing typed: start on a Browse tile (the one last opened, else the first) - starting on the box
+    // brought the keyboard up over the tiles, also on every Back from a tile's page (round-4 beta).
+    // Up from the tiles reaches the box; OK on it types.
     LaunchedEffect(Unit) {
-        delay(80)
-        boxFocus.tryRequestFocus()
+        delay(120)
+        if (text.isNotBlank() || !(tileFocus.tryRequestFocus() || firstResult.tryRequestFocus())) boxFocus.tryRequestFocus()
     }
     LaunchedEffect(listState) {
         snapshotFlow { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 100000f }.collect { onScrolled(it) }
@@ -1546,7 +1577,7 @@ private fun MusicSearchView(
         // nothing typed: Browse all
         val h = home
         if (text.isBlank() && h != null) {
-            item("browse") { BrowseTiles(viewModel, h, onOpen, firstResult) }
+            item("browse") { BrowseTiles(viewModel, h, onOpen, firstResult, browseFocus, tileFocus) }
         }
         if (results.songs.isNotEmpty()) {
             item("songsTitle") { MuSectionTitle("Songs") }
@@ -1763,6 +1794,9 @@ private fun MusicArtistView(
                 val shown = if (popularAll) data.popular else data.popular.take(5)
                 itemsIndexed(shown, key = { _, s -> "p" + s.id }) { i, s ->
                     MuTrackRow(
+                        // Down from the last song shown goes to See more / Show less (round-4 beta:
+                        // the narrow button was skipped for the Albums row)
+                        modifier = if (data.popular.size > 5 && i == shown.lastIndex) Modifier.focusProperties { down = moreFocus } else Modifier,
                         number = (i + 1).toString(),
                         title = s.name ?: "",
                         sub = s.data.album ?: "",
@@ -2150,6 +2184,8 @@ private fun BrowseTiles(
     data: MusicHomeData,
     onOpen: (String) -> Unit,
     firstFocus: FocusRequester,
+    restoreKey: String? = null,
+    restoreFocus: FocusRequester? = null,
 ) {
     val lists = remember(data) { browseLists(data) }
     // each tile shows a different cover (the newest one not shown yet)
@@ -2184,7 +2220,12 @@ private fun BrowseTiles(
                         colors = ClickableSurfaceDefaults.colors(containerColor = tile, focusedContainerColor = lighter(tile)),
                         border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White))),
                         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-                        modifier = Modifier.weight(1f).height(96.dp).then(if (i == 0) Modifier.focusRequester(firstFocus) else Modifier),
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .height(96.dp)
+                                .then(if (i == 0) Modifier.focusRequester(firstFocus) else Modifier)
+                                .then(if (restoreFocus != null && "browse:${b.key}" == restoreKey) Modifier.focusRequester(restoreFocus) else Modifier),
                     ) {
                         Box(Modifier.fillMaxSize()) {
                             Text(
