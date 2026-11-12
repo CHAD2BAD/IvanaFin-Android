@@ -1899,7 +1899,8 @@ private fun NowPlayingView(
             )
         }
         // the same light shading from top to bottom, washed with the album's colour
-        val wash = rememberMuPal(item.albumId?.let { viewModel.imageUrl(it, maxWidth = 96) })?.wash ?: Color(0xFF3C3C3C).copy(alpha = .55f)
+        val npPal = rememberMuPal(item.albumId?.let { viewModel.imageUrl(it, maxWidth = 96) })
+        val wash = if (npPal?.edge == Color.Black) Color.Black.copy(alpha = .3f) else npPal?.wash ?: Color(0xFF3C3C3C).copy(alpha = .55f)
         val washC by animateColorAsState(wash, tween(700), label = "npw")
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .25f)).background(washC))
         Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(start = 60.dp, end = 60.dp, bottom = 40.dp)) {
