@@ -110,6 +110,7 @@ fun SeriesOverview(
     var playedIndex by rememberInt(-1)
     // IvanaFin: the Cast & Crew card last opened (Back from the person page selects it)
     var castIndex by rememberInt(0)
+    val castCardFocusRequester = remember { FocusRequester() }
     val playNextFocusRequester = remember { FocusRequester() }
 
     val contextActions =
@@ -221,7 +222,7 @@ fun SeriesOverview(
                     }
                     when (rowFocused) {
                         PLAY_NEXT_ROW -> playNextFocusRequester
-                        CAST_AND_CREW_ROW -> castCrewRowFocusRequester
+                        CAST_AND_CREW_ROW -> castCardFocusRequester
                         GUEST_STAR_ROW -> guestStarRowFocusRequester
                         EXTRAS_ROW -> extrasRowFocusRequester
                         else -> episodeRowFocusRequester
@@ -250,6 +251,7 @@ fun SeriesOverview(
                 playNextFocusRequester = playNextFocusRequester,
                 castFocusRequester = castCrewRowFocusRequester,
                 castStartIndex = castIndex,
+                castCardFocusRequester = castCardFocusRequester,
                 onChangeSeason = { index ->
                     if (index != position.seasonTabIndex) {
                         state.seasons.getOrNull(index)?.let { season ->

@@ -36,6 +36,8 @@ fun PersonRow(
     @StringRes title: Int = R.string.people_title,
     onLongClick: ((Int, Person) -> Unit)? = null,
     startIndex: Int = 0, // IvanaFin: card to select when coming back to the page
+    // IvanaFin: focuses that card directly (a request on the row went to its first card)
+    startCardFocusRequester: FocusRequester? = null,
 ) {
     val firstFocus = remember { FocusRequester() }
     var position by rememberInt(startIndex)
@@ -73,6 +75,7 @@ fun PersonRow(
                         Modifier
                             .width(personRowCardWidth)
                             .ifElse(index == position, Modifier.focusRequester(firstFocus))
+                            .ifElse(index == position && startCardFocusRequester != null, Modifier.focusRequester(startCardFocusRequester ?: firstFocus))
                             .animateItem(),
                 )
             }

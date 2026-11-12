@@ -86,6 +86,7 @@ fun IvanaFinSeasonPage(
     playNextFocusRequester: FocusRequester,
     castFocusRequester: FocusRequester,
     castStartIndex: Int,
+    castCardFocusRequester: FocusRequester,
     onChangeSeason: (Int) -> Unit,
     onFocusEpisode: (Int) -> Unit,
     onPlayEpisode: (BaseItem) -> Unit,
@@ -242,6 +243,7 @@ fun IvanaFinSeasonPage(
                 people = people,
                 onClick = onClickPerson,
                 startIndex = castStartIndex,
+                startCardFocusRequester = castCardFocusRequester,
                 // IvanaFin: Back from a person page returns to the person you opened (the row's own
                 // focusRestorer picks the remembered card)
                 modifier = Modifier.fillMaxWidth().padding(top = 24.dp).focusRequester(castFocusRequester),
