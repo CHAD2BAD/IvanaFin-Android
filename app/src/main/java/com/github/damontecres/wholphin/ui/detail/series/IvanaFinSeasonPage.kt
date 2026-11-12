@@ -340,7 +340,7 @@ private fun seasonLabel(season: BaseItem): String =
 
 /**
  * One episode in the grid: thumbnail (watched tick / progress bar), "N. Title",
- * runtime · rating · ends at, and the full description.
+ * the full description, then runtime · rating · ends at (Prime order, 2026-11-12).
  */
 @Composable
 private fun EpisodeGridItem(
@@ -370,6 +370,7 @@ private fun EpisodeGridItem(
             aspectRatio = AspectRatios.WIDE,
             interactionSource = interactionSource,
             useSeriesForPrimary = false,
+            cornerRadius = 4.dp, // Prime-style small corners
             modifier = modifier,
         )
         Text(
@@ -379,7 +380,7 @@ private fun EpisodeGridItem(
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(top = 4.dp),
         )
-        WebEpisodeDetailsLine(episode)
+        // Prime order: title, the full description, then runtime / rating / ends at underneath
         episode.data.overview?.takeIf { it.isNotBlank() }?.let {
             Text(
                 text = it,
@@ -387,5 +388,6 @@ private fun EpisodeGridItem(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        Box(Modifier.padding(top = 4.dp)) { WebEpisodeDetailsLine(episode) }
     }
 }

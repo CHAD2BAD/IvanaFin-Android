@@ -73,6 +73,7 @@ fun BannerCard(
     imageType: ImageType = ImageType.PRIMARY,
     imageContentScale: ContentScale = ContentScale.FillBounds,
     useSeriesForPrimary: Boolean = true,
+    cornerRadius: Dp? = null, // IvanaFin: e.g. the episode grid's Prime-style small corners
 ) {
     val imageUrlService = LocalImageUrlService.current
     val density = LocalDensity.current
@@ -116,6 +117,7 @@ fun BannerCard(
             CardDefaults.colors(
 //                containerColor = Color.Transparent,
             ),
+        shape = cornerRadius?.let { CardDefaults.shape(RoundedCornerShape(it)) } ?: CardDefaults.shape(),
     ) {
         Box(
             modifier =
