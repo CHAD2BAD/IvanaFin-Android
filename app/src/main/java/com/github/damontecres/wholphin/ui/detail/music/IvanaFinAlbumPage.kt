@@ -94,6 +94,8 @@ fun IvanaFinAlbumPage(
     // the artist name in the header opens the artist's page (inside Music)
     onOpenArtist: ((UUID) -> Unit)? = null,
     requestInitialFocus: Boolean = true,
+    // IvanaFin Music: Back from the artist page opened from this album's artist link selects that link
+    startOnArtist: Boolean = false,
     onScrolled: ((Float) -> Unit)? = null,
     viewModel: AlbumViewModel =
         hiltViewModel<AlbumViewModel, AlbumViewModel.Factory>(
@@ -182,7 +184,7 @@ fun IvanaFinAlbumPage(
             val totalTicks = album.data.runTimeTicks ?: songs.sumOf { it?.data?.runTimeTicks ?: 0L }
 
             var position by rememberPosition(
-                row = if (state.initialSongIndex != null) ROW_SONGS else ROW_BUTTONS,
+                row = if (startOnArtist) ROW_ARTIST else if (state.initialSongIndex != null) ROW_SONGS else ROW_BUTTONS,
                 column = state.initialSongIndex ?: 0,
             )
             val playFocus = remember { FocusRequester() }

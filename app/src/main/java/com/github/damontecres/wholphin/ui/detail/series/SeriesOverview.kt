@@ -108,6 +108,8 @@ fun SeriesOverview(
     var rowFocused by rememberInt(PLAY_NEXT_ROW)
     // IvanaFin: the episode last played from this page (-1 = none) - Back from the player selects it
     var playedIndex by rememberInt(-1)
+    // IvanaFin: the Cast & Crew card last opened (Back from the person page selects it)
+    var castIndex by rememberInt(0)
     val playNextFocusRequester = remember { FocusRequester() }
 
     val contextActions =
@@ -247,6 +249,7 @@ fun SeriesOverview(
                 episodeFocusRequester = episodeRowFocusRequester,
                 playNextFocusRequester = playNextFocusRequester,
                 castFocusRequester = castCrewRowFocusRequester,
+                castStartIndex = castIndex,
                 onChangeSeason = { index ->
                     if (index != position.seasonTabIndex) {
                         state.seasons.getOrNull(index)?.let { season ->
@@ -281,6 +284,7 @@ fun SeriesOverview(
                 onPlayNextEpisode = { viewModel.playNextUp() },
                 onClickPerson = {
                     rowFocused = CAST_AND_CREW_ROW
+                    castIndex = maxOf(0, state.people.indexOf(it))
                     viewModel.navigateTo(Destination.MediaItem(it.id, BaseItemKind.PERSON))
                 },
                 modifier = modifier,

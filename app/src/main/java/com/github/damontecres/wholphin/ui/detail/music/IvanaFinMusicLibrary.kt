@@ -684,6 +684,8 @@ fun IvanaFinMusicLibrary(
     // Your Library keeps its place (scroll + the card you opened) while you're in an album/artist
     val libGrid = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
     var libFocus by remember { mutableStateOf<UUID?>(null) }
+    // album whose artist link was opened (Back to that album selects the link again)
+    var artistFrom by remember { mutableStateOf<UUID?>(null) }
     fun go(
         v: MusicView,
         root: Boolean = false,
@@ -693,8 +695,12 @@ fun IvanaFinMusicLibrary(
             stack.add(MusicView.Home)
             if (v != MusicView.Home) stack.add(v)
         } else {
+            // (only the album the artist page was opened from keeps it; any other forward move
+            // forgets it - artistFrom is set again right after this for an artist link)
+            if (stack.lastOrNull() != v) artistFrom = null
             stack.add(v)
         }
+        if (root) artistFrom = null
         scrolled = 0f
     }
     fun open(k: String) {
@@ -786,7 +792,11 @@ fun IvanaFinMusicLibrary(
                             itemId = current.id,
                             preferences = preferences,
                             onOpenAlbum = { go(MusicView.Album(it)) },
-                            onOpenArtist = { go(MusicView.Artist(it)) },
+                            onOpenArtist = {
+                                go(MusicView.Artist(it))
+                                artistFrom = current.id
+                            },
+                            startOnArtist = artistFrom == current.id,
                             onScrolled = onScrolled,
                             modifier = Modifier.fillMaxSize(),
                         )

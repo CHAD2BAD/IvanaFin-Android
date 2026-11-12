@@ -35,9 +35,10 @@ fun PersonRow(
     modifier: Modifier = Modifier,
     @StringRes title: Int = R.string.people_title,
     onLongClick: ((Int, Person) -> Unit)? = null,
+    startIndex: Int = 0, // IvanaFin: card to select when coming back to the page
 ) {
     val firstFocus = remember { FocusRequester() }
-    var position by rememberInt()
+    var position by rememberInt(startIndex)
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier,
@@ -49,7 +50,7 @@ fun PersonRow(
             modifier = Modifier.padding(start = 8.dp),
         )
         LazyRow(
-            state = rememberLazyListState(),
+            state = rememberLazyListState(initialFirstVisibleItemIndex = maxOf(0, startIndex - 2)),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(8.dp),
             modifier =
