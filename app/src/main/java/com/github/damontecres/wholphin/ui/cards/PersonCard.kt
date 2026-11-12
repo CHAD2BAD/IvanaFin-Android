@@ -170,7 +170,7 @@ fun PersonCard(
                 // IvanaFin: "..." on a long name; the selected card scrolls it instead (marquee)
                 overflow = if (focusedAfterDelay) TextOverflow.Clip else TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyMedium.copy(shadow = com.github.damontecres.wholphin.ui.theme.IvfTextShadow),
                 fontWeight = FontWeight.SemiBold,
                 modifier =
                     Modifier
@@ -185,7 +185,7 @@ fun PersonCard(
                     // IvanaFin: "..." on a long name; the selected card scrolls it instead (marquee)
                     overflow = if (focusedAfterDelay) TextOverflow.Clip else TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodySmall.copy(shadow = com.github.damontecres.wholphin.ui.theme.IvfTextShadow),
                     fontWeight = FontWeight.Normal,
                     modifier =
                         Modifier

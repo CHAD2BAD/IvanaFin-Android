@@ -1,5 +1,7 @@
 package com.github.damontecres.wholphin.ui.detail.music
 
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
@@ -421,7 +423,11 @@ class IvanaFinMusicViewModel
                     } else {
                         val s = MusicSorts[sort.value]
                         try {
-                            request(albumsRequest(s.by, s.order)).toBaseItems(api, false)
+                            request(albumsRequest(s.by, s.order)).toBaseItems(api, false).let { l ->
+                                // Alphabetical: plain A-Z by title without a leading The/A/An (the server
+                                // compares numbers as numbers, so 808s came before 2001)
+                                if (s.label == "Alphabetical") l.sortedBy { (it.name ?: "").replace(Regex("^(?i)(the|a|an)\\s+"), "").lowercase() } else l
+                            }
                         } catch (ex: Exception) {
                             Timber.w(ex, "Loading albums failed")
                             emptyList()
@@ -1338,7 +1344,7 @@ private fun MusicLibraryView(
                 modifier = Modifier.padding(top = 110.dp, bottom = 0.dp),
             ) {
                 Text("Your Library", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(end = 12.dp))
-                if (items.isNotEmpty()) Text("${items.size} ${if (artists) "artists" else "albums"}", fontSize = 11.sp, color = Color.White.copy(alpha = .65f), modifier = Modifier.padding(end = 6.dp))
+                if (items.isNotEmpty()) Text("${items.size} ${if (artists) (if (items.size == 1) "artist" else "artists") else (if (items.size == 1) "album" else "albums")}", fontSize = 11.sp, color = Color.White.copy(alpha = .65f), modifier = Modifier.padding(end = 6.dp))
                 // (Left from Albums - the first tab - stays there; it jumped down into the grid)
                 MuChip("Albums", on = !artists, onClick = { viewModel.setLibraryArtists(false) }, modifier = (if (!artists) Modifier.focusRequester(first) else Modifier).focusProperties { left = FocusRequester.Cancel })
                 MuChip("Artists", on = artists, onClick = { viewModel.setLibraryArtists(true) }, modifier = if (artists) Modifier.focusRequester(first) else Modifier)
@@ -2090,6 +2096,7 @@ private fun NpButton(
     dot: Boolean = false,
     badge: String? = null,
 ) {
+    val heart = glyph == Fa.HEART
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     Surface(
@@ -2106,7 +2113,15 @@ private fun NpButton(
         modifier = modifier.size(34.dp),
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(
+            // the heart: an outline when off, filled when on (it was always filled)
+            if (heart) {
+                androidx.tv.material3.Icon(
+                    if (active) androidx.compose.material.icons.Icons.Filled.Favorite else androidx.compose.material.icons.Icons.Filled.FavoriteBorder,
+                    contentDescription = null,
+                    tint = if (active) MuGreen else if (focused) Color.White else Color.White.copy(alpha = .85f),
+                    modifier = Modifier.size(18.dp),
+                )
+            } else Text(
                 glyph,
                 fontFamily = FontAwesome,
                 fontSize = if (big) 14.sp else 15.sp,
@@ -2316,7 +2331,7 @@ private fun MusicBrowseView(
             Column(Modifier.padding(top = 110.dp, bottom = 4.dp)) {
                 Text(if (b.artists != null) "Artists" else "Collection", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = .75f))
                 Text(b.name, fontSize = 34.sp, lineHeight = 38.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
-                Text("${list.size} ${if (b.artists != null) "artists" else "albums"}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = .75f))
+                Text("${list.size} ${if (b.artists != null) (if (list.size == 1) "artist" else "artists") else (if (list.size == 1) "album" else "albums")}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = .75f))
             }
         }
         itemsIndexed(list, key = { _, a -> a.id }) { i, a ->

@@ -117,3 +117,11 @@ val LocalSwTimeline = androidx.compose.runtime.staticCompositionLocalOf { false 
 @Composable
 @ReadOnlyComposable
 fun compactDetailHeader(): Boolean = isElegantFin
+
+/** IvanaFin: a dark shadow that keeps text readable over bright parts of a picture (same as the web) */
+val IvfTextShadow =
+    androidx.compose.ui.graphics.Shadow(
+        color = androidx.compose.ui.graphics.Color.Black.copy(alpha = .9f),
+        offset = androidx.compose.ui.geometry.Offset(0f, 2f),
+        blurRadius = 10f,
+    )

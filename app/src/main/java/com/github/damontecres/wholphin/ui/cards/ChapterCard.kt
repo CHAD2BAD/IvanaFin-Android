@@ -96,7 +96,7 @@ fun ChapterCard(
                     }
                     val resources = LocalResources.current
                     val positionText =
-                        remember(chapter.position) { resources.formatDuration(chapter.position.roundSeconds) }
+                        remember(chapter.position) { if (chapter.position.inWholeSeconds == 0L) "Start" else resources.formatDuration(chapter.position.roundSeconds) }
                     Text(
                         text = positionText,
                         style = MaterialTheme.typography.bodySmall,

@@ -1,5 +1,7 @@
 package com.github.damontecres.wholphin.ui.detail.music
 
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -168,7 +170,7 @@ internal fun HeroArt(
                         Brush.horizontalGradient(0f to e, .22f to e.copy(alpha = .6f), .5f to Color.Transparent)
                     },
                 )
-                drawRect(Brush.verticalGradient(.45f to Color.Transparent, 1f to e))
+                drawRect(if (square) Brush.verticalGradient(.25f to Color.Transparent, .8f to e, 1f to e) else Brush.verticalGradient(.45f to Color.Transparent, 1f to e))
             },
         )
     }
@@ -265,6 +267,8 @@ internal fun MuPill(
     text: String? = null,
     primary: Boolean = false,
     tint: Color? = null,
+    // the heart: null = not a heart; true = filled (on), false = outline (off)
+    heartOn: Boolean? = null,
 ) {
     val (markFocus, mark) = rememberClickMark()
     var focused by remember { mutableStateOf(false) }
@@ -314,7 +318,16 @@ internal fun MuPill(
             horizontalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxHeight().then(if (text == null) Modifier.fillMaxWidth() else Modifier.padding(horizontal = 18.dp)),
         ) {
-            Text(glyph, fontFamily = FontAwesome, fontSize = 14.sp, color = tint ?: (if (primary) MuInk else Color.White))
+            if (heartOn != null) {
+                androidx.tv.material3.Icon(
+                    if (heartOn) androidx.compose.material.icons.Icons.Filled.Favorite else androidx.compose.material.icons.Icons.Filled.FavoriteBorder,
+                    contentDescription = null,
+                    tint = tint ?: Color.White,
+                    modifier = Modifier.size(18.dp),
+                )
+            } else {
+                Text(glyph, fontFamily = FontAwesome, fontSize = 14.sp, color = tint ?: (if (primary) MuInk else Color.White))
+            }
             if (text != null) {
                 Spacer(Modifier.width(7.dp))
                 Text(text, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (primary) MuInk else Color.White)

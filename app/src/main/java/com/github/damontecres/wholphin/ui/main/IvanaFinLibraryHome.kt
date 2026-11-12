@@ -84,7 +84,7 @@ private fun launchGames(context: android.content.Context) {
             .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
     try {
         context.startActivity(intent)
-    } catch (e: android.content.ActivityNotFoundException) {
+    } catch (e: Exception) { // not installed, or blocked
         android.widget.Toast
             .makeText(context, "Games needs the Moonlight app", android.widget.Toast.LENGTH_LONG)
             .show()

@@ -90,7 +90,7 @@ fun MovieDetailsHeader(
             dto.taglines?.firstOrNull()?.let { tagline ->
                 Text(
                     text = tagline,
-                    style = if (compact) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodyLarge,
+                    style = (if (compact) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodyLarge).copy(shadow = com.github.damontecres.wholphin.ui.theme.IvfTextShadow),
                     fontStyle = FontStyle.Italic,
                     textAlign = TextAlign.Start,
                     maxLines = if (compact) 1 else Int.MAX_VALUE,
@@ -112,7 +112,7 @@ fun MovieDetailsHeader(
                             } else {
                                 MaterialTheme.typography.bodyMedium
                             }
-                        ).copy(textAlign = TextAlign.Start),
+                        ).copy(textAlign = TextAlign.Start, shadow = com.github.damontecres.wholphin.ui.theme.IvfTextShadow),
                     onClick = overviewOnClick,
                     textBoxHeight = Dp.Unspecified,
                     modifier =

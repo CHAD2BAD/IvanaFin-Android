@@ -1323,7 +1323,7 @@ private fun SwTimelineButton(
             modifier = Modifier.size(20.dp),
         )
         androidx.tv.material3.Text(
-            text = if (timeline) "Star Wars timeline" else "Release date",
+            text = "Order: " + (if (timeline) "Star Wars timeline" else "Release date"),
             style = MaterialTheme.typography.labelLarge,
             modifier = Modifier.padding(start = 6.dp),
         )

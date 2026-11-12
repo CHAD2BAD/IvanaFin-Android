@@ -209,6 +209,7 @@ fun IvanaFinSeasonPage(
                                     onClick = { onPlayEpisode(episode) },
                                     onLongClick = { onEpisodeMenu(episode) },
                                     onFocused = { onFocusEpisode(index) },
+                                    cellModifier = Modifier.fillMaxRowHeight(),
                                     modifier =
                                         (
                                             if (index == focusedEpisodeIndex) {
@@ -350,13 +351,15 @@ private fun EpisodeGridItem(
     onLongClick: () -> Unit,
     onFocused: () -> Unit,
     modifier: Modifier = Modifier,
+    // (the FlowRow's fillMaxRowHeight: every card in a row is as tall as the tallest)
+    cellModifier: Modifier = Modifier,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val focused by interactionSource.collectIsFocusedAsState()
     LaunchedEffect(focused) { if (focused) onFocused() }
     Column(
         verticalArrangement = Arrangement.spacedBy(6.dp),
-        modifier = Modifier.width(width),
+        modifier = cellModifier.width(width),
     ) {
         BannerCard(
             name = null,
@@ -375,7 +378,7 @@ private fun EpisodeGridItem(
         )
         Text(
             text = listOfNotNull(episode.indexNumber?.let { "$it." }, episode.name).joinToString(" "),
-            style = MaterialTheme.typography.titleSmall,
+            style = MaterialTheme.typography.titleSmall.copy(shadow = com.github.damontecres.wholphin.ui.theme.IvfTextShadow),
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(top = 4.dp),
@@ -384,10 +387,12 @@ private fun EpisodeGridItem(
         episode.data.overview?.takeIf { it.isNotBlank() }?.let {
             Text(
                 text = it,
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodySmall.copy(shadow = com.github.damontecres.wholphin.ui.theme.IvfTextShadow),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        // the details line sits at the bottom, so it lines up across the row (round-4 beta)
+        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
         Box(Modifier.padding(top = 4.dp)) { WebEpisodeDetailsLine(episode) }
     }
 }

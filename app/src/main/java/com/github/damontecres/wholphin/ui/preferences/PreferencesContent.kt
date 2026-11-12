@@ -230,6 +230,9 @@ fun PreferencesContent(
                         .fillMaxWidth()
                         .padding(vertical = 8.dp),
             )
+            // IvanaFin: the selected row stays clear of the header while the list scrolls (round-4 beta:
+            // rows were cut off under 'Settings')
+            com.github.damontecres.wholphin.ui.detail.music.MuScroll(start = 40.dp, end = 40.dp) {
             LazyColumn(
                 state = state,
                 horizontalAlignment = Alignment.Start,
@@ -704,6 +707,7 @@ fun PreferencesContent(
                         }
                     }
                 }
+            }
             }
         }
         if (showPinFlow && currentUser != null) {

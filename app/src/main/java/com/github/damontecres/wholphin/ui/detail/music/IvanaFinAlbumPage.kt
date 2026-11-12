@@ -295,6 +295,7 @@ fun IvanaFinAlbumPage(
                             })
                             MuPill(
                                 glyph = Fa.HEART,
+                                heartOn = album.favorite,
                                 tint = if (album.favorite) MuGreen else Color.White,
                                 onClick = { viewModel.setFavorite(album.id, !album.favorite) },
                             )
