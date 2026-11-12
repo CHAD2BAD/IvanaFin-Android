@@ -135,7 +135,8 @@ fun IvanaFinLibraryHome(
             DiscoverTile(name = "Games", backdropUrl = gamesArt, onClick = { launchGames(context) })
         }
     val extraTiles = listOfNotNull(discover, gamesTile)
-    val tileCount = libraries.size + extraTiles.size
+    val shownLibraries = libraries.filter { it.name !in HOME_HIDDEN }
+    val tileCount = shownLibraries.size + extraTiles.size
     val currentOnShown by rememberUpdatedState(onShown)
     // Bumped every time Home comes (back) on screen, to re-run the focus choice below
     var shownCount by remember { mutableIntStateOf(0) }
@@ -174,14 +175,14 @@ fun IvanaFinLibraryHome(
                     .fillMaxWidth()
                     .padding(top = 8.dp, bottom = 32.dp, end = 16.dp), // bottom gap = side margins
         ) {
-            val columns = 3 // IvanaFin: 3 x 3 (7 libraries incl. Ivana + Discover + Games)
+            val columns = 3 // IvanaFin: 3 x 2 (Movies, Shows, Star Wars / Movies (Special), Music, Games)
             val rows = ((tileCount + columns - 1) / columns).coerceAtLeast(1)
             val gap = 16.dp
             val tileWidth = (maxWidth - gap * (columns - 1)) / columns
             val tileHeight = (maxHeight - gap * (rows - 1)) / rows
             // libraries (BaseItem) and Discover / Games (DiscoverTile) in the user's order (HOME_ORDER)
             val tiles: List<Any> =
-                (libraries + extraTiles).withIndex().sortedBy { (i, t) ->
+                (shownLibraries + extraTiles).withIndex().sortedBy { (i, t) ->
                     val name = if (t is BaseItem) t.name else (t as DiscoverTile).name
                     HOME_ORDER.indexOf(name).let { if (it < 0) 100 + i else it }
                 }.map { it.value }
@@ -445,7 +446,10 @@ private object GamesArt {
  * IvanaFin: the home tiles' order, left to right, row by row (the user's choice, 2026-11-11) - same
  * list in jellyfin-web-custom home-grid.js HOME_ORDER. Libraries not named here follow at the end.
  */
-private val HOME_ORDER = listOf("Movies", "Shows", "Star Wars", "Movies (Special)", "Discover", "Music", "Games", "Archive", "Ivana")
+private val HOME_ORDER = listOf("Movies", "Shows", "Star Wars", "Movies (Special)", "Music", "Games")
+
+/** Libraries kept on the server (folders untouched) but not shown as Home tiles (2026-11-12, user request). */
+private val HOME_HIDDEN = setOf("Archive", "Ivana")
 
 /** IvanaFin: names shown on the home tiles (the server keeps its own names). */
 private fun ivanaFinLibraryDisplayName(name: String?): String =

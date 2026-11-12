@@ -223,6 +223,9 @@ fun HomePage(
             // IvanaFin: Search is selected on launch; Down from any top button goes to the first library (Movies)
             val searchFocus = remember { androidx.compose.ui.focus.FocusRequester() }
             val settingsFocus = remember { androidx.compose.ui.focus.FocusRequester() } // IvanaFin: Back from Settings selects Settings
+            val discoverFocus = remember { androidx.compose.ui.focus.FocusRequester() } // IvanaFin: Back from Discover selects Discover
+            // IvanaFin (2026-11-12): Discover (Seerr) is a top button again, between Search and Settings
+            val discoverActive by viewModel.seerrActive.collectAsState(false)
             val firstTileFocus = remember { androidx.compose.ui.focus.FocusRequester() }
             val downToFirstTile =
                 Modifier.focusProperties { down = firstTileFocus }
@@ -236,7 +239,6 @@ fun HomePage(
                                 .fillMaxWidth()
                                 .padding(top = 8.dp, end = 16.dp, bottom = 0.dp),
                     ) {
-                        // IvanaFin: Discover (Seerr) is now the last tile of the home grid, not a button
                         HomeTopButton(
                             text = stringResource(R.string.search),
                             icon = androidx.compose.material.icons.Icons.Default.Search,
@@ -247,6 +249,18 @@ fun HomePage(
                             },
                             modifier = downToFirstTile.focusRequester(searchFocus),
                         )
+                        if (discoverActive) {
+                            HomeTopButton(
+                                text = stringResource(R.string.discover),
+                                icon = IvanaFinExploreIcon,
+                                onClick = {
+                                    viewModel.swapTileBackdropsAfterLeaving()
+                                    viewModel.homeLastOpenedIndex.intValue = -3 // come back to Discover
+                                    viewModel.navigationManager.navigateTo(Destination.Discover)
+                                },
+                                modifier = downToFirstTile.focusRequester(discoverFocus),
+                            )
+                        }
                         HomeTopButton(
                             text = stringResource(R.string.settings),
                             icon = androidx.compose.material.icons.Icons.Default.Settings,
@@ -288,19 +302,8 @@ fun HomePage(
             if (useLibraryGridHome() && !libraries.isNullOrEmpty()) {
                 IvanaFinLibraryHome(
                     libraries = libraries,
-                    discover =
-                        if (seerrActive) {
-                            DiscoverTile(
-                                name = discoverName,
-                                backdropUrl = discoverBackdrop,
-                                onClick = {
-                                    viewModel.swapTileBackdropsAfterLeaving()
-                                    viewModel.navigationManager.navigateTo(Destination.Discover)
-                                },
-                            )
-                        } else {
-                            null
-                        },
+                    discover = null, // IvanaFin: Discover is a top button now
+
                     lastOpenedIndex = viewModel.homeLastOpenedIndex.intValue,
                     onExtraOpened = { viewModel.homeLastOpenedIndex.intValue = it }, // come back to Discover / Games
                     consumeSelectionRestore = viewModel::consumeHomeSelectionRestore,
@@ -310,7 +313,12 @@ fun HomePage(
                         viewModel.navigationManager.navigateTo(item.destination())
                     },
                     header = topButtons,
-                    launchFocus = if (viewModel.homeLastOpenedIndex.intValue == -2) settingsFocus else searchFocus,
+                    launchFocus =
+                        when (viewModel.homeLastOpenedIndex.intValue) {
+                            -2 -> settingsFocus
+                            -3 -> if (discoverActive) discoverFocus else searchFocus
+                            else -> searchFocus
+                        },
                     firstTileFocus = firstTileFocus,
                     backdrops = tileBackdrops,
                     onShown = {
@@ -902,4 +910,20 @@ private fun HomeTopButton(
             modifier = Modifier.padding(start = 6.dp),
         )
     }
+}
+
+/** IvanaFin: Material "explore" (compass) icon for the Discover button (the app has no extended icon set). */
+private val IvanaFinExploreIcon: androidx.compose.ui.graphics.vector.ImageVector by lazy {
+    androidx.compose.ui.graphics.vector
+        .ImageVector
+        .Builder(name = "Explore", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f)
+        .addPath(
+            pathData =
+                androidx.compose.ui.graphics.vector
+                    .PathParser()
+                    .parsePathString(
+                        "M12 10.9c-.61 0-1.1.49-1.1 1.1s.49 1.1 1.1 1.1c.61 0 1.1-.49 1.1-1.1s-.49-1.1-1.1-1.1zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm2.19 12.19L6 18l3.81-8.19L18 6l-3.81 8.19z",
+                    ).toNodes(),
+            fill = androidx.compose.ui.graphics.SolidColor(androidx.compose.ui.graphics.Color.White),
+        ).build()
 }
