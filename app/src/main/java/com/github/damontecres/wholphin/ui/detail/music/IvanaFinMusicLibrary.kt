@@ -215,13 +215,12 @@ data class MusicHomeData(
     val played: List<BaseItem> = emptyList(),
 )
 
-/** Home's 8 shortcut cards: the last album played, then 7 picked at random - a new mix each visit */
+/** Home's 8 shortcut cards: all 8 picked at random - a new mix each visit (the first used to be the last album played) */
 private fun pickShortcuts(
     played: List<BaseItem>,
     all: List<BaseItem>,
 ): List<BaseItem> {
-    val first = played.firstOrNull()
-    return (listOfNotNull(first) + all.filter { it.id != first?.id }.shuffled()).take(8)
+    return all.shuffled().take(8)
 }
 
 /** Search's Browse all: one tile each (colour from [hue]) */
