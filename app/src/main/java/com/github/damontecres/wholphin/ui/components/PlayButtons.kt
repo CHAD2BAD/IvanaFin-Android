@@ -264,12 +264,21 @@ val LocalIvfGlassButtons = androidx.compose.runtime.staticCompositionLocalOf { f
 private fun ivfButtonSize() = if (LocalIvfGlassButtons.current) 32.dp else MinButtonSize
 
 @Composable
-private fun ivfButtonColors() =
-    if (LocalIvfGlassButtons.current) {
-        androidx.tv.material3.ButtonDefaults.colors(containerColor = Color.White.copy(alpha = .14f), contentColor = Color.White)
-    } else {
-        androidx.tv.material3.ButtonDefaults.colors()
-    }
+private fun ivfButtonColors(): androidx.tv.material3.ClickableSurfaceColors {
+    val glass = LocalIvfGlassButtons.current
+    val cs = MaterialTheme.colorScheme
+    // the same as Button's own defaults, except the resting fill/text when glass
+    return androidx.tv.material3.ClickableSurfaceDefaults.colors(
+        containerColor = if (glass) Color.White.copy(alpha = .14f) else cs.surfaceVariant.copy(alpha = 0.8f),
+        contentColor = if (glass) Color.White else cs.onSurface.copy(alpha = 0.8f),
+        focusedContainerColor = cs.onSurface,
+        focusedContentColor = cs.inverseOnSurface,
+        pressedContainerColor = cs.onSurface,
+        pressedContentColor = cs.inverseOnSurface,
+        disabledContainerColor = cs.surfaceVariant.copy(alpha = 0.4f),
+        disabledContentColor = cs.onSurface.copy(alpha = 0.4f),
+    )
+}
 
 /**
  * An icon button typically used in a row for playing media
