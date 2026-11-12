@@ -91,7 +91,8 @@ fun MovieDetailsHeader(
                     textAlign = TextAlign.Start,
                     maxLines = if (compact) 1 else Int.MAX_VALUE,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = if (compact) 8.dp else 0.dp),
+                    // (start 8dp = the description's own inner padding, so the two lines up)
+                    modifier = Modifier.padding(start = 8.dp, top = if (compact) 8.dp else 0.dp),
                 )
             }
 
