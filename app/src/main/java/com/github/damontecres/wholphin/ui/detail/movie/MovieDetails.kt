@@ -374,12 +374,8 @@ fun MovieDetailsContent(
     RequestOrRestoreFocus(focusRequesters.getOrNull(position))
 
     // IvanaFin (2026-11-12, user design): the backdrop fills the whole screen, darkened towards the
-    // bottom where the title and buttons sit; once the page is scrolled down to the rows it dims
+    // bottom where the title and buttons sit (no extra darkening when scrolled to the rows - user choice)
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-    val scrolledDown by remember {
-        androidx.compose.runtime.derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 80 }
-    }
-    val dim by androidx.compose.animation.core.animateFloatAsState(if (scrolledDown) .72f else 0f, label = "backdropDim")
     val imageUrlService = com.github.damontecres.wholphin.ui.LocalImageUrlService.current
     val backdropUrl =
         remember(movie) {
@@ -407,7 +403,7 @@ fun MovieDetailsContent(
                         .7f to androidx.compose.ui.graphics.Color.Black.copy(alpha = .72f),
                         1f to androidx.compose.ui.graphics.Color.Black.copy(alpha = .94f),
                     ),
-                ).background(androidx.compose.ui.graphics.Color.Black.copy(alpha = dim)),
+                ),
         )
         LazyColumn(
             state = listState,
