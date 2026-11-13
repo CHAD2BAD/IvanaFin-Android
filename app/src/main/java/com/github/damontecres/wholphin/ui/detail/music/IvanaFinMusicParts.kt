@@ -155,6 +155,8 @@ internal object Fa {
     const val SORT = ""
     const val CHECK = ""
     const val LYRICS = ""
+    const val PLUS = ""
+    const val RADIO = ""
     const val REMOVE = ""
 }
 
@@ -806,3 +808,6 @@ internal fun MixCard(
         }
     }
 }
+
+/** Start radio (Instant Mix) from an album / artist id: the Radio buttons (IvanaFinMusicLibrary provides it) */
+internal val LocalMuRadio = compositionLocalOf<((java.util.UUID) -> Unit)?> { null }

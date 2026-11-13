@@ -299,6 +299,8 @@ fun IvanaFinAlbumPage(
                                 tint = if (album.favorite) MuGreen else Color.White,
                                 onClick = { viewModel.setFavorite(album.id, !album.favorite) },
                             )
+                            // Radio: similar songs to this album (IvanaFin Music only)
+                            LocalMuRadio.current?.let { radio -> MuPill(glyph = Fa.RADIO, onClick = { radio(album.id) }) }
                             MuPill(glyph = Fa.MORE, onClick = { menuFor(album, 0, false) })
                         }
                     }

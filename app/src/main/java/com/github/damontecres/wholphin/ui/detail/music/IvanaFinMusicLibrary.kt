@@ -111,6 +111,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.github.damontecres.wholphin.R
+import androidx.compose.ui.res.stringResource
+import com.github.damontecres.wholphin.ui.data.AddPlaylistViewModel
+import com.github.damontecres.wholphin.ui.detail.PlaylistDialog
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.Player
@@ -828,6 +832,21 @@ class IvanaFinMusicViewModel
             }
         }
 
+        /** Song menu: play after the current song / at the end of the queue / similar songs (radio) */
+        fun playNext(song: BaseItem) = viewModelScope.launchIO { musicService.playNext(song) }
+
+        fun addToQueue(song: BaseItem) = viewModelScope.launchIO { musicService.addToQueue(song) }
+
+        /** Radio from a song, album or artist: Jellyfin's Instant Mix replaces the queue */
+        fun startRadio(id: UUID) =
+            viewModelScope.launchIO {
+                try {
+                    musicService.startInstantMix(id)
+                } catch (ex: Exception) {
+                    Timber.w(ex, "Radio failed")
+                }
+            }
+
         /** Up Next: jump to / remove / move a song in the queue */
         fun queuePlay(index: Int) = viewModelScope.launchIO { musicService.playIndex(index) }
 
@@ -1018,6 +1037,56 @@ fun IvanaFinMusicLibrary(
     // Full screen width: the navigation container pads pages left/right
     val screenW = LocalWindowInfo.current.containerSize.width
     var leftPx by remember { mutableStateOf(0f) }
+    // the song menu (hold OK on a song) and its Add to playlist dialog
+    var menuSong by remember { mutableStateOf<BaseItem?>(null) }
+    val playlistVm: AddPlaylistViewModel = hiltViewModel()
+    val playlistState by playlistVm.playlistState.collectAsState()
+    var playlistFor by remember { mutableStateOf<UUID?>(null) }
+    fun toast(t: String) = android.widget.Toast.makeText(context, t, android.widget.Toast.LENGTH_SHORT).show()
+    menuSong?.let { s ->
+        MuSongMenuDialog(
+            song = s,
+            onPlayNext = {
+                viewModel.playNext(s)
+                menuSong = null
+                toast("Playing next")
+            },
+            onAddToQueue = {
+                viewModel.addToQueue(s)
+                menuSong = null
+                toast("Added to queue")
+            },
+            onAddToPlaylist = {
+                playlistVm.loadPlaylists()
+                playlistFor = s.id
+                menuSong = null
+            },
+            onRadio = {
+                viewModel.startRadio(s.id)
+                menuSong = null
+            },
+            onDismiss = { menuSong = null },
+        )
+    }
+    playlistFor?.let { id ->
+        PlaylistDialog(
+            title = stringResource(R.string.add_to_playlist),
+            state = playlistState,
+            onDismissRequest = { playlistFor = null },
+            onClick = {
+                playlistVm.addToPlaylist(it.id, id)
+                playlistFor = null
+                toast("Added to ${it.name ?: "playlist"}")
+            },
+            createEnabled = true,
+            onCreatePlaylist = {
+                playlistVm.createPlaylistAndAddItem(it, id)
+                playlistFor = null
+            },
+            onSearch = playlistVm::loadPlaylists,
+            elevation = 3.dp,
+        )
+    }
     CompositionLocalProvider(LocalMuTheme provides theme, LocalMuColors provides muColors) {
     Box(modifier = modifier.fillMaxSize().onGloballyPositioned { leftPx = it.positionInWindow().x }) {
         Box(
@@ -1033,7 +1102,12 @@ fun IvanaFinMusicLibrary(
             MuScroll(start = 100.dp) {
             CompositionLocalProvider(LocalMuToTop provides toTop) {
             val onScrolled: (Float) -> Unit = { scrolled = it }
-            CompositionLocalProvider(LocalMuLastClicked provides lastClicked, LocalMuPlaying provides playing) {
+            CompositionLocalProvider(
+                LocalMuLastClicked provides lastClicked,
+                LocalMuPlaying provides playing,
+                LocalMuSongMenu provides { menuSong = it },
+                LocalMuRadio provides { viewModel.startRadio(it) },
+            ) {
             // the page as one focus group: Down from the top bar goes into it (see MusicTopBar onDown)
             // page transitions: a new page fades and slides in 16dp (from the right going forward,
             // from the left on Back), ~220 ms. Enter only, so two pages are never on screen at once
@@ -1835,6 +1909,7 @@ private fun MusicSearchView(
                     duration = s.data.runTimeTicks?.let { minSecTicks(it) } ?: "",
                     playing = s.id == nowId,
                     paused = !playing,
+                    onLongClick = muSongMenu(s),
                     onClick = {
                         if (s.id == nowId) {
                             val p = viewModel.musicService.player
@@ -1951,6 +2026,7 @@ private fun MusicLikedView(
                     duration = s.data.runTimeTicks?.let { minSecTicks(it) } ?: "",
                     playing = s.id == nowId,
                     paused = !playing,
+                    onLongClick = muSongMenu(s),
                     onClick = {
                         if (s.id == nowId) {
                             val p = viewModel.musicService.player
@@ -2031,6 +2107,7 @@ private fun MusicArtistView(
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(start = 40.dp, top = 16.dp, bottom = 10.dp)) {
                     MuPill(glyph = Fa.PLAY, text = "Play", primary = true, onClick = { viewModel.playArtist(id, false) }, modifier = Modifier.focusRequester(playFocus))
                     MuPill(glyph = Fa.SHUFFLE, text = "Shuffle", onClick = { viewModel.playArtist(id, true) })
+                    MuPill(glyph = Fa.RADIO, text = "Radio", onClick = { viewModel.startRadio(id) })
                 }
             }
             // Popular: Deezer's top songs that are in the library; 5 shown, "See more" for the rest
@@ -2048,6 +2125,7 @@ private fun MusicArtistView(
                         duration = s.data.runTimeTicks?.let { minSecTicks(it) } ?: "",
                         playing = s.id == nowId,
                         paused = !playing,
+                        onLongClick = muSongMenu(s),
                         onClick = {
                             if (s.id == nowId) {
                                 val p = viewModel.musicService.player
@@ -2907,4 +2985,47 @@ internal fun levelVolume(player: Player) {
             cur.normalizationGain
         } ?: -8f // not measured: a typical modern song
     player.volume = min(1f, 10f.pow((gain + LEVEL_TARGET_DB) / 20f))
+}
+
+/** Hold OK on a song: the Music song menu (IvanaFinMusicLibrary shows it) */
+private val LocalMuSongMenu = androidx.compose.runtime.compositionLocalOf<(BaseItem) -> Unit> { {} }
+
+@Composable
+private fun muSongMenu(song: BaseItem): () -> Unit {
+    val open = LocalMuSongMenu.current
+    return { open(song) }
+}
+
+/** The song menu: Play next, Add to queue, Add to playlist, Start radio (Back closes it) */
+@Composable
+private fun MuSongMenuDialog(
+    song: BaseItem,
+    onPlayNext: () -> Unit,
+    onAddToQueue: () -> Unit,
+    onAddToPlaylist: () -> Unit,
+    onRadio: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val first = remember { FocusRequester() }
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier =
+                Modifier
+                    .width(300.dp)
+                    .background(Color(0xFF242424), RoundedCornerShape(12.dp))
+                    .padding(22.dp),
+        ) {
+            Text(song.name ?: "", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(song.data.artists?.joinToString(", ") ?: song.data.albumArtist ?: "", fontSize = 11.sp, color = Color.White.copy(alpha = .65f), maxLines = 1, modifier = Modifier.padding(bottom = 6.dp))
+            MuPill(Fa.NEXT, text = "Play next", onClick = onPlayNext, modifier = Modifier.fillMaxWidth().focusRequester(first))
+            MuPill(Fa.MUSIC, text = "Add to queue", onClick = onAddToQueue, modifier = Modifier.fillMaxWidth())
+            MuPill(Fa.PLUS, text = "Add to playlist", onClick = onAddToPlaylist, modifier = Modifier.fillMaxWidth())
+            MuPill(Fa.RADIO, text = "Start radio", onClick = onRadio, modifier = Modifier.fillMaxWidth())
+        }
+    }
+    LaunchedEffect(Unit) {
+        delay(80)
+        first.tryRequestFocus()
+    }
 }
