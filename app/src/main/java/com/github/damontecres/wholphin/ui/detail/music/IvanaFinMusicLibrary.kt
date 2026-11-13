@@ -96,6 +96,8 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -949,6 +951,7 @@ fun IvanaFinMusicLibrary(
     val accC = animateColorAsState(theme.target.acc, tween(700), label = "ma")
     val inkC = animateColorAsState(theme.target.ink, tween(700), label = "mi")
     val muColors = remember(edgeC, accC, inkC) { MuColors(edgeC, accC, inkC) }
+    val flight = remember { MuFlight() }
     DisposableEffect(Unit) { onDispose { viewModel.stopMusic() } }
     // the TV's own screensaver stays off while music plays in Music (Now Playing has its own)
     val hostView = androidx.compose.ui.platform.LocalView.current
@@ -1141,7 +1144,7 @@ fun IvanaFinMusicLibrary(
             elevation = 3.dp,
         )
     }
-    CompositionLocalProvider(LocalMuTheme provides theme, LocalMuColors provides muColors) {
+    CompositionLocalProvider(LocalMuTheme provides theme, LocalMuColors provides muColors, LocalMuFlight provides flight) {
     Box(modifier = modifier.fillMaxSize().onGloballyPositioned { leftPx = it.positionInWindow().x }) {
         Box(
             modifier =
@@ -1304,9 +1307,11 @@ fun IvanaFinMusicLibrary(
                 onDown = { pageFocus.tryRequestFocus() },
             )
             if (npOpen && nowItem != null) {
-                // opening: Now Playing grows (from 94%) and fades in over ~280 ms
+                // opening: Now Playing fades in while its cover flies in from where it was (the album
+                // picture on the page when a song was started there, else the mini player's cover)
                 val npIn = remember { androidx.compose.animation.core.Animatable(0f) }
-                LaunchedEffect(Unit) { npIn.animateTo(1f, tween(280, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
+                val flyFrom = remember { if (npAuto) flight.hero else flight.mini }
+                LaunchedEffect(Unit) { npIn.animateTo(1f, tween(240, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
                 NowPlayingView(
                     viewModel = viewModel,
                     item = nowItem!!,
@@ -1336,13 +1341,8 @@ fun IvanaFinMusicLibrary(
                         npAuto = false
                         go(MusicView.Artist(it))
                     },
-                    modifier =
-                        Modifier.zIndex(10f).graphicsLayer {
-                            alpha = npIn.value
-                            val s = .94f + .06f * npIn.value
-                            scaleX = s
-                            scaleY = s
-                        },
+                    flyFrom = flyFrom,
+                    modifier = Modifier.zIndex(10f).graphicsLayer { alpha = npIn.value },
                 )
             }
             }
@@ -1370,6 +1370,7 @@ private fun MusicTopBar(
     onNav: (MusicView) -> Unit,
     onDown: () -> Boolean,
 ) {
+    val muFlight = LocalMuFlight.current
     val context = LocalContext.current
     Box(
         Modifier
@@ -1404,7 +1405,7 @@ private fun MusicTopBar(
                             model = nowItem.imageUrl,
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
-                            modifier = Modifier.size(36.dp).background(Color(0xFF333333)),
+                            modifier = Modifier.size(36.dp).background(Color(0xFF333333)).onGloballyPositioned { muFlight?.mini = it.boundsInWindow() },
                         )
                         Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
                             Text(nowItem.title ?: "", fontSize = 11.sp, lineHeight = 14.sp, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -2325,9 +2326,14 @@ private fun NowPlayingView(
     onSeekTo: (Long) -> Unit,
     onArtist: (UUID) -> Unit,
     modifier: Modifier = Modifier,
+    flyFrom: androidx.compose.ui.geometry.Rect? = null,
 ) {
     val scope = rememberCoroutineScope()
     val fav by viewModel.nowFav.collectAsState()
+    // the cover's flight in: from [flyFrom] to its own place (measured on the first layout), ~450 ms
+    var coverAt by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+    val fly = remember { androidx.compose.animation.core.Animatable(if (flyFrom != null) 0f else 1f) }
+    LaunchedEffect(coverAt) { if (coverAt != null) fly.animateTo(1f, tween(450, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
     val artist by viewModel.nowArtist.collectAsState()
     val scroll = rememberScrollState()
     val ppFocus = remember { FocusRequester() }
@@ -2402,9 +2408,24 @@ private fun NowPlayingView(
                         modifier =
                             Modifier
                                 .size(126.dp)
+                                .onGloballyPositioned { if (coverAt == null) coverAt = it.boundsInWindow() }
                                 .graphicsLayer {
                                     shadowElevation = 16.dp.toPx()
                                     shape = RoundedCornerShape(6.dp)
+                                    val from = flyFrom
+                                    val to = coverAt
+                                    if (from != null && fly.value < 1f) {
+                                        if (to == null) {
+                                            alpha = 0f // (not measured yet: hidden for that first frame)
+                                        } else {
+                                            val p = fly.value
+                                            transformOrigin = TransformOrigin(0f, 0f)
+                                            scaleX = from.width / to.width + (1f - from.width / to.width) * p
+                                            scaleY = from.height / to.height + (1f - from.height / to.height) * p
+                                            translationX = (from.left - to.left) * (1f - p)
+                                            translationY = (from.top - to.top) * (1f - p)
+                                        }
+                                    }
                                 }.clip(RoundedCornerShape(6.dp))
                                 .background(Color(0xFF333333)),
                     )

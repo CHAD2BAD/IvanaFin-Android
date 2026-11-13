@@ -70,6 +70,8 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
 import coil3.request.crossfade
 import com.github.damontecres.wholphin.ui.FontAwesome
 import kotlin.math.abs
@@ -170,6 +172,9 @@ internal fun HeroArt(
     // album covers are square: shown whole on the right (cropping one to a wide strip zooms right in)
     square: Boolean = false,
 ) {
+    // an album cover: Now Playing's cover flies from here
+    val flight = LocalMuFlight.current
+    if (square && flight != null) androidx.compose.runtime.DisposableEffect(flight) { onDispose { flight.hero = null } }
     Box(
         modifier =
             modifier
@@ -177,7 +182,13 @@ internal fun HeroArt(
                 .graphicsLayer {
                     translationY = -scrollPx()
                     alpha = .8f
-                },
+                }.then(
+                    if (square && flight != null && !liked) {
+                        Modifier.onGloballyPositioned { flight.hero = it.boundsInWindow() }
+                    } else {
+                        Modifier
+                    },
+                ),
     ) {
         if (liked) {
             Box(Modifier.fillMaxSize().background(LikedBrush))
@@ -811,3 +822,15 @@ internal fun MixCard(
 
 /** Start radio (Instant Mix) from an album / artist id: the Radio buttons (IvanaFinMusicLibrary provides it) */
 internal val LocalMuRadio = compositionLocalOf<((java.util.UUID) -> Unit)?> { null }
+
+/**
+ * Now Playing opening (plan part 1): where the cover was on screen, so Now Playing's cover can fly
+ * from there into place - the album picture on the page (album pages, Home's album hero) or the
+ * mini player's cover in the top bar. (Window coordinates; null = no cover there.)
+ */
+internal class MuFlight {
+    var hero: androidx.compose.ui.geometry.Rect? = null
+    var mini: androidx.compose.ui.geometry.Rect? = null
+}
+
+internal val LocalMuFlight = androidx.compose.runtime.staticCompositionLocalOf<MuFlight?> { null }
