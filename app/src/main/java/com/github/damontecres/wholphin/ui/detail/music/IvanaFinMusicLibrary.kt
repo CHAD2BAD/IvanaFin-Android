@@ -151,6 +151,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import com.github.damontecres.wholphin.ui.DetailItemFields
 import org.jellyfin.sdk.api.client.extensions.instantMixApi
 import org.jellyfin.sdk.api.client.extensions.lyricsApi
+import org.jellyfin.sdk.api.client.extensions.libraryApi
 import org.jellyfin.sdk.model.api.LyricDto
 import com.github.damontecres.wholphin.ui.toServerString
 import kotlinx.coroutines.flow.StateFlow
@@ -205,6 +206,10 @@ private sealed interface MusicView {
     ) : MusicView
 
     data class Artist(
+        val id: UUID,
+    ) : MusicView
+
+    data class Playlist(
         val id: UUID,
     ) : MusicView
 
@@ -367,6 +372,10 @@ class IvanaFinMusicViewModel
         val home = MutableStateFlow<MusicHomeData?>(null)
         val library = MutableStateFlow<List<BaseItem>>(emptyList())
         val libraryArtists = MutableStateFlow(prefs.getBoolean("music_lib_artists", false))
+        val libraryPlaylists = MutableStateFlow(prefs.getBoolean("music_lib_playlists", false))
+
+        /** The playlist page: the playlist and its songs */
+        val playlist = MutableStateFlow<Pair<BaseItem, List<BaseItem>>?>(null)
         val sort = MutableStateFlow(prefs.getInt("music_sort", 0).coerceIn(0, MusicSorts.size - 1))
         val search = MutableStateFlow(MusicSearchResults())
         val liked = MutableStateFlow<List<BaseItem>?>(null)
@@ -491,7 +500,9 @@ class IvanaFinMusicViewModel
         fun loadLibrary() {
             viewModelScope.launchIO {
                 library.value =
-                    if (libraryArtists.value) {
+                    if (libraryPlaylists.value) {
+                        loadPlaylists()
+                    } else if (libraryArtists.value) {
                         home.value?.artists ?: loadArtists()
                     } else {
                         val s = MusicSorts[sort.value]
@@ -509,10 +520,52 @@ class IvanaFinMusicViewModel
             }
         }
 
-        fun setLibraryArtists(on: Boolean) {
-            libraryArtists.value = on
-            prefs.edit().putBoolean("music_lib_artists", on).apply()
+        /** Your Library tab: 0 Albums, 1 Artists, 2 Playlists */
+        fun setLibraryTab(t: Int) {
+            libraryArtists.value = t == 1
+            libraryPlaylists.value = t == 2
+            prefs.edit().putBoolean("music_lib_artists", t == 1).putBoolean("music_lib_playlists", t == 2).apply()
             loadLibrary()
+        }
+
+        /** Your playlists (Jellyfin playlists: the same ones the web and phone apps show), A-Z */
+        private suspend fun loadPlaylists(): List<BaseItem> =
+            try {
+                request(
+                    GetItemsRequest(
+                        includeItemTypes = listOf(BaseItemKind.PLAYLIST),
+                        recursive = true,
+                        sortBy = listOf(ItemSortBy.SORT_NAME),
+                        fields = listOf(ItemFields.CHILD_COUNT),
+                    ),
+                ).toBaseItems(api, false).filter { it.data.mediaType == null || it.data.mediaType == org.jellyfin.sdk.model.api.MediaType.AUDIO || it.data.mediaType == org.jellyfin.sdk.model.api.MediaType.UNKNOWN }
+            } catch (ex: Exception) {
+                Timber.w(ex, "Loading playlists failed")
+                emptyList()
+            }
+
+        fun loadPlaylist(id: UUID) {
+            if (playlist.value?.first?.id != id) playlist.value = null
+            viewModelScope.launchIO {
+                try {
+                    val p = BaseItem.from(api.userLibraryApi.getItem(itemId = id).content, api, false)
+                    val songs = request(GetItemsRequest(parentId = id, includeItemTypes = listOf(BaseItemKind.AUDIO), fields = DetailItemFields)).toBaseItems(api, false)
+                    playlist.value = p to songs
+                } catch (ex: Exception) {
+                    Timber.w(ex, "Loading playlist failed")
+                }
+            }
+        }
+
+        fun deletePlaylist(id: UUID) {
+            viewModelScope.launchIO {
+                try {
+                    api.libraryApi.deleteItem(id)
+                    loadLibrary()
+                } catch (ex: Exception) {
+                    Timber.w(ex, "Deleting playlist failed")
+                }
+            }
         }
 
         fun setSort(i: Int) {
@@ -1012,6 +1065,7 @@ fun IvanaFinMusicLibrary(
             k == "liked" -> go(MusicView.Liked)
             k.startsWith("album:") -> go(MusicView.Album(UUID.fromString(k.removePrefix("album:"))))
             k.startsWith("artist:") -> go(MusicView.Artist(UUID.fromString(k.removePrefix("artist:"))))
+            k.startsWith("playlist:") -> go(MusicView.Playlist(UUID.fromString(k.removePrefix("playlist:"))))
             k == "browse:liked" -> go(MusicView.Liked)
             k.startsWith("browse:") -> go(MusicView.Browse(k.removePrefix("browse:")))
         }
@@ -1173,6 +1227,23 @@ fun IvanaFinMusicLibrary(
 
                 MusicView.Liked ->
                     MusicLikedView(viewModel, nowItem?.id, playing, onScrolled = onScrolled)
+
+                is MusicView.Playlist ->
+                    key(current.id) {
+                        MusicPlaylistView(
+                            viewModel,
+                            current.id,
+                            nowItem?.id,
+                            playing,
+                            onScrolled = onScrolled,
+                            // deleted: back to Your Library
+                            onDeleted = {
+                                val i = stack.lastIndex
+                                if (i > 0) pageStates.removeState(pageKey(i, stack.removeAt(i)))
+                                scrolled = 0f
+                            },
+                        )
+                    }
 
                 is MusicView.Browse ->
                     key(current.key) {
@@ -1610,6 +1681,7 @@ private fun MusicLibraryView(
 ) {
     val items by viewModel.library.collectAsState()
     val artists by viewModel.libraryArtists.collectAsState()
+    val playlists by viewModel.libraryPlaylists.collectAsState()
     val sortIdx by viewModel.sort.collectAsState()
     val first = remember { FocusRequester() }
     val back = remember { FocusRequester() }
@@ -1626,7 +1698,7 @@ private fun MusicLibraryView(
     val toTopStart = remember { toTop }
     LaunchedEffect(toTop) { if (toTop != toTopStart) gridState.scrollToItem(0) }
     // the page colour moves through the albums (or artists) shown
-    MuCycle(remember(items, artists) { items.map { viewModel.tintUrl(it, artists) } })
+    MuCycle(remember(items, artists) { items.map { if (playlists) viewModel.imageUrl(it.id, maxWidth = 96) else viewModel.tintUrl(it, artists) } })
     LazyVerticalGrid(
         state = gridState,
         columns = GridCells.Fixed(7),
@@ -1642,17 +1714,32 @@ private fun MusicLibraryView(
                 modifier = Modifier.padding(top = 110.dp, bottom = 0.dp),
             ) {
                 Text("Your Library", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(end = 12.dp))
-                if (items.isNotEmpty()) Text("${items.size} ${if (artists) (if (items.size == 1) "artist" else "artists") else (if (items.size == 1) "album" else "albums")}", fontSize = 11.sp, color = Color.White.copy(alpha = .65f), modifier = Modifier.padding(end = 6.dp))
+                if (items.isNotEmpty()) Text("${items.size} ${if (playlists) (if (items.size == 1) "playlist" else "playlists") else if (artists) (if (items.size == 1) "artist" else "artists") else (if (items.size == 1) "album" else "albums")}", fontSize = 11.sp, color = Color.White.copy(alpha = .65f), modifier = Modifier.padding(end = 6.dp))
                 // (Left from Albums - the first tab - stays there; it jumped down into the grid)
-                MuChip("Albums", on = !artists, onClick = { viewModel.setLibraryArtists(false) }, modifier = (if (!artists) Modifier.focusRequester(first) else Modifier).focusProperties { left = FocusRequester.Cancel })
-                MuChip("Artists", on = artists, onClick = { viewModel.setLibraryArtists(true) }, modifier = if (artists) Modifier.focusRequester(first) else Modifier)
+                val albumsOn = !artists && !playlists
+                MuChip("Albums", on = albumsOn, onClick = { viewModel.setLibraryTab(0) }, modifier = (if (albumsOn) Modifier.focusRequester(first) else Modifier).focusProperties { left = FocusRequester.Cancel })
+                MuChip("Artists", on = artists, onClick = { viewModel.setLibraryTab(1) }, modifier = if (artists) Modifier.focusRequester(first) else Modifier)
+                MuChip("Playlists", on = playlists, onClick = { viewModel.setLibraryTab(2) }, modifier = if (playlists) Modifier.focusRequester(first) else Modifier)
                 Spacer(Modifier.weight(1f))
-                if (!artists) SortChip(sortIdx, onPick = { viewModel.setSort(it) })
+                if (albumsOn) SortChip(sortIdx, onPick = { viewModel.setSort(it) })
             }
         }
         itemsIndexed(items, key = { _, a -> a.id }) { _, a ->
             val mod = if (a.id == lastOpened) Modifier.focusRequester(back) else Modifier
-            if (artists) {
+            if (playlists) {
+                CoverCard(
+                    name = a.name ?: "",
+                    imageUrl = viewModel.imageUrl(a.id),
+                    sub = "Playlist" + (a.data.childCount?.let { " • " + songsLabel(it) } ?: ""),
+                    width = null,
+                    panel = true,
+                    onClick = {
+                        onOpened(a.id)
+                        onOpen("playlist:${a.id}")
+                    },
+                    modifier = mod,
+                )
+            } else if (artists) {
                 CoverCard(
                     name = a.name ?: "",
                     imageUrl = viewModel.imageUrl(a.id),
@@ -3027,5 +3114,109 @@ private fun MuSongMenuDialog(
     LaunchedEffect(Unit) {
         delay(80)
         first.tryRequestFocus()
+    }
+}
+
+/** A playlist: like Liked Songs (Play / Shuffle, the songs), plus Delete (press twice). */
+@Composable
+private fun MusicPlaylistView(
+    viewModel: IvanaFinMusicViewModel,
+    id: UUID,
+    nowId: UUID?,
+    playing: Boolean,
+    onScrolled: (Float) -> Unit,
+    onDeleted: () -> Unit,
+) {
+    val got by viewModel.playlist.collectAsState()
+    LaunchedEffect(id) { viewModel.loadPlaylist(id) }
+    MuTint(viewModel.imageUrl(id, maxWidth = 96))
+    val (pl, list) = got?.takeIf { it.first.id == id } ?: return MuSkeleton(songs = true)
+    val listState = rememberLazyListState()
+    val playFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        delay(60)
+        playFocus.tryRequestFocus()
+    }
+    LaunchedEffect(listState) {
+        snapshotFlow { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 100000f }.collect { onScrolled(it) }
+    }
+    val toTop = LocalMuToTop.current
+    val toTopStart = remember { toTop }
+    LaunchedEffect(toTop) { if (toTop != toTopStart) listState.scrollToItem(0) }
+    val listPlaying = list.any { it.id == nowId }
+    var confirmDelete by remember { mutableStateOf(false) }
+    Box(Modifier.fillMaxSize()) {
+        HeroArt(
+            url = viewModel.imageUrl(id, maxWidth = 2000),
+            liked = false,
+            square = true,
+            scrollPx = { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 100000f },
+            modifier = Modifier.align(Alignment.TopEnd),
+        )
+        LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 48.dp), modifier = Modifier.fillMaxSize()) {
+            item("hero") { HeroText(kind = "Playlist", title = pl.name ?: "", meta = "Playlist • " + songsLabel(list.size)) }
+            item("acts") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(start = 40.dp, top = 16.dp, bottom = 10.dp)) {
+                    val pause = listPlaying && playing
+                    MuPill(
+                        glyph = if (pause) Fa.PAUSE else Fa.PLAY,
+                        text = if (pause) "Pause" else "Play",
+                        primary = true,
+                        onClick = {
+                            if (listPlaying) {
+                                val p = viewModel.musicService.player
+                                if (p.isPlaying) p.pause() else p.play()
+                            } else {
+                                viewModel.playList(list, 0, false)
+                            }
+                        },
+                        modifier = Modifier.focusRequester(playFocus),
+                    )
+                    MuPill(glyph = Fa.SHUFFLE, text = "Shuffle", onClick = { viewModel.playList(list, 0, true) })
+                    MuPill(
+                        glyph = Fa.REMOVE,
+                        text = if (confirmDelete) "Press again to delete" else "Delete",
+                        onClick = {
+                            if (confirmDelete) {
+                                viewModel.deletePlaylist(id)
+                                onDeleted()
+                            } else {
+                                confirmDelete = true
+                            }
+                        },
+                        modifier = Modifier.onFocusChanged { if (!it.isFocused) confirmDelete = false },
+                    )
+                }
+            }
+            if (list.isEmpty()) {
+                item("empty") {
+                    Text(
+                        "No songs yet. Hold OK on a song and choose Add to playlist.",
+                        fontSize = 13.sp,
+                        color = Color.White.copy(alpha = .6f),
+                        modifier = Modifier.padding(horizontal = 40.dp, vertical = 20.dp),
+                    )
+                }
+            }
+            itemsIndexed(list, key = { i, s -> "$i:${s.id}" }) { i, s ->
+                MuTrackRow(
+                    number = (i + 1).toString(),
+                    title = s.name ?: "",
+                    sub = listOfNotNull(s.data.artists?.joinToString(", ")?.takeIf { it.isNotBlank() } ?: s.data.albumArtist, s.data.album).joinToString(" • "),
+                    duration = s.data.runTimeTicks?.let { minSecTicks(it) } ?: "",
+                    playing = s.id == nowId,
+                    paused = !playing,
+                    onLongClick = muSongMenu(s),
+                    onClick = {
+                        if (s.id == nowId) {
+                            val p = viewModel.musicService.player
+                            if (p.isPlaying) p.pause() else p.play()
+                        } else {
+                            viewModel.playList(list, i, false)
+                        }
+                    },
+                )
+            }
+        }
     }
 }
