@@ -2390,7 +2390,7 @@ private fun NowPlayingView(
                         Text(item.albumTitle ?: item.title ?: "", fontSize = MuType.cardTitle, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
-                Spacer(Modifier.height(150.dp))
+                Spacer(Modifier.height(96.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp), modifier = Modifier.fillMaxWidth(if (showLyrics) .57f else 1f)) {
                     MuImage(
                         model = bigCover,
@@ -2398,7 +2398,7 @@ private fun NowPlayingView(
                         contentScale = ContentScale.Crop,
                         modifier =
                             Modifier
-                                .size(126.dp)
+                                .size(180.dp)
                                 .onGloballyPositioned { if (coverAt == null) coverAt = it.boundsInWindow() }
                                 .graphicsLayer {
                                     shadowElevation = 16.dp.toPx()
