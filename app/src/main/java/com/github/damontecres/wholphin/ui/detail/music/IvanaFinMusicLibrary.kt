@@ -636,7 +636,8 @@ class IvanaFinMusicViewModel
         }
 
         fun loadArtist(id: UUID) {
-            artist.value = null
+            // (Back to the same artist: keep the page as it was while it refreshes - beta round 5)
+            if (artist.value?.artist?.id != id) artist.value = null
             viewModelScope.launchIO {
                 try {
                     val a = BaseItem.from(api.userLibraryApi.getItem(itemId = id).content, api, false)
@@ -2168,12 +2169,12 @@ private fun MusicArtistView(
     LaunchedEffect(id) { viewModel.loadArtist(id) }
     var popularAll by remember(id) { mutableStateOf(false) }
     var aboutOpen by remember(id) { mutableStateOf(false) }
-    val data = state?.takeIf { it.artist.id == id } ?: return MuSkeleton()
     val listState = rememberLazyListState()
     val playFocus = remember { FocusRequester() }
     // Back from an album opened here: select that album again (beta round 5: it went to the top, on Play)
     var openedAlbum by androidx.compose.runtime.saveable.rememberSaveable(id) { mutableStateOf<String?>(null) }
     val albumFocus = remember { FocusRequester() }
+    val data = state?.takeIf { it.artist.id == id } ?: return MuSkeleton()
     LaunchedEffect(Unit) {
         delay(60)
         if (openedAlbum != null) {
