@@ -64,6 +64,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.SideEffect
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -864,9 +865,27 @@ fun IvanaFinMusicLibrary(
             MuScroll(start = 100.dp) {
             CompositionLocalProvider(LocalMuToTop provides toTop) {
             val onScrolled: (Float) -> Unit = { scrolled = it }
-            CompositionLocalProvider(LocalMuLastClicked provides lastClicked) {
+            CompositionLocalProvider(LocalMuLastClicked provides lastClicked, LocalMuPlaying provides playing) {
             // the page as one focus group: Down from the top bar goes into it (see MusicTopBar onDown)
-            Box(Modifier.fillMaxSize().focusRequester(pageFocus).focusRestorer().focusGroup()) {
+            // page transitions: a new page fades and slides in 16dp (from the right going forward,
+            // from the left on Back), ~220 ms. Enter only, so two pages are never on screen at once
+            // (that would confuse where the focus goes).
+            val depth = stack.size
+            val prevDepth = remember { intArrayOf(depth) }
+            val pageIn = remember(current, depth) { androidx.compose.animation.core.Animatable(0f) }
+            val pageDir = remember(current, depth) { if (depth >= prevDepth[0]) 1f else -1f }
+            SideEffect { prevDepth[0] = depth }
+            LaunchedEffect(pageIn) { pageIn.animateTo(1f, tween(220, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        alpha = pageIn.value
+                        translationX = (1f - pageIn.value) * 16.dp.toPx() * pageDir
+                    }.focusRequester(pageFocus)
+                    .focusRestorer()
+                    .focusGroup(),
+            ) {
             when (current) {
                 MusicView.Home ->
                     MusicHomeView(
@@ -972,6 +991,9 @@ fun IvanaFinMusicLibrary(
                 onDown = { pageFocus.tryRequestFocus() },
             )
             if (npOpen && nowItem != null) {
+                // opening: Now Playing grows (from 94%) and fades in over ~280 ms
+                val npIn = remember { androidx.compose.animation.core.Animatable(0f) }
+                LaunchedEffect(Unit) { npIn.animateTo(1f, tween(280, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
                 NowPlayingView(
                     viewModel = viewModel,
                     item = nowItem!!,
@@ -1000,7 +1022,13 @@ fun IvanaFinMusicLibrary(
                         npAuto = false
                         go(MusicView.Artist(it))
                     },
-                    modifier = Modifier.zIndex(10f),
+                    modifier =
+                        Modifier.zIndex(10f).graphicsLayer {
+                            alpha = npIn.value
+                            val s = .94f + .06f * npIn.value
+                            scaleX = s
+                            scaleY = s
+                        },
                 )
             }
             }
@@ -1058,7 +1086,7 @@ private fun MusicTopBar(
                     modifier = Modifier.width(200.dp).height(36.dp).focusRequester(miniFocus),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        AsyncImage(
+                        MuImage(
                             model = nowItem.imageUrl,
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
@@ -1139,7 +1167,7 @@ private fun MusicHomeView(
         lastUser = System.currentTimeMillis()
         onFocusKey(it)
     }
-    val data = home ?: return
+    val data = home ?: return MuSkeleton(shortcuts = true)
     val focusFirst = remember { FocusRequester() }
     val focusRestore = remember { FocusRequester() }
     LaunchedEffect(Unit) {
@@ -1665,7 +1693,7 @@ private fun MusicLikedView(
     val songs by viewModel.liked.collectAsState()
     LaunchedEffect(Unit) { viewModel.loadLiked() }
     MuTintPal(LikedPal)
-    val list = songs ?: return
+    val list = songs ?: return MuSkeleton(songs = true)
     val listState = rememberLazyListState()
     val playFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
@@ -1756,7 +1784,7 @@ private fun MusicArtistView(
     LaunchedEffect(id) { viewModel.loadArtist(id) }
     var popularAll by remember(id) { mutableStateOf(false) }
     var aboutOpen by remember(id) { mutableStateOf(false) }
-    val data = state?.takeIf { it.artist.id == id } ?: return
+    val data = state?.takeIf { it.artist.id == id } ?: return MuSkeleton()
     val listState = rememberLazyListState()
     val playFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
@@ -1883,7 +1911,7 @@ private fun MusicArtistView(
                             modifier = Modifier.width(760.dp),
                         ) {
                             Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                                AsyncImage(
+                                MuImage(
                                     model = viewModel.imageUrl(a.id, maxWidth = 400),
                                     contentDescription = null,
                                     contentScale = ContentScale.Crop,
@@ -1944,7 +1972,7 @@ private fun NowPlayingView(
     Box(modifier.fillMaxSize().background(Color.Black)) {
         // the artist as they looked when the album came out (see eraArt)
         Crossfade(targetState = artist?.let { viewModel.eraArt(it, year, 1920) } ?: bigCover, animationSpec = tween(600), label = "npArt") { u ->
-            AsyncImage(
+            MuImage(
                 model = u,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
@@ -1969,7 +1997,7 @@ private fun NowPlayingView(
             }
             Spacer(Modifier.height(189.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                AsyncImage(
+                MuImage(
                     model = bigCover,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
@@ -2064,7 +2092,7 @@ private fun NowPlayingView(
             ) {
                 Box(Modifier.fillMaxSize()) {
                     if (a != null) {
-                        AsyncImage(
+                        MuImage(
                             model = viewModel.imageUrl(a.id, maxWidth = 900),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
@@ -2280,7 +2308,7 @@ private fun BrowseTiles(
                                 if (b.liked) {
                                     Text(Fa.HEART, fontFamily = FontAwesome, fontSize = 26.sp, color = Color.White, modifier = Modifier.graphicsLayer { rotationZ = -25f })
                                 } else {
-                                    AsyncImage(model = covers[i], contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                    MuImage(model = covers[i], contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                                 }
                             }
                         }
@@ -2302,7 +2330,7 @@ private fun MusicBrowseView(
     onScrolled: (Float) -> Unit,
 ) {
     val home by viewModel.home.collectAsState()
-    val data = home ?: return
+    val data = home ?: return MuSkeleton()
     val b = remember(data, key) { browseLists(data).firstOrNull { it.key == key } } ?: return
     MuTintPal(remember(b.hue) { huePal(b.hue) })
     val gridState = rememberLazyGridState()

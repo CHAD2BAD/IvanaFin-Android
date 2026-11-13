@@ -70,6 +70,7 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import coil3.request.crossfade
 import com.github.damontecres.wholphin.ui.FontAwesome
 import kotlin.math.abs
 
@@ -96,6 +97,41 @@ internal fun rememberClickMark(): Pair<androidx.compose.ui.focus.FocusRequester,
     val fr = remember { androidx.compose.ui.focus.FocusRequester() }
     val holder = LocalMuLastClicked.current
     return fr to { holder?.value = fr }
+}
+
+/** Whether the music is playing (not paused): the playing bars on cards move only then. */
+internal val LocalMuPlaying = compositionLocalOf { false }
+
+/** A picture that fades in (250 ms) instead of popping in. Pictures already in memory show at once. */
+@Composable
+internal fun MuImage(
+    model: Any?,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Fit,
+    alignment: Alignment = Alignment.Center,
+    onError: ((coil3.compose.AsyncImagePainter.State.Error) -> Unit)? = null,
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val req =
+        remember(model) {
+            if (model is String) coil3.request.ImageRequest.Builder(context).data(model).crossfade(250).build() else model
+        }
+    AsyncImage(model = req, contentDescription = contentDescription, contentScale = contentScale, alignment = alignment, onError = onError, modifier = modifier)
+}
+
+/** Focus lift (Spotify / Apple TV): the selected card grows ~6% and gets a soft shadow, with a springy ease. */
+@Composable
+internal fun muLift(
+    focused: Boolean,
+    scale: Float = 1.06f,
+): Float {
+    val s by androidx.compose.animation.core.animateFloatAsState(
+        if (focused) scale else 1f,
+        androidx.compose.animation.core.spring(dampingRatio = .62f, stiffness = 900f),
+        label = "lift",
+    )
+    return s
 }
 
 internal val LikedBrush = Brush.linearGradient(listOf(Color(0xFF450AF5), Color(0xFF8E8EE5), Color(0xFFC4EFD9)))
@@ -150,7 +186,7 @@ internal fun HeroArt(
             )
         } else if (url != null) {
             Crossfade(targetState = url, animationSpec = tweenSpec(500), label = "hero") { u ->
-                AsyncImage(
+                MuImage(
                     model = u,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
@@ -219,7 +255,7 @@ internal fun HeroText(
                         if (avatarUrl != null) {
                             var show by remember(avatarUrl) { mutableStateOf(true) }
                             if (show) {
-                                AsyncImage(
+                                MuImage(
                                     model = avatarUrl,
                                     contentDescription = null,
                                     contentScale = ContentScale.Crop,
@@ -243,7 +279,7 @@ internal fun HeroText(
             } else if (avatarUrl != null) {
                 var show by remember(avatarUrl) { mutableStateOf(true) }
                 if (show) {
-                    AsyncImage(
+                    MuImage(
                         model = avatarUrl,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
@@ -357,7 +393,9 @@ internal fun ShortcutCard(
                 focusedContainerColor = wash?.let { lighter(it) } ?: Color.White.copy(alpha = .16f),
             ),
         border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, Color.White))),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        // focus lift (the TV Surface animates its own scale; a wide card grows a little less)
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
+        glow = ClickableSurfaceDefaults.glow(focusedGlow = androidx.tv.material3.Glow(Color.Black.copy(alpha = .5f), 10.dp)),
         modifier = modifier.height(50.dp).onFocusChanged { if (it.isFocused) onFocus() },
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -368,7 +406,7 @@ internal fun ShortcutCard(
                 if (liked) {
                     Text(Fa.HEART, fontFamily = FontAwesome, fontSize = 18.sp, color = Color.White)
                 } else {
-                    AsyncImage(model = imageUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    MuImage(model = imageUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                 }
             }
             Text(
@@ -379,8 +417,11 @@ internal fun ShortcutCard(
                 color = if (playing) MuGreen else Color.White,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = 10.dp, end = 10.dp),
+                modifier = Modifier.weight(1f).padding(start = 10.dp, end = 10.dp),
             )
+            if (playing) {
+                Box(Modifier.padding(end = 12.dp)) { MuEqualizer(!LocalMuPlaying.current) }
+            }
         }
     }
 }
@@ -414,15 +455,31 @@ internal fun CoverCard(
         modifier = modifier.then(if (width != null) Modifier.width(width) else Modifier).onFocusChanged { if (it.isFocused) onFocus() },
     ) {
         Column(if (panelColor != null) Modifier.background(panelColor, RoundedCornerShape(8.dp)).padding(start = 7.dp, end = 7.dp, top = 7.dp, bottom = 9.dp) else Modifier) {
+            val lift = muLift(focused)
             Box(
                 Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
-                    .then(if (focused) Modifier.background(Color.White, shape).padding(2.dp) else Modifier)
+                    .graphicsLayer {
+                        scaleX = lift
+                        scaleY = lift
+                        // the soft shadow grows in with the lift (none at rest: nothing extra to draw)
+                        shadowElevation = ((lift - 1f) / .06f).coerceIn(0f, 1f) * 10.dp.toPx()
+                        this.shape = shape
+                    }.then(if (focused) Modifier.background(Color.White, shape).padding(2.dp) else Modifier)
                     .clip(shape)
                     .background(MuCard),
             ) {
-                AsyncImage(model = imageUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                MuImage(model = imageUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                if (playing) {
+                    Box(
+                        Modifier
+                            .align(if (round) Alignment.BottomCenter else Alignment.TopEnd)
+                            .padding(6.dp)
+                            .background(Color.Black.copy(alpha = .6f), CircleShape)
+                            .padding(horizontal = 6.dp, vertical = 5.dp),
+                    ) { MuEqualizer(!LocalMuPlaying.current) }
+                }
                 if (!nameBelow) {
                     Box(
                         Modifier
@@ -624,3 +681,43 @@ internal fun MuLazyRow(
 
 /** A card colour a step lighter (selected) */
 internal fun lighter(c: Color): Color = Color(red = c.red + (1 - c.red) * .12f, green = c.green + (1 - c.green) * .12f, blue = c.blue + (1 - c.blue) * .12f, alpha = c.alpha)
+/**
+ * Loading placeholder: grey rounded shapes where the hero, the cards and a row will appear, with a slow
+ * shimmer (an opacity pulse: cheap on the Fire TV), so Music never shows a blank page while it loads.
+ */
+@Composable
+internal fun MuSkeleton(
+    shortcuts: Boolean = false,
+    songs: Boolean = false,
+) {
+    val t = rememberInfiniteTransition(label = "skel")
+    val a by t.animateFloat(.06f, .13f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "skela")
+    val grey = Color.White.copy(alpha = a)
+    val r = RoundedCornerShape(8.dp)
+    Column(Modifier.fillMaxSize().padding(start = 40.dp, end = 40.dp, top = 124.dp)) {
+        Box(Modifier.width(320.dp).height(32.dp).background(grey, r))
+        Box(Modifier.padding(top = 10.dp).width(200.dp).height(12.dp).background(grey, r))
+        Spacer(Modifier.height(28.dp))
+        if (shortcuts) {
+            repeat(2) {
+                Row(horizontalArrangement = Arrangement.spacedBy(18.dp), modifier = Modifier.padding(bottom = 10.dp)) {
+                    repeat(4) { Box(Modifier.weight(1f).height(50.dp).background(grey, r)) }
+                }
+            }
+        }
+        if (songs) {
+            repeat(6) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(44.dp)) {
+                    Box(Modifier.width(260.dp).height(12.dp).background(grey, r))
+                    Spacer(Modifier.weight(1f))
+                    Box(Modifier.width(30.dp).height(10.dp).background(grey, r))
+                }
+            }
+        } else {
+            Box(Modifier.padding(top = 22.dp, bottom = 8.dp).width(140.dp).height(16.dp).background(grey, r))
+            Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                repeat(7) { Box(Modifier.size(106.dp).background(grey, r)) }
+            }
+        }
+    }
+}
