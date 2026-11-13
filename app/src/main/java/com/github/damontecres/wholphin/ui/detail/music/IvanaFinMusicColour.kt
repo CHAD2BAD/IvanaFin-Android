@@ -168,9 +168,43 @@ private fun paletteOf(src: Bitmap): MuPal {
     }
     if (edgeDark >= edgeN * .6f || best == null) return MuPal(Color.Black, acc, ink, Color(0xFF222222).copy(alpha = .88f)) // (cards: dark grey, so they still show on a black page)
     val bb = best!!
-    val er = bb.r / bb.n / 255f
-    val eg = bb.g / bb.n / 255f
-    val eb = bb.b / bb.n / 255f
+    var er = bb.r / bb.n / 255f
+    var eg = bb.g / bb.n / 255f
+    var eb = bb.b / bb.n / 255f
+    // A light, colourless edge (white paper, grey) gave a dull grey page even when the cover is
+    // clearly red or gold (user 2026-11-13: G.O.O.D. Morning, Gold Digging): then the page takes the
+    // cover's main colour - the hue (12 steps of 30 degrees) covering most of it - if that fills at
+    // least 8% of the cover (same as music-page.js)
+    if (max(er, max(eg, eb)) - min(er, min(eg, eb)) < .12f) {
+        val hn = IntArray(12)
+        val hr = IntArray(12)
+        val hg = IntArray(12)
+        val hbl = IntArray(12)
+        for (k in 0 until n) {
+            val r = rs[k]
+            val g = gs[k]
+            val b = bs[k]
+            val mx = max(r, max(g, b))
+            val c = mx - min(r, min(g, b))
+            if (c < 51 || mx < 40) continue // greys, whites and near-black don't count
+            var h = (if (mx == r) ((g - b).toFloat() / c) % 6 else if (mx == g) (b - r).toFloat() / c + 2 else (r - g).toFloat() / c + 4) * 60
+            if (h < 0) h += 360
+            val bin = (h / 30).toInt() % 12
+            hn[bin]++
+            hr[bin] += r
+            hg[bin] += g
+            hbl[bin] += b
+        }
+        // each hue counted with its two neighbours (a brown-to-gold bear spans two steps)
+        fun pool(a: IntArray, i: Int) = a[(i + 11) % 12] + a[i] + a[(i + 1) % 12]
+        val top = (0 until 12).maxByOrNull { pool(hn, it) }!!
+        val pn = pool(hn, top)
+        if (pn > 0 && pn >= n * .08f) {
+            er = pool(hr, top).toFloat() / pn / 255f
+            eg = pool(hg, top).toFloat() / pn / 255f
+            eb = pool(hbl, top).toFloat() / pn / 255f
+        }
+    }
     val emx = max(er, max(eg, eb))
     val emn = min(er, min(eg, eb))
     val el = (emx + emn) / 2
