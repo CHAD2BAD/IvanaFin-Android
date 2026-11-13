@@ -2391,7 +2391,7 @@ private fun NowPlayingView(
                     }
                 }
                 Spacer(Modifier.height(150.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp), modifier = Modifier.fillMaxWidth(if (showLyrics) .5f else 1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp), modifier = Modifier.fillMaxWidth(if (showLyrics) .57f else 1f)) {
                     MuImage(
                         model = bigCover,
                         contentDescription = null,
@@ -2570,7 +2570,7 @@ private fun NowPlayingView(
                     Modifier
                         .align(Alignment.TopEnd)
                         .padding(top = 84.dp, end = 60.dp)
-                        .fillMaxWidth(.44f)
+                        .fillMaxWidth(.36f)
                         .height(250.dp)
                         .graphicsLayer { alpha = 1f - sleepA },
             )
