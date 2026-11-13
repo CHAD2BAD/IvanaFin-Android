@@ -4,6 +4,7 @@ import androidx.compose.ui.text.style.TextAlign
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.PI
+import kotlin.math.pow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.animation.core.infiniteRepeatable
@@ -833,11 +834,20 @@ fun IvanaFinMusicLibrary(
     DisposableEffect(player) {
         val listener =
             object : Player.Listener {
+                // a song moved within or out of the queue: its neighbours (album levelling) may change
+                override fun onTimelineChanged(
+                    timeline: androidx.media3.common.Timeline,
+                    reason: Int,
+                ) = levelVolume(player)
+
+                override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) = levelVolume(player)
+
                 override fun onMediaItemTransition(
                     mediaItem: androidx.media3.common.MediaItem?,
                     reason: Int,
                 ) {
                     if (mediaItem == null) return
+                    levelVolume(player)
                     // show the new song now, not at the next 500 ms poll (a queue + jump to song N
                     // is two transitions: the second must replace the first straight away)
                     (mediaItem.localConfiguration?.tag as? AudioItem)?.let { nowItem = it }
@@ -2761,4 +2771,33 @@ private fun MusicBrowseView(
             }
         }
     }
+}
+/** Spotify-style loudness: songs are brought to about -14 LUFS (Jellyfin measures to -18 LUFS). */
+private const val LEVEL_TARGET_DB = 4f
+
+/**
+ * Volume levelling (plan part 3): sets the player volume from the song's measured loudness. Songs
+ * next to a song from the same album use the album's average, so a live album or a mixtape that runs
+ * straight on doesn't jump in volume between tracks; a shuffled or mixed queue uses each song's own.
+ * The player can only turn down, so quiet songs stay as they are.
+ */
+internal fun levelVolume(player: Player) {
+    val i = player.currentMediaItemIndex
+    if (i < 0 || i >= player.mediaItemCount) return
+    fun at(k: Int) = player.getMediaItemAt(k).localConfiguration?.tag as? AudioItem
+    val cur = at(i) ?: return
+    val albumRun =
+        cur.albumId != null &&
+            (
+                (i > 0 && at(i - 1)?.albumId == cur.albumId) ||
+                    (i + 1 < player.mediaItemCount && at(i + 1)?.albumId == cur.albumId)
+            ) &&
+            !player.shuffleModeEnabled
+    val gain =
+        if (albumRun) {
+            (0 until player.mediaItemCount).mapNotNull { k -> at(k)?.takeIf { it.albumId == cur.albumId }?.normalizationGain }.takeIf { it.isNotEmpty() }?.average()?.toFloat()
+        } else {
+            cur.normalizationGain
+        } ?: -8f // not measured: a typical modern song
+    player.volume = min(1f, 10f.pow((gain + LEVEL_TARGET_DB) / 20f))
 }

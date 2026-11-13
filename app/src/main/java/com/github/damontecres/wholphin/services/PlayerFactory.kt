@@ -263,6 +263,8 @@ class PlayerFactory
                         AudioOffloadPreferences
                             .Builder()
                             .setAudioOffloadMode(offloadMode)
+                            // IvanaFin: only hand audio to the chip when it can still join songs without a gap
+                            .setIsGaplessSupportRequired(true)
                             .build(),
                     ),
             )

@@ -25,6 +25,8 @@ data class AudioItem(
     val runtime: Duration?,
     val imageUrl: String?,
     val hasLyrics: Boolean,
+    /** IvanaFin: the track's measured loudness correction in dB (volume levelling), null = not measured */
+    val normalizationGain: Float? = null,
 ) {
     companion object {
         private var keyTracker = 0L
@@ -46,6 +48,7 @@ data class AudioItem(
                 runtime = item.data.runTimeTicks?.ticks,
                 imageUrl = imageUrl,
                 hasLyrics = item.data.hasLyrics == true,
+                normalizationGain = item.data.normalizationGain,
             )
     }
 }
