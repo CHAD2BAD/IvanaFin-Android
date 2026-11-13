@@ -237,7 +237,7 @@ class HomeViewModel
                 v = v * 83 + x
             }
             val lum = 0.2126 * ((v shr 16) and 255) + 0.7152 * ((v shr 8) and 255) + 0.0722 * (v and 255)
-            return lum < 28
+            return lum < 45 // (45 since beta round 5: WAR, 43, looked like an empty black tile)
         }
 
         /** IvanaFin: a random movie or series with a backdrop from [libraryId], for the home tiles. */

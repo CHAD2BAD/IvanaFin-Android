@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicSecureTextField
@@ -78,6 +79,11 @@ fun EditTextBox(
             disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
             errorContainerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.75f),
             errorTextColor = MaterialTheme.colorScheme.onErrorContainer,
+            // IvanaFin: no underline - a selected box gets a white ring all round instead (beta round 5:
+            // the thin underline was cut by the round ends)
+            focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+            unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+            disabledIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
         )
     val textColor =
         when {
@@ -233,7 +239,13 @@ fun EditTextBox(
             disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
             errorContainerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.75f),
             errorTextColor = MaterialTheme.colorScheme.onErrorContainer,
+            // IvanaFin: no underline - a selected box gets a white ring all round instead (beta round 5:
+            // the thin underline was cut by the round ends)
+            focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+            unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+            disabledIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
         )
+    val ringFocused by interactionSource.collectIsFocusedAsState()
     CompositionLocalProvider(LocalTextSelectionColors provides colors.textSelectionColors) {
         BasicTextField(
             value = value,
@@ -242,7 +254,8 @@ fun EditTextBox(
                     .defaultMinSize(
                         minWidth = TextFieldDefaults.MinWidth,
                         minHeight = height,
-                    ).height(height),
+                    ).height(height)
+                    .border(if (ringFocused) 2.dp else 1.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = if (ringFocused) 1f else .25f), CircleShape),
             onValueChange = onValueChange,
             enabled = enabled,
             readOnly = readOnly,

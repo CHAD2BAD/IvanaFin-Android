@@ -372,7 +372,7 @@ private fun TileTitle(
         (if (text.length > 14) MaterialTheme.typography.displaySmall else MaterialTheme.typography.displayMedium)
             .copy(
                 fontWeight = FontWeight.Bold,
-                shadow = if (shadow) Shadow(Color.Black.copy(alpha = .8f), Offset(0f, 2f), blurRadius = 16f) else null,
+                shadow = if (shadow) Shadow(Color.Black.copy(alpha = .95f), Offset(0f, 2f), blurRadius = 8f) /* tighter, darker: pale pictures (beta round 5) */ else null,
             )
     val measurer = rememberTextMeasurer()
     BoxWithConstraints(

@@ -40,7 +40,6 @@ import com.github.damontecres.wholphin.data.model.Person
 import com.github.damontecres.wholphin.ui.AspectRatios
 import com.github.damontecres.wholphin.ui.FontAwesome
 import com.github.damontecres.wholphin.ui.PreviewTvSpec
-import com.github.damontecres.wholphin.ui.enableMarquee
 import com.github.damontecres.wholphin.ui.theme.WholphinTheme
 import kotlinx.coroutines.delay
 import org.jellyfin.sdk.model.UUID
@@ -168,7 +167,7 @@ fun PersonCard(
                 text = name ?: "",
                 maxLines = 1,
                 // IvanaFin: "..." on a long name; the selected card scrolls it instead (marquee)
-                overflow = if (focusedAfterDelay) TextOverflow.Clip else TextOverflow.Ellipsis,
+                overflow = TextOverflow.Ellipsis, // (no scrolling text: centred, it was cut at both ends - "ohnny Knoxville", beta round 5; web also uses "...")
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodyMedium.copy(shadow = com.github.damontecres.wholphin.ui.theme.IvfTextShadow),
                 fontWeight = FontWeight.SemiBold,
@@ -176,14 +175,14 @@ fun PersonCard(
                     Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 4.dp)
-                        .then(if (focusedAfterDelay) Modifier.enableMarquee(true) else Modifier), // (a marquee measures the whole text: unselected names never got their "...")
+
             )
             role?.let {
                 Text(
                     text = role,
                     maxLines = 1,
                     // IvanaFin: "..." on a long name; the selected card scrolls it instead (marquee)
-                    overflow = if (focusedAfterDelay) TextOverflow.Clip else TextOverflow.Ellipsis,
+                    overflow = TextOverflow.Ellipsis, // (no scrolling text: centred, it was cut at both ends - "ohnny Knoxville", beta round 5; web also uses "...")
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodySmall.copy(shadow = com.github.damontecres.wholphin.ui.theme.IvfTextShadow),
                     fontWeight = FontWeight.Normal,
@@ -191,7 +190,7 @@ fun PersonCard(
                         Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 4.dp)
-                            .then(if (focusedAfterDelay) Modifier.enableMarquee(true) else Modifier), // (a marquee measures the whole text: unselected names never got their "...")
+    
                 )
             }
         }

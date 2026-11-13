@@ -84,7 +84,11 @@ fun SwitchColors(): SwitchColors {
         AppThemeColors.BROWN,
         -> {
             SwitchDefaults.colors(
-                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                // IvanaFin: an 'on' switch has a dark track + white knob, so it still shows on a selected
+                // row's light highlight (beta round 5: the light track vanished, only a black dot was left)
+                checkedThumbColor = androidx.compose.ui.graphics.Color.White,
+                checkedTrackColor = androidx.compose.ui.graphics.Color(0xFF4B5563),
+                checkedBorderColor = androidx.compose.ui.graphics.Color(0xFF4B5563),
                 // IvanaFin: an 'off' switch keeps a grey outline + knob, so it still shows on the light
                 // highlight of a selected row (round-4 beta: only a black dot was left)
                 uncheckedThumbColor = androidx.compose.ui.graphics.Color(0xFF6B7280),

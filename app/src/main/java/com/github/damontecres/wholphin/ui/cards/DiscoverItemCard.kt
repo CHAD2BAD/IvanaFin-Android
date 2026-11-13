@@ -186,6 +186,9 @@ fun DiscoverItemCard(
             Text(
                 text = item?.title ?: "",
                 maxLines = cardTitleMaxLines(), // IvanaFin
+                // IvanaFin (beta round 5): every title keeps its two lines so the years line up, and a longer one
+                // ends in "..." (was cut mid-word: "Fear and Loathing in Las")
+                minLines = cardTitleMaxLines(),
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodyMedium,

@@ -503,7 +503,9 @@ internal fun CoverCard(
                 Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
-                    .then(if (focused) Modifier.background(Color.White, shape).padding(2.dp) else Modifier)
+                    // white ring, then a dark gap, like web (beta round 5: on a white picture - the Kanye West
+                    // artist circle - the ring alone could not be seen)
+                    .then(if (focused) Modifier.background(Color.White, shape).padding(2.dp).background(Color(0xFF121212), shape).padding(2.dp) else Modifier)
                     .clip(shape)
                     .background(MuCard),
             ) {

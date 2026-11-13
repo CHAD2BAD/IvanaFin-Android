@@ -255,6 +255,9 @@ fun BannerCardWithTitle(
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = cardTitleMaxLines(), // IvanaFin
+                // IvanaFin (beta round 5): a longer title
+                // ends in "..." (was cut mid-word: "Fear and Loathing in Las")
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
                 modifier =
                     Modifier

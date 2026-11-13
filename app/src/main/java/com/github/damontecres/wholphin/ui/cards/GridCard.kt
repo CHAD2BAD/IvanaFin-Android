@@ -96,13 +96,23 @@ fun GridCard(
                             Modifier.drawWithContent {
                                 drawContent()
                                 if (focused) {
+                                    // a dark gap, then the white ring outside it: on a white poster (2001)
+                                    // the ring alone vanished (beta round 5; same as the Music cards)
+                                    val gap = 2.5.dp.toPx()
+                                    drawRoundRect(
+                                        color = Color.Black.copy(alpha = .75f),
+                                        topLeft = Offset(-gap / 2f, -gap / 2f),
+                                        size = Size(size.width + gap, size.height + gap),
+                                        cornerRadius = CornerRadius(posterCorner.toPx() + gap / 2f),
+                                        style = Stroke(width = gap),
+                                    )
                                     val stroke = 1.5.dp.toPx()
-                                    val half = stroke / 2f
+                                    val out = gap + stroke / 2f
                                     drawRoundRect(
                                         color = Color.White,
-                                        topLeft = Offset(-half, -half),
-                                        size = Size(size.width + stroke, size.height + stroke),
-                                        cornerRadius = CornerRadius(posterCorner.toPx() + half),
+                                        topLeft = Offset(-out, -out),
+                                        size = Size(size.width + 2 * out, size.height + 2 * out),
+                                        cornerRadius = CornerRadius(posterCorner.toPx() + out),
                                         style = Stroke(width = stroke),
                                     )
                                 }
@@ -150,6 +160,9 @@ fun GridCard(
                 Text(
                     text = item?.title ?: "",
                     maxLines = cardTitleMaxLines(), // IvanaFin
+                    // IvanaFin (beta round 5): every title keeps its two lines so the years line up, and a longer one
+                    // ends in "..." (was cut mid-word: "Fear and Loathing in Las")
+                    minLines = cardTitleMaxLines(),
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,

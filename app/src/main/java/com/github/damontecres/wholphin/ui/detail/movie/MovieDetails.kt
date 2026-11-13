@@ -395,6 +395,21 @@ fun MovieDetailsContent(
                     ),
                 ),
         )
+        // scrolled down to the rows: the picture darkens behind them so cast names read on bright
+        // pictures (beta round 5: 2001, Alien - user 2026-11-13: yes, darker; same as the show page)
+        val dim by androidx.compose.animation.core.animateFloatAsState(
+            if (listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 40) .55f else 0f,
+            androidx.compose.animation.core.tween(800, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+            label = "filmDim",
+        )
+        if (dim > 0f) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .bleedToScreenEdges()
+                    .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = dim)),
+            )
+        }
         LazyColumn(
             state = listState,
             verticalArrangement = Arrangement.spacedBy(16.dp),

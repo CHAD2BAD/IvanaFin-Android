@@ -345,7 +345,7 @@ private fun buildMixes(
             .filter { it.userData?.lastPlayedDate?.isAfter(now.minusDays(30)) == true }
             .sortedByDescending { it.userData?.playCount ?: 0 }
             .take(25)
-    if (onRepeat.size >= 5) out.add(MusicMix("repeat", "On Repeat", "Your most played lately", covers(onRepeat), onRepeat.map { it.id }))
+    if (onRepeat.size >= 5) out.add(MusicMix("repeat", "On Repeat", "Your top songs", covers(onRepeat), onRepeat.map { it.id }))
     val forgotten =
         played
             .filter { (it.userData?.playCount ?: 0) >= 3 && it.userData?.lastPlayedDate?.isBefore(now.minusDays(90)) == true }
@@ -685,6 +685,9 @@ class IvanaFinMusicViewModel
         /** Where the queue came from, for Now Playing's "PLAYING FROM ..." line (a mix or playlist; else the
          * song's album). Beta round 5: On Repeat said PLAYING FROM ALBUM VULTURES 1. */
         val playFrom = MutableStateFlow<PlayFrom?>(null)
+
+        /** Now Playing's Lyrics button: stays on for the next opening */
+        var lyricsOn = false
 
         /** Play a list from [start] (or shuffled) */
         fun playList(
@@ -1373,6 +1376,7 @@ fun IvanaFinMusicLibrary(
 
 // ---- top bar ---------------------------------------------------------------------------------------
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 private fun MusicTopBar(
     viewModel: IvanaFinMusicViewModel,
@@ -1439,7 +1443,9 @@ private fun MusicTopBar(
             // Home / Search / Your Library
             Row(
                 horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
-                modifier = Modifier.weight(1f),
+                // coming up from the page: the tab that is open, not the nearest one (beta round 5: Up
+                // from the Playlists tab went to Home)
+                modifier = Modifier.weight(1f).focusGroup().focusProperties { enter = { navFocus } },
             ) {
                 NavPill(Fa.HOME, "Home", rootView == MusicView.Home, { onNav(MusicView.Home) }, if (rootView == MusicView.Home) Modifier.focusRequester(navFocus) else Modifier)
                 NavPill(Fa.SEARCH, "Search", rootView == MusicView.Search, { onNav(MusicView.Search) }, if (rootView == MusicView.Search) Modifier.focusRequester(navFocus) else Modifier)
@@ -2377,7 +2383,9 @@ private fun NowPlayingView(
     val npPal = rememberMuPal(item.albumId?.let { viewModel.imageUrl(it, maxWidth = 96) })
 
     // Lyrics (on the song screen, in the space on the right - user 2026-11-13) and the screensaver (60 s without a key press)
-    var showLyrics by remember { mutableStateOf(false) }
+    // (remembered while the app runs: reopening Now Playing kept turning the lyrics off - beta round 5)
+    var showLyrics by remember { mutableStateOf(viewModel.lyricsOn) }
+    LaunchedEffect(showLyrics) { viewModel.lyricsOn = showLyrics }
     var asleep by remember { mutableStateOf(false) }
     var lastKey by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(lastKey, showLyrics) {
