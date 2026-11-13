@@ -449,30 +449,36 @@ internal fun CoverCard(
     var focused by remember { mutableStateOf(false) }
     val shape = if (round) CircleShape else RoundedCornerShape(4.dp)
     val panelColor = if (panel) rememberMuPal(imageUrl)?.wash ?: Color.White.copy(alpha = .06f) else null
+    val lift = muLift(focused)
     Surface(
         onClick = onClick,
         interactionSource = interaction,
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(4.dp)),
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-        modifier = modifier.then(if (width != null) Modifier.width(width) else Modifier).onFocusChanged {
-            focused = it.isFocused
-            if (it.isFocused) onFocus()
-        },
+        // focus lift: the whole card grows (the Surface clips what is inside it, so growing the
+        // picture alone was cut off); square cards with the name on the picture also get a soft shadow
+        modifier =
+            modifier
+                .then(if (width != null) Modifier.width(width) else Modifier)
+                .graphicsLayer {
+                    scaleX = lift
+                    scaleY = lift
+                    if (!nameBelow && !panel) {
+                        shadowElevation = ((lift - 1f) / .06f).coerceIn(0f, 1f) * 10.dp.toPx()
+                        this.shape = RoundedCornerShape(4.dp)
+                    }
+                }.onFocusChanged {
+                    focused = it.isFocused
+                    if (it.isFocused) onFocus()
+                },
     ) {
         Column(if (panelColor != null) Modifier.background(panelColor, RoundedCornerShape(8.dp)).padding(start = 7.dp, end = 7.dp, top = 7.dp, bottom = 9.dp) else Modifier) {
-            val lift = muLift(focused)
             Box(
                 Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
-                    .graphicsLayer {
-                        scaleX = lift
-                        scaleY = lift
-                        // the soft shadow grows in with the lift (none at rest: nothing extra to draw)
-                        shadowElevation = ((lift - 1f) / .06f).coerceIn(0f, 1f) * 10.dp.toPx()
-                        this.shape = shape
-                    }.then(if (focused) Modifier.background(Color.White, shape).padding(2.dp) else Modifier)
+                    .then(if (focused) Modifier.background(Color.White, shape).padding(2.dp) else Modifier)
                     .clip(shape)
                     .background(MuCard),
             ) {
