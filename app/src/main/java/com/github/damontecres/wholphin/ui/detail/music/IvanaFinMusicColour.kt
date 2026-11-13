@@ -205,16 +205,47 @@ private fun paletteOf(src: Bitmap): MuPal {
             eb = pool(hbl, top).toFloat() / pn / 255f
         }
     }
+    // Still colourless, but the whole cover leans one way (user 2026-11-13: Yandhi - a dark grey
+    // turntable with a faint violet cast should give a purple page): the hue the cover's faint tints
+    // point to, when they agree (60%+) and the cover isn't plain black & white (same as music-page.js)
+    var tintHue: Float? = null
+    if (max(er, max(eg, eb)) - min(er, min(eg, eb)) < .12f) {
+        var tx = 0.0
+        var ty = 0.0
+        var tw = 0.0
+        var csum = 0
+        for (k in 0 until n) {
+            val r = rs[k]
+            val g = gs[k]
+            val b = bs[k]
+            val mx = max(r, max(g, b))
+            val c = mx - min(r, min(g, b))
+            csum += c
+            if (c < 8) continue
+            var h = (if (mx == r) ((g - b).toFloat() / c) % 6 else if (mx == g) (b - r).toFloat() / c + 2 else (r - g).toFloat() / c + 4) * 60
+            if (h < 0) h += 360
+            tx += cos(Math.toRadians(h.toDouble())) * c
+            ty += sin(Math.toRadians(h.toDouble())) * c
+            tw += c
+        }
+        if (tw > 0 && csum.toFloat() / n >= 7f && kotlin.math.sqrt(tx * tx + ty * ty) / tw >= .6) {
+            tintHue = ((Math.toDegrees(atan2(ty, tx)) + 360) % 360).roundToInt().toFloat()
+        }
+    }
     val emx = max(er, max(eg, eb))
     val emn = min(er, min(eg, eb))
     val el = (emx + emn) / 2
-    val ed = emx - emn
+    var ed = emx - emn
     var eh = 0f
     if (ed > 0f) {
         eh = (if (emx == er) ((eg - eb) / ed) % 6 else if (emx == eg) (eb - er) / ed + 2 else (er - eg) / ed + 4) * 60
         if (eh < 0) eh += 360
     }
     eh = eh.roundToInt().toFloat() % 360
+    tintHue?.let {
+        eh = it
+        ed = max(ed, .2f) // (strong enough to show as a colour)
+    }
     val eyg = eh > 40 && eh < 170 && ed > .12f
     // yellows / greens look brighter: a bit darker
     val nl = max(.14f, min(el, if (eyg) .24f else .3f))
