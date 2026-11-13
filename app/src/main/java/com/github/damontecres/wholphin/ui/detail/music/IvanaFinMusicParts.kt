@@ -733,3 +733,76 @@ internal fun MuSkeleton(
         }
     }
 }
+
+/** A Made for you mix card: 2 x 2 album covers with the mix name on top (Spotify mixes), the line below. */
+@Composable
+internal fun MixCard(
+    name: String,
+    sub: String,
+    covers: List<String>,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    onFocus: () -> Unit = {},
+) {
+    var focused by remember { mutableStateOf(false) }
+    val lift = muLift(focused)
+    val shape = RoundedCornerShape(4.dp)
+    Surface(
+        onClick = onClick,
+        shape = ClickableSurfaceDefaults.shape(shape),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        modifier =
+            modifier
+                .width(106.dp)
+                .graphicsLayer {
+                    scaleX = lift
+                    scaleY = lift
+                }.onFocusChanged {
+                    focused = it.isFocused
+                    if (it.isFocused) onFocus()
+                },
+    ) {
+        Column {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .then(if (focused) Modifier.background(Color.White, shape).padding(2.dp) else Modifier)
+                    .clip(shape)
+                    .background(MuCard),
+            ) {
+                Column(Modifier.fillMaxSize()) {
+                    for (r in 0..1) {
+                        Row(Modifier.weight(1f)) {
+                            for (c in 0..1) {
+                                // fewer than 4 covers: repeat them
+                                val u = covers.getOrNull(r * 2 + c) ?: covers.getOrNull((r * 2 + c) % covers.size.coerceAtLeast(1))
+                                Box(Modifier.weight(1f).fillMaxHeight()) {
+                                    if (u != null) MuImage(model = u, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                }
+                            }
+                        }
+                    }
+                }
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(Brush.verticalGradient(0f to Color.Black.copy(alpha = .55f), .45f to Color.Transparent)),
+                )
+                Text(
+                    name,
+                    style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = .6f), blurRadius = 3f)),
+                    fontSize = 12.sp,
+                    lineHeight = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(8.dp),
+                )
+            }
+            Text(sub, fontSize = 9.5.sp, color = Color.White.copy(alpha = .6f), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+        }
+    }
+}

@@ -232,6 +232,21 @@ data class MusicHomeData(
     val artists: List<BaseItem>,
     /** albums in the order they were last played */
     val played: List<BaseItem> = emptyList(),
+    /** Made for you: mixes built from play history and album years */
+    val mixes: List<MusicMix> = emptyList(),
+)
+
+/**
+ * A ready-made mix (plan part 4): plays [songIds] in order, or (era mixes) 60 random songs from
+ * [albumIds]. [covers] = up to 4 album ids for the 2 x 2 cover.
+ */
+data class MusicMix(
+    val key: String,
+    val name: String,
+    val sub: String,
+    val covers: List<UUID>,
+    val songIds: List<UUID> = emptyList(),
+    val albumIds: List<UUID> = emptyList(),
 )
 
 /** Home's 8 shortcut cards: all 8 picked at random - a new mix each visit (the first used to be the last album played) */
@@ -292,6 +307,42 @@ internal fun discographyRow(album: BaseItem): Int =
     }
 
 internal val DiscographyTitles = listOf("Albums", "EPs & Singles", "Mixtapes & More")
+
+/**
+ * Made for you (plan part 4), from the play history ([played]: songs, last played first) and the albums:
+ *  On repeat - the 25 songs played most among those played in the last 30 days
+ *  Forgotten favourites - songs played 3+ times but not for 3 months
+ *  era mixes - one per decade, plus Mixtapes & more
+ */
+private fun buildMixes(
+    played: List<org.jellyfin.sdk.model.api.BaseItemDto>,
+    all: List<BaseItem>,
+): List<MusicMix> {
+    val now = java.time.LocalDateTime.now()
+    fun covers(songs: List<org.jellyfin.sdk.model.api.BaseItemDto>) = songs.mapNotNull { it.albumId }.distinct().take(4)
+    val out = mutableListOf<MusicMix>()
+    val onRepeat =
+        played
+            .filter { it.userData?.lastPlayedDate?.isAfter(now.minusDays(30)) == true }
+            .sortedByDescending { it.userData?.playCount ?: 0 }
+            .take(25)
+    if (onRepeat.size >= 5) out.add(MusicMix("repeat", "On Repeat", "Your most played lately", covers(onRepeat), onRepeat.map { it.id }))
+    val forgotten =
+        played
+            .filter { (it.userData?.playCount ?: 0) >= 3 && it.userData?.lastPlayedDate?.isBefore(now.minusDays(90)) == true }
+            .sortedByDescending { it.userData?.playCount ?: 0 }
+            .take(25)
+    if (forgotten.size >= 5) out.add(MusicMix("forgotten", "Forgotten Favourites", "Loved, then left", covers(forgotten), forgotten.map { it.id }))
+    val notMixtapes = all.filter { discographyRow(it) != 2 && (it.data.productionYear ?: 0) > 0 }
+    notMixtapes.groupBy { it.data.productionYear!! / 10 * 10 }.toSortedMap().forEach { (d, albums) ->
+        if (albums.size >= 2) {
+            out.add(MusicMix("era", "s Mix", " albums", albums.shuffled().take(4).map { it.id }, albumIds = albums.map { it.id }))
+        }
+    }
+    val tapes = all.filter { discographyRow(it) == 2 }
+    if (tapes.size >= 2) out.add(MusicMix("tapes", "Mixtapes & More Mix", " mixtapes", tapes.shuffled().take(4).map { it.id }, albumIds = tapes.map { it.id }))
+    return out
+}
 
 @HiltViewModel
 class IvanaFinMusicViewModel
@@ -414,7 +465,7 @@ class IvanaFinMusicViewModel
                             filters = listOf(ItemFilter.IS_PLAYED),
                             sortBy = listOf(ItemSortBy.DATE_PLAYED),
                             sortOrder = listOf(SortOrder.DESCENDING),
-                            limit = 300,
+                            limit = 1500,
                             enableImages = false,
                         ),
                     ).content.items
@@ -422,7 +473,7 @@ class IvanaFinMusicViewModel
                 val all = request(albumsRequest(listOf(ItemSortBy.SORT_NAME), SortOrder.ASCENDING)).toBaseItems(api, false)
                 val byId = all.associateBy { it.id }
                 val playedAlbums = played.mapNotNull { it.albumId }.distinct().mapNotNull { byId[it] }
-                home.value = MusicHomeData(likedCount, pickShortcuts(playedAlbums, all), added, all, loadArtists(), playedAlbums)
+                home.value = MusicHomeData(likedCount, pickShortcuts(playedAlbums, all), added, all, loadArtists(), playedAlbums, buildMixes(played, all))
             } catch (ex: Exception) {
                 Timber.w(ex, "Loading music home failed")
             }
@@ -745,6 +796,34 @@ class IvanaFinMusicViewModel
                 } catch (ex: Exception) {
                     Timber.w(ex, "Radio failed")
                     radioFor = null
+                }
+            }
+        }
+
+        /** Play a Made for you mix: its songs in order, or 60 random songs from its albums */
+        fun playMix(mix: MusicMix) {
+            viewModelScope.launchIO {
+                try {
+                    val songs =
+                        if (mix.songIds.isNotEmpty()) {
+                            val got = request(GetItemsRequest(ids = mix.songIds, fields = DetailItemFields)).toBaseItems(api, false).associateBy { it.id }
+                            mix.songIds.mapNotNull { got[it] }
+                        } else {
+                            request(
+                                GetItemsRequest(
+                                    parentId = libraryId,
+                                    albumIds = mix.albumIds,
+                                    includeItemTypes = listOf(BaseItemKind.AUDIO),
+                                    recursive = true,
+                                    sortBy = listOf(ItemSortBy.RANDOM),
+                                    limit = 60,
+                                    fields = DetailItemFields,
+                                ),
+                            ).toBaseItems(api, false)
+                        }
+                    musicService.setQueue(songs, false)
+                } catch (ex: Exception) {
+                    Timber.w(ex, "Playing mix failed")
                 }
             }
         }
@@ -1342,6 +1421,27 @@ private fun MusicHomeView(
                     }
                 }
             }
+            // Made for you: mixes from your play history and the album years (OK plays the mix)
+            if (data.mixes.isNotEmpty()) {
+                item("mixes") {
+                    Column {
+                        MuSectionTitle("Made for you")
+                        MuLazyRow(state = rowState("mixes")) {
+                            itemsIndexed(data.mixes, key = { _, m -> m.key }) { _, m ->
+                                val k = "mix:${m.key}"
+                                MixCard(
+                                    name = m.name,
+                                    sub = m.sub,
+                                    covers = m.covers.map { viewModel.imageUrl(it) },
+                                    onClick = { viewModel.playMix(m) },
+                                    onFocus = { onFocusKey(k) },
+                                    modifier = keyMod(k),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
             fun albumRow(
                 id: String,
                 title: String,
@@ -1367,6 +1467,7 @@ private fun MusicHomeView(
                     }
                 }
             }
+            albumRow("jump", "Jump back in", data.played.take(20))
             albumRow("added", "Recently added", data.added)
             albumRow("albums", "Albums", data.all)
             if (data.artists.isNotEmpty()) {
@@ -1401,6 +1502,12 @@ private fun heroFor(
     if (key.startsWith("artist:")) {
         data.artists.firstOrNull { "artist:${it.id}" == key }?.let {
             return Hero(it.name ?: "", "Artist", vm.artistArt(it), avatar = vm.imageUrl(it.id, maxWidth = 48), tint = vm.tintUrl(it, true))
+        }
+    }
+    if (key.startsWith("mix:")) {
+        data.mixes.firstOrNull { "mix:${it.key}" == key }?.let { m ->
+            val cover = m.covers.firstOrNull()
+            return Hero(m.name, "Mix • ${m.sub}", cover?.let { vm.imageUrl(it, maxWidth = 2000) }, square = true, tint = cover?.let { vm.imageUrl(it, maxWidth = 96) })
         }
     }
     // an album (the first shortcut when nothing is selected yet)
