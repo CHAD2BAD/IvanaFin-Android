@@ -154,6 +154,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import com.github.damontecres.wholphin.ui.DetailItemFields
 import org.jellyfin.sdk.api.client.extensions.instantMixApi
+import org.jellyfin.sdk.api.client.extensions.playlistsApi
 import org.jellyfin.sdk.api.client.extensions.lyricsApi
 import org.jellyfin.sdk.api.client.extensions.libraryApi
 import org.jellyfin.sdk.model.api.LyricDto
@@ -505,6 +506,33 @@ class IvanaFinMusicViewModel
         /** Home chosen in the top bar: a new mix of shortcut cards (Back to Home keeps the same) */
         fun reshuffle() {
             home.value = home.value?.let { it.copy(recent = pickShortcuts(it.played, it.all)) }
+        }
+
+        /** Your Library > Playlists: a new, empty playlist (beta round 5: no way to make one from the tab) */
+        fun createPlaylist(name: String) {
+            val user = userId ?: return
+            viewModelScope.launchIO {
+                try {
+                    api.playlistsApi.createPlaylist(
+                        org.jellyfin.sdk.model.api.CreatePlaylistDto(
+                            name = name,
+                            ids = emptyList(),
+                            users = listOf(org.jellyfin.sdk.model.api.PlaylistUserPermissions(user, true)),
+                            isPublic = false,
+                            mediaType = org.jellyfin.sdk.model.api.MediaType.AUDIO,
+                        ),
+                    )
+                    // the server answers before the new playlist can be found (~6 s): look again until it shows
+                    for (i in 0 until 15) {
+                        delay(700)
+                        loadLibrary()
+                        delay(300)
+                        if (library.value.any { it.name == name }) break
+                    }
+                } catch (ex: Exception) {
+                    Timber.w(ex, "Creating playlist failed")
+                }
+            }
         }
 
         fun loadLibrary() {
@@ -1711,6 +1739,16 @@ private fun MusicLibraryView(
     val sortIdx by viewModel.sort.collectAsState()
     val first = remember { FocusRequester() }
     val back = remember { FocusRequester() }
+    var newPlaylist by remember { mutableStateOf(false) }
+    if (newPlaylist) {
+        MuNewPlaylistDialog(
+            onCreate = {
+                newPlaylist = false
+                viewModel.createPlaylist(it)
+            },
+            onDismiss = { newPlaylist = false },
+        )
+    }
     LaunchedEffect(Unit) {
         viewModel.loadLibrary()
         delay(80)
@@ -1748,11 +1786,13 @@ private fun MusicLibraryView(
                 MuChip("Playlists", on = playlists, onClick = { viewModel.setLibraryTab(2) }, modifier = if (playlists) Modifier.focusRequester(first) else Modifier)
                 Spacer(Modifier.weight(1f))
                 if (albumsOn) SortChip(sortIdx, onPick = { viewModel.setSort(it) })
+                // a new, empty playlist (beta round 5: there was no way to make one from here)
+                if (playlists) MuPill(Fa.PLUS, text = "New playlist", onClick = { newPlaylist = true })
             }
         }
         if (playlists && items.isEmpty()) {
             item(key = "noPlaylists", span = { GridItemSpan(maxLineSpan) }) {
-                Text("No playlists yet. Hold OK on a song and choose Add to playlist.", fontSize = 13.sp, color = Color.White.copy(alpha = .6f), modifier = Modifier.padding(top = 20.dp))
+                Text("No playlists yet. Choose New playlist, or hold OK on a song and choose Add to playlist.", fontSize = 13.sp, color = Color.White.copy(alpha = .6f), modifier = Modifier.padding(top = 20.dp))
             }
         }
         itemsIndexed(items, key = { _, a -> a.id }) { _, a ->
@@ -2016,11 +2056,42 @@ private fun MusicSearchView(
         if (text.isBlank() && h != null) {
             item("browse") { BrowseTiles(viewModel, h, onOpen, firstResult, browseFocus, tileFocus) }
         }
+        // Artists and Albums first, then the songs (beta round 5: with up to 30 songs first, the albums
+        // and artists were never seen)
+        if (results.artists.isNotEmpty()) {
+            item("artists") {
+                Column {
+                    MuSectionTitle("Artists")
+                    MuLazyRow() {
+                        itemsIndexed(results.artists, key = { _, a -> a.id }) { i, a ->
+                            CoverCard(name = a.name ?: "", imageUrl = viewModel.imageUrl(a.id), round = true, onClick = { onOpen("artist:${a.id}") }, modifier = if (i == 0) Modifier.focusRequester(firstResult) else Modifier)
+                        }
+                    }
+                }
+            }
+        }
+        if (results.albums.isNotEmpty()) {
+            item("albums") {
+                Column {
+                    MuSectionTitle("Albums")
+                    MuLazyRow() {
+                        itemsIndexed(results.albums, key = { _, a -> a.id }) { i, a ->
+                            CoverCard(
+                                name = a.name ?: "",
+                                imageUrl = viewModel.imageUrl(a.id),
+                                onClick = { onOpen("album:${a.id}") },
+                                modifier = if (i == 0 && results.artists.isEmpty()) Modifier.focusRequester(firstResult) else Modifier,
+                            )
+                        }
+                    }
+                }
+            }
+        }
         if (results.songs.isNotEmpty()) {
             item("songsTitle") { MuSectionTitle("Songs") }
             itemsIndexed(results.songs, key = { _, s -> "s" + s.id }) { i, s ->
                 MuTrackRow(
-                    modifier = if (i == 0) Modifier.focusRequester(firstResult) else Modifier,
+                    modifier = if (i == 0 && results.albums.isEmpty() && results.artists.isEmpty()) Modifier.focusRequester(firstResult) else Modifier,
                     number = (i + 1).toString(),
                     title = s.name ?: "",
                     sub = listOfNotNull(s.data.artists?.joinToString(", ")?.takeIf { it.isNotBlank() } ?: s.data.albumArtist, s.data.album).joinToString(" • "),
@@ -2037,35 +2108,6 @@ private fun MusicSearchView(
                         }
                     },
                 )
-            }
-        }
-        if (results.albums.isNotEmpty()) {
-            item("albums") {
-                Column {
-                    MuSectionTitle("Albums")
-                    MuLazyRow() {
-                        itemsIndexed(results.albums, key = { _, a -> a.id }) { i, a ->
-                            CoverCard(
-                                name = a.name ?: "",
-                                imageUrl = viewModel.imageUrl(a.id),
-                                onClick = { onOpen("album:${a.id}") },
-                                modifier = if (i == 0 && results.songs.isEmpty()) Modifier.focusRequester(firstResult) else Modifier,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-        if (results.artists.isNotEmpty()) {
-            item("artists") {
-                Column {
-                    MuSectionTitle("Artists")
-                    MuLazyRow() {
-                        itemsIndexed(results.artists, key = { _, a -> a.id }) { _, a ->
-                            CoverCard(name = a.name ?: "", imageUrl = viewModel.imageUrl(a.id), round = true, onClick = { onOpen("artist:${a.id}") })
-                        }
-                    }
-                }
             }
         }
     }
@@ -2481,6 +2523,15 @@ private fun NowPlayingView(
                 val barInteraction = remember { MutableInteractionSource() }
                 val barFocused by barInteraction.collectIsFocusedAsState()
                 LaunchedEffect(barFocused) { if (!barFocused) scrubTo = null }
+                // the time bubble stays a moment after the last press, so you can read where you landed
+                // (beta round 5: it vanished the instant the key was let go)
+                var bubbleTick by remember { mutableIntStateOf(0) }
+                var bubbleOn by remember { mutableStateOf(false) }
+                LaunchedEffect(bubbleTick) {
+                    if (bubbleTick == 0) return@LaunchedEffect
+                    delay(1200)
+                    if (scrubTo == null) bubbleOn = false
+                }
                 BoxWithConstraints(
                     contentAlignment = Alignment.CenterStart,
                     modifier =
@@ -2507,9 +2558,11 @@ private fun NowPlayingView(
                                         }
                                     val from = scrubTo ?: posMs
                                     scrubTo = (from + dir * step).coerceIn(0L, max(0L, durMs - 500))
+                                    bubbleOn = true
                                 } else if (it.type == KeyEventType.KeyUp) {
                                     scrubTo?.let(onSeekTo)
                                     scrubTo = null
+                                    bubbleTick++
                                 }
                                 true
                             }.focusable(interactionSource = barInteraction),
@@ -2520,7 +2573,7 @@ private fun NowPlayingView(
                         Box(Modifier.fillMaxHeight().fillMaxWidth(f).background(if (barFocused) MuGreen else Color.White))
                     }
                     if (barFocused) Box(Modifier.offset(x = maxWidth * f - 6.dp).size(12.dp).clip(CircleShape).background(Color.White))
-                    if (scrubTo != null) {
+                    if (scrubTo != null || (bubbleOn && barFocused)) {
                         Text(
                             clock(shown),
                             fontSize = 11.sp,
@@ -3385,5 +3438,39 @@ private fun NpLyricsPanel(
                     }
                 }
         }
+    }
+}
+
+/** New playlist: type a name, then Create (Back closes it). Same look as the song menu. */
+@Composable
+private fun MuNewPlaylistDialog(
+    onCreate: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    val box = remember { FocusRequester() }
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier =
+                Modifier
+                    .width(340.dp)
+                    .background(Color(0xFF242424), RoundedCornerShape(12.dp))
+                    .padding(22.dp),
+        ) {
+            Text("New playlist", fontSize = MuType.rowTitle, fontWeight = FontWeight.Bold, color = Color.White)
+            com.github.damontecres.wholphin.ui.components.EditTextBox(
+                value = name,
+                onValueChange = { name = it },
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { if (name.isNotBlank()) onCreate(name.trim()) }),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                modifier = Modifier.fillMaxWidth().focusRequester(box),
+            )
+            MuPill(Fa.PLUS, text = "Create", onClick = { if (name.isNotBlank()) onCreate(name.trim()) }, modifier = Modifier.fillMaxWidth())
+        }
+    }
+    LaunchedEffect(Unit) {
+        delay(80)
+        box.tryRequestFocus()
     }
 }

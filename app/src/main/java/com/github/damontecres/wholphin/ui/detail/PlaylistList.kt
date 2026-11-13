@@ -247,6 +247,8 @@ fun PlaylistDialog(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier =
                 Modifier
+                    // IvanaFin: a gap above it - it touched the top edge of the screen (beta round 5)
+                    .padding(top = 40.dp)
                     .graphicsLayer {
                         this.clip = true
                         this.shape = RoundedCornerShape(24.0.dp)
