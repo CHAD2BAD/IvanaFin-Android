@@ -150,8 +150,9 @@ fun IvanaFinSeasonPage(
         // scrolled down to the episodes: the picture darkens a little so their text reads easily
         // (user 2026-11-13; the film page keeps no extra darkening - user's earlier choice)
         val dim by androidx.compose.animation.core.animateFloatAsState(
-            if (scroll.value > 0) .4f else 0f,
-            androidx.compose.animation.core.tween(300),
+            if (scroll.value > 0) .3f else 0f,
+            // (a slow, eased fade - 0.3 s felt harsh, user 2026-11-13)
+            androidx.compose.animation.core.tween(800, easing = androidx.compose.animation.core.FastOutSlowInEasing),
             label = "showDim",
         )
         if (dim > 0f) Box(Modifier.fillMaxSize().bleedToScreenEdges().background(Color.Black.copy(alpha = dim)))
