@@ -162,7 +162,12 @@ internal object Fa {
     const val REMOVE = ""
 }
 
-/** The selected item's picture, top-right, fading into the page on the left and at the bottom. */
+/**
+ * The selected item's picture, top-right. Wide pictures (artists) fade into the page on the left and at
+ * the bottom; album covers (square) are shown whole and sharp - rounded corners, a soft shadow, no fade
+ * (user 2026-11-13: the colour fading into the cover looked odd) - small enough to sit above the
+ * shortcut cards and the track list.
+ */
 @Composable
 internal fun HeroArt(
     url: String?,
@@ -178,10 +183,16 @@ internal fun HeroArt(
     Box(
         modifier =
             modifier
-                .then(if (square) Modifier.height(410.dp).aspectRatio(1f) else Modifier.fillMaxWidth(.66f).height(340.dp))
+                .then(if (square) Modifier.padding(top = 66.dp, end = 40.dp).size(190.dp) else Modifier.fillMaxWidth(.66f).height(340.dp))
                 .graphicsLayer {
                     translationY = -scrollPx()
-                    alpha = .8f
+                    if (square) {
+                        shadowElevation = 18.dp.toPx()
+                        shape = RoundedCornerShape(8.dp)
+                        clip = true
+                    } else {
+                        alpha = .8f
+                    }
                 }.then(
                     if (square && flight != null && !liked) {
                         Modifier.onGloballyPositioned { flight.hero = it.boundsInWindow() }
@@ -210,6 +221,7 @@ internal fun HeroArt(
                 )
             }
         }
+        if (square) return@Box // (a sharp cover: no fade)
         val edge = LocalMuColors.current.edge
         Box(
             Modifier.fillMaxSize().drawBehind {
