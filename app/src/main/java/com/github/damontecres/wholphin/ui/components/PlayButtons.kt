@@ -261,10 +261,10 @@ val MinButtonSize = 40.dp
 val LocalIvfGlassButtons = androidx.compose.runtime.staticCompositionLocalOf { false }
 
 @Composable
-private fun ivfButtonSize() = if (LocalIvfGlassButtons.current) 32.dp else MinButtonSize
+internal fun ivfButtonSize() = if (LocalIvfGlassButtons.current) 32.dp else MinButtonSize
 
 @Composable
-private fun ivfButtonColors(): androidx.tv.material3.ClickableSurfaceColors {
+internal fun ivfButtonColors(): androidx.tv.material3.ClickableSurfaceColors {
     val glass = LocalIvfGlassButtons.current
     val cs = MaterialTheme.colorScheme
     // the same as Button's own defaults, except the resting fill/text when glass
