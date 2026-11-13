@@ -1,5 +1,17 @@
 package com.github.damontecres.wholphin.ui.detail.music
 
+import androidx.compose.ui.text.style.TextAlign
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.PI
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import android.content.Context
@@ -131,6 +143,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import com.github.damontecres.wholphin.ui.DetailItemFields
+import org.jellyfin.sdk.api.client.extensions.instantMixApi
+import org.jellyfin.sdk.api.client.extensions.lyricsApi
+import org.jellyfin.sdk.model.api.LyricDto
+import com.github.damontecres.wholphin.ui.toServerString
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -684,6 +701,62 @@ class IvanaFinMusicViewModel
         fun stopMusic() {
             appScope.launch { musicService.stop() }
         }
+
+        /** Now Playing lyrics: the song they belong to, and the lines (null = none) */
+        val nowLyrics = MutableStateFlow<Pair<UUID, LyricDto?>?>(null)
+
+        fun loadLyrics(id: UUID) {
+            if (nowLyrics.value?.first == id) return
+            nowLyrics.value = null
+            viewModelScope.launchIO {
+                val l =
+                    try {
+                        api.lyricsApi.getLyrics(id).content.takeIf { !it.lyrics.isNullOrEmpty() }
+                    } catch (ex: Exception) {
+                        // 404 = the song has no lyrics
+                        null
+                    }
+                nowLyrics.value = id to l
+            }
+        }
+
+        /**
+         * Radio (Spotify autoplay, user 2026-11-13: on): when the last song in the queue starts, similar
+         * songs (Jellyfin's Instant Mix) are added after it so the music keeps going. Once per song.
+         */
+        private var radioFor: UUID? = null
+
+        fun radio(item: AudioItem) {
+            if (radioFor == item.id) return
+            radioFor = item.id
+            viewModelScope.launchIO {
+                try {
+                    val queued = withContext(Dispatchers.Main) { (0 until musicService.player.mediaItemCount).map { musicService.player.getMediaItemAt(it).mediaId } }.toSet()
+                    val mix =
+                        api.instantMixApi
+                            .getInstantMixFromItem(userId = userId, itemId = item.id, limit = 60, fields = DetailItemFields)
+                            .content.items
+                            .map { BaseItem(it, false) }
+                            .filter { it.id.toServerString() !in queued }
+                            .shuffled()
+                            .take(25)
+                    mix.forEach { musicService.addToQueue(it) }
+                } catch (ex: Exception) {
+                    Timber.w(ex, "Radio failed")
+                    radioFor = null
+                }
+            }
+        }
+
+        /** Up Next: jump to / remove / move a song in the queue */
+        fun queuePlay(index: Int) = viewModelScope.launchIO { musicService.playIndex(index) }
+
+        fun queueRemove(index: Int) = viewModelScope.launchIO { musicService.removeFromQueue(index) }
+
+        fun queueMove(
+            index: Int,
+            to: Int,
+        ) = viewModelScope.launchIO { musicService.moveQueue(index, to) }
     }
 
 /** What the Home hero shows for the selected card */
@@ -725,6 +798,9 @@ fun IvanaFinMusicLibrary(
     val inkC = animateColorAsState(theme.target.ink, tween(700), label = "mi")
     val muColors = remember(edgeC, accC, inkC) { MuColors(edgeC, accC, inkC) }
     DisposableEffect(Unit) { onDispose { viewModel.stopMusic() } }
+    // the TV's own screensaver stays off while music plays in Music (Now Playing has its own)
+    val hostView = androidx.compose.ui.platform.LocalView.current
+    DisposableEffect(hostView) { onDispose { hostView.keepScreenOn = false } }
 
     // What's playing (polled from the player: position moves every second)
     val player = viewModel.musicService.player
@@ -742,6 +818,9 @@ fun IvanaFinMusicLibrary(
             durMs = player.duration.takeIf { it > 0 } ?: 0L
             shuffle = player.shuffleModeEnabled
             repeat = player.repeatMode
+            // radio: the last song in the queue started - similar songs are added after it
+            nowItem?.let { if (player.mediaItemCount > 0 && !player.hasNextMediaItem() && player.repeatMode == Player.REPEAT_MODE_OFF) viewModel.radio(it) }
+            hostView.keepScreenOn = playing
             delay(500)
         }
     }
@@ -1015,6 +1094,7 @@ fun IvanaFinMusicLibrary(
                             }
                     },
                     onSeek = { player.seekTo((player.currentPosition + it).coerceIn(0L, max(0L, player.duration - 500))) },
+                    onSeekTo = { player.seekTo(it) },
                     // About the artist / the artist's name: close Now Playing, open the artist's page
                     // (Back from there returns to the page underneath, like on the web)
                     onArtist = {
@@ -1955,13 +2035,13 @@ private fun NowPlayingView(
     onNext: () -> Unit,
     onRepeat: () -> Unit,
     onSeek: (Long) -> Unit,
+    onSeekTo: (Long) -> Unit,
     onArtist: (UUID) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
     val fav by viewModel.nowFav.collectAsState()
     val artist by viewModel.nowArtist.collectAsState()
-    val year by viewModel.nowYear.collectAsState()
     val scroll = rememberScrollState()
     val ppFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
@@ -1969,143 +2049,444 @@ private fun NowPlayingView(
         ppFocus.tryRequestFocus()
     }
     val bigCover = item.albumId?.let { viewModel.imageUrl(it, maxWidth = 400) } ?: item.imageUrl
-    Box(modifier.fillMaxSize().background(Color.Black)) {
-        // the artist as they looked when the album came out (see eraArt)
-        Crossfade(targetState = artist?.let { viewModel.eraArt(it, year, 1920) } ?: bigCover, animationSpec = tween(600), label = "npArt") { u ->
-            MuImage(
-                model = u,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                alignment = androidx.compose.ui.BiasAlignment(0f, -.5f),
-                modifier = Modifier.fillMaxSize(),
-            )
+    val npPal = rememberMuPal(item.albumId?.let { viewModel.imageUrl(it, maxWidth = 96) })
+
+    // Lyrics (full screen, Back closes them) and the screensaver (60 s without a key press)
+    var showLyrics by remember { mutableStateOf(false) }
+    var asleep by remember { mutableStateOf(false) }
+    var lastKey by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(lastKey, showLyrics) {
+        delay(60_000)
+        asleep = true
+    }
+    val sleepA by androidx.compose.animation.core.animateFloatAsState(if (asleep) 1f else 0f, tween(900), label = "sleep")
+    BackHandler(enabled = showLyrics) {
+        showLyrics = false
+        scope.launch {
+            delay(50)
+            ppFocus.tryRequestFocus()
         }
-        // the same light shading from top to bottom, washed with the album's colour
-        val npPal = rememberMuPal(item.albumId?.let { viewModel.imageUrl(it, maxWidth = 96) })
-        val wash = if (npPal?.edge == Color.Black) Color.Black.copy(alpha = .3f) else npPal?.wash ?: Color(0xFF3C3C3C).copy(alpha = .55f)
-        val washC by animateColorAsState(wash, tween(700), label = "npw")
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .25f)).background(washC))
-        Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(start = 60.dp, end = 60.dp, bottom = 40.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 40.dp).height(32.dp)) {
-                Box(Modifier.size(28.dp).clip(CircleShape).background(Color.White.copy(alpha = .85f)), contentAlignment = Alignment.Center) {
-                    Text(Fa.DISC, fontFamily = FontAwesome, fontSize = 14.sp, color = Color(0xFF555555))
+    }
+
+    // Hold Left/Right on the progress bar: skips faster the longer it's held; the song moves once you let go
+    var scrubTo by remember { mutableStateOf<Long?>(null) }
+
+    Box(
+        modifier
+            .fillMaxSize()
+            .onPreviewKeyEvent {
+                lastKey = System.currentTimeMillis()
+                if (asleep) {
+                    // the first key only wakes the screen
+                    if (it.type == KeyEventType.KeyUp) asleep = false
+                    true
+                } else {
+                    false
                 }
-                Column(Modifier.padding(start = 10.dp)) {
-                    Text("PLAYING FROM ALBUM", fontSize = 8.sp, letterSpacing = 1.sp, color = Color.White.copy(alpha = .75f))
-                    Text(item.albumTitle ?: item.title ?: "", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
-            Spacer(Modifier.height(189.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                MuImage(
-                    model = bigCover,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.size(87.dp).clip(RoundedCornerShape(3.dp)).background(Color(0xFF333333)),
-                )
-                Column {
-                    Text(item.title ?: "", fontSize = 29.sp, lineHeight = 33.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    // the artist's name opens the artist's page (like the About the artist card)
-                    Surface(
-                        onClick = { artist?.id?.let(onArtist) },
-                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(4.dp)),
-                        colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
-                        border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, Color.White))),
-                        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-                        modifier = Modifier.padding(top = 4.dp).offset(x = (-4).dp),
-                    ) {
-                        Text(item.artistNames ?: "", fontSize = 12.sp, color = Color.White.copy(alpha = .85f), modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
+            },
+    ) {
+        NpMovingBackground(item.albumId?.let { viewModel.imageUrl(it, maxWidth = 20) } ?: item.imageUrl, npPal)
+
+        if (showLyrics) {
+            NpLyrics(viewModel, item, posMs, playing, onPlayPause, onSeek, modifier = Modifier.graphicsLayer { alpha = 1f - sleepA })
+        } else {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = 1f - sleepA }
+                    .verticalScroll(scroll)
+                    .padding(start = 60.dp, end = 60.dp, bottom = 40.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 40.dp).height(32.dp)) {
+                    Box(Modifier.size(28.dp).clip(CircleShape).background(Color.White.copy(alpha = .85f)), contentAlignment = Alignment.Center) {
+                        Text(Fa.DISC, fontFamily = FontAwesome, fontSize = 14.sp, color = Color(0xFF555555))
+                    }
+                    Column(Modifier.padding(start = 10.dp)) {
+                        Text("PLAYING FROM ALBUM", fontSize = 8.sp, letterSpacing = 1.sp, color = Color.White.copy(alpha = .75f))
+                        Text(item.albumTitle ?: item.title ?: "", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
-            }
-            // progress: Left/Right on it skip 10 seconds
-            val barInteraction = remember { MutableInteractionSource() }
-            val barFocused by barInteraction.collectIsFocusedAsState()
-            Box(
-                contentAlignment = Alignment.CenterStart,
-                modifier =
-                    Modifier
-                        .padding(top = 20.dp)
-                        .fillMaxWidth()
-                        .height(14.dp)
-                        .onPreviewKeyEvent {
-                            if (it.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                            when (it.key) {
-                                Key.DirectionLeft -> {
-                                    onSeek(-10_000)
-                                    true
-                                }
-
-                                Key.DirectionRight -> {
-                                    onSeek(10_000)
-                                    true
-                                }
-
-                                else -> false
-                            }
-                        }.focusable(interactionSource = barInteraction),
-            ) {
-                val f = if (durMs > 0) (posMs.toFloat() / durMs).coerceIn(0f, 1f) else 0f
-                Box(Modifier.fillMaxWidth().height(if (barFocused) 5.dp else 2.5.dp).clip(CircleShape).background(Color.White.copy(alpha = .3f))) {
-                    Box(Modifier.fillMaxHeight().fillMaxWidth(f).background(if (barFocused) MuGreen else Color.White))
+                Spacer(Modifier.height(150.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                    MuImage(
+                        model = bigCover,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier =
+                            Modifier
+                                .size(126.dp)
+                                .graphicsLayer {
+                                    shadowElevation = 16.dp.toPx()
+                                    shape = RoundedCornerShape(6.dp)
+                                }.clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFF333333)),
+                    )
+                    Column {
+                        Text(item.title ?: "", fontSize = 29.sp, lineHeight = 33.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        // the artist's name opens the artist's page (like the About the artist card)
+                        Surface(
+                            onClick = { artist?.id?.let(onArtist) },
+                            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(4.dp)),
+                            colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
+                            border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, Color.White))),
+                            scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+                            modifier = Modifier.padding(top = 4.dp).offset(x = (-4).dp),
+                        ) {
+                            Text(item.artistNames ?: "", fontSize = 12.sp, color = Color.White.copy(alpha = .85f), modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
+                        }
+                    }
                 }
-            }
-            Row(Modifier.fillMaxWidth().padding(top = 2.dp)) {
-                Text(clock(posMs), fontSize = 10.sp, color = Color.White.copy(alpha = .85f))
-                Spacer(Modifier.weight(1f))
-                Text(if (durMs > 0) clock(durMs) else "-:--", fontSize = 10.sp, color = Color.White.copy(alpha = .85f))
-            }
-            Box(Modifier.fillMaxWidth().padding(top = 6.dp).height(53.dp).onFocusChanged { if (it.hasFocus) scope.launch { scroll.animateScrollTo(0) } }) {
-                NpButton(Fa.HEART, active = fav, onClick = { viewModel.setFavorite(item.id, !fav) }, modifier = Modifier.align(Alignment.CenterStart))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(22.dp),
+                // progress: press Left/Right to skip 10 s; hold to skip faster (a time bubble shows where)
+                val barInteraction = remember { MutableInteractionSource() }
+                val barFocused by barInteraction.collectIsFocusedAsState()
+                LaunchedEffect(barFocused) { if (!barFocused) scrubTo = null }
+                BoxWithConstraints(
+                    contentAlignment = Alignment.CenterStart,
                     modifier =
                         Modifier
-                            .align(Alignment.Center)
-                            .fillMaxHeight()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF282828).copy(alpha = .72f))
-                            .padding(horizontal = 26.dp),
+                            .padding(top = 20.dp)
+                            .fillMaxWidth()
+                            .height(14.dp)
+                            .onPreviewKeyEvent {
+                                val dir =
+                                    when (it.key) {
+                                        Key.DirectionLeft -> -1
+                                        Key.DirectionRight -> 1
+                                        else -> return@onPreviewKeyEvent false
+                                    }
+                                if (it.type == KeyEventType.KeyDown) {
+                                    val n = it.nativeKeyEvent.repeatCount
+                                    // first press 10 s, then faster the longer it's held
+                                    val step =
+                                        when {
+                                            n == 0 -> 10_000L
+                                            n < 10 -> 5_000L
+                                            n < 25 -> 10_000L
+                                            else -> 20_000L
+                                        }
+                                    val from = scrubTo ?: posMs
+                                    scrubTo = (from + dir * step).coerceIn(0L, max(0L, durMs - 500))
+                                } else if (it.type == KeyEventType.KeyUp) {
+                                    scrubTo?.let(onSeekTo)
+                                    scrubTo = null
+                                }
+                                true
+                            }.focusable(interactionSource = barInteraction),
                 ) {
-                    NpButton(Fa.SHUFFLE, active = shuffle, dot = true, onClick = onShuffle)
-                    NpButton(Fa.PREV, onClick = onPrev)
-                    NpButton(if (playing) Fa.PAUSE else Fa.PLAY, big = true, onClick = onPlayPause, modifier = Modifier.focusRequester(ppFocus))
-                    NpButton(Fa.NEXT, onClick = onNext)
-                    NpButton(Fa.REPEAT, active = repeat != Player.REPEAT_MODE_OFF, dot = true, badge = if (repeat == Player.REPEAT_MODE_ONE) "1" else null, onClick = onRepeat)
-                }
-            }
-            // About the artist
-            Text("About the artist", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(top = 34.dp, bottom = 10.dp))
-            val a = artist
-            Surface(
-                onClick = { a?.id?.let(onArtist) },
-                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
-                colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF333333), focusedContainerColor = Color(0xFF333333)),
-                border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White))),
-                scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-                modifier =
-                    Modifier
-                        .width(410.dp)
-                        .height(250.dp)
-                        .onFocusChanged { if (it.isFocused) scope.launch { scroll.animateScrollTo(scroll.maxValue) } },
-            ) {
-                Box(Modifier.fillMaxSize()) {
-                    if (a != null) {
-                        MuImage(
-                            model = viewModel.imageUrl(a.id, maxWidth = 900),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            alignment = androidx.compose.ui.BiasAlignment(0f, -.6f),
-                            modifier = Modifier.fillMaxSize(),
+                    val shown = scrubTo ?: posMs
+                    val f = if (durMs > 0) (shown.toFloat() / durMs).coerceIn(0f, 1f) else 0f
+                    Box(Modifier.fillMaxWidth().height(if (barFocused) 5.dp else 2.5.dp).clip(CircleShape).background(Color.White.copy(alpha = .3f))) {
+                        Box(Modifier.fillMaxHeight().fillMaxWidth(f).background(if (barFocused) MuGreen else Color.White))
+                    }
+                    if (barFocused) Box(Modifier.offset(x = maxWidth * f - 6.dp).size(12.dp).clip(CircleShape).background(Color.White))
+                    if (scrubTo != null) {
+                        Text(
+                            clock(shown),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black,
+                            modifier =
+                                Modifier
+                                    .offset(x = (maxWidth * f - 22.dp).coerceIn(0.dp, maxWidth - 44.dp), y = (-22).dp)
+                                    .width(44.dp)
+                                    .background(Color.White, RoundedCornerShape(4.dp))
+                                    .padding(vertical = 2.dp),
+                            textAlign = TextAlign.Center,
                         )
                     }
-                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(.35f to Color.Transparent, 1f to Color.Black.copy(alpha = .85f))))
-                    Column(Modifier.align(Alignment.BottomStart).padding(start = 18.dp, end = 18.dp, bottom = 14.dp)) {
-                        Text(a?.name ?: item.artistNames ?: "", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                        a?.data?.overview?.let {
-                            Text(it, fontSize = 10.5.sp, lineHeight = 15.sp, color = Color.White.copy(alpha = .85f), maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 2.dp)) {
+                    Text(clock(scrubTo ?: posMs), fontSize = 10.sp, color = Color.White.copy(alpha = .85f))
+                    Spacer(Modifier.weight(1f))
+                    Text(if (durMs > 0) clock(durMs) else "-:--", fontSize = 10.sp, color = Color.White.copy(alpha = .85f))
+                }
+                Box(Modifier.fillMaxWidth().padding(top = 6.dp).height(53.dp).onFocusChanged { if (it.hasFocus) scope.launch { scroll.animateScrollTo(0) } }) {
+                    NpButton(Fa.HEART, active = fav, onClick = { viewModel.setFavorite(item.id, !fav) }, modifier = Modifier.align(Alignment.CenterStart))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(22.dp),
+                        modifier =
+                            Modifier
+                                .align(Alignment.Center)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF282828).copy(alpha = .72f))
+                                .padding(horizontal = 26.dp),
+                    ) {
+                        NpButton(Fa.SHUFFLE, active = shuffle, dot = true, onClick = onShuffle)
+                        NpButton(Fa.PREV, onClick = onPrev)
+                        NpButton(if (playing) Fa.PAUSE else Fa.PLAY, big = true, onClick = onPlayPause, modifier = Modifier.focusRequester(ppFocus))
+                        NpButton(Fa.NEXT, onClick = onNext)
+                        NpButton(Fa.REPEAT, active = repeat != Player.REPEAT_MODE_OFF, dot = true, badge = if (repeat == Player.REPEAT_MODE_ONE) "1" else null, onClick = onRepeat)
+                    }
+                    NpButton(Fa.LYRICS, onClick = { showLyrics = true }, modifier = Modifier.align(Alignment.CenterEnd))
+                }
+                // Up Next: the coming songs (OK plays one, hold OK to move or remove it)
+                NpUpNext(viewModel, scroll)
+                // About the artist
+                Text("About the artist", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(top = 34.dp, bottom = 10.dp))
+                val a = artist
+                Surface(
+                    onClick = { a?.id?.let(onArtist) },
+                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+                    colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF333333), focusedContainerColor = Color(0xFF333333)),
+                    border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White))),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+                    modifier =
+                        Modifier
+                            .width(410.dp)
+                            .height(250.dp)
+                            .onFocusChanged { if (it.isFocused) scope.launch { scroll.animateScrollTo(scroll.maxValue) } },
+                ) {
+                    Box(Modifier.fillMaxSize()) {
+                        if (a != null) {
+                            MuImage(
+                                model = viewModel.imageUrl(a.id, maxWidth = 900),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                alignment = androidx.compose.ui.BiasAlignment(0f, -.6f),
+                                modifier = Modifier.fillMaxSize(),
+                            )
                         }
+                        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(.35f to Color.Transparent, 1f to Color.Black.copy(alpha = .85f))))
+                        Column(Modifier.align(Alignment.BottomStart).padding(start = 18.dp, end = 18.dp, bottom = 14.dp)) {
+                            Text(a?.name ?: item.artistNames ?: "", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            a?.data?.overview?.let {
+                                Text(it, fontSize = 10.5.sp, lineHeight = 15.sp, color = Color.White.copy(alpha = .85f), maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // the screensaver: the controls fade away, the cover, title and time drift slowly round the screen
+        if (sleepA > 0f) NpScreensaver(bigCover, item, posMs, durMs, Modifier.graphicsLayer { alpha = sleepA })
+    }
+}
+
+/**
+ * Now Playing background (Apple Music style, user 2026-11-13: colour blur only): a tiny copy of the
+ * cover stretched over the screen (it blurs by itself - the Fire TV Stick has no blur filter) that
+ * slowly turns and drifts, with three soft colour blobs from the cover's colours moving under it.
+ */
+@Composable
+private fun NpMovingBackground(
+    tinyCover: String?,
+    pal: MuPal?,
+) {
+    val t = rememberInfiniteTransition(label = "npbg")
+    val p by t.animateFloat(0f, 1f, infiniteRepeatable(tween(48_000, easing = LinearEasing)), label = "npbgp")
+    val edge by animateColorAsState(pal?.edge?.takeIf { it != Color.Black } ?: Color(0xFF1A1A1A), tween(900), label = "npe")
+    val acc by animateColorAsState(pal?.acc ?: MuPink, tween(900), label = "npa")
+    val wash by animateColorAsState(pal?.wash?.copy(alpha = 1f) ?: Color(0xFF3C3C3C), tween(900), label = "npw")
+    Box(Modifier.fillMaxSize().drawBehind { drawRect(edge) }) {
+        Crossfade(targetState = tinyCover, animationSpec = tween(900), label = "npTiny") { u ->
+            if (u != null) {
+                AsyncImage(
+                    model = u,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier =
+                        Modifier.fillMaxSize().graphicsLayer {
+                            val a = p * 2f * PI.toFloat()
+                            val s = 1.45f + .1f * sin(a)
+                            scaleX = s
+                            scaleY = s
+                            rotationZ = 8f * sin(a)
+                            translationX = size.width * .05f * cos(a)
+                            translationY = size.height * .05f * sin(2 * a)
+                            alpha = .8f
+                        },
+                )
+            }
+        }
+        Box(
+            Modifier.fillMaxSize().drawBehind {
+                val cols = listOf(acc, wash, edge)
+                cols.forEachIndexed { i, c ->
+                    val a = (p + i / 3f) * 2f * PI.toFloat()
+                    val center = Offset(size.width * (.5f + .34f * cos(a * (1 + i))), size.height * (.5f + .3f * sin(a * (2 - i * .5f))))
+                    val r = size.width * .42f
+                    drawCircle(Brush.radialGradient(listOf(c.copy(alpha = .38f), Color.Transparent), center, r), r, center)
+                }
+                // darker at the bottom-left, where the text sits
+                drawRect(Brush.verticalGradient(0f to Color.Black.copy(alpha = .2f), 1f to Color.Black.copy(alpha = .55f)))
+            },
+        )
+    }
+}
+
+/** Screensaver: big cover, title, artist and time, drifting so nothing stays in one place */
+@Composable
+private fun NpScreensaver(
+    cover: String?,
+    item: AudioItem,
+    posMs: Long,
+    durMs: Long,
+    modifier: Modifier = Modifier,
+) {
+    val t = rememberInfiniteTransition(label = "ss")
+    val p by t.animateFloat(0f, 1f, infiniteRepeatable(tween(120_000, easing = LinearEasing)), label = "ssp")
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        val a = p * 2f * PI.toFloat()
+        val x = (maxWidth - 420.dp) * (.5f + .42f * sin(a))
+        val y = (maxHeight - 200.dp) * (.5f + .42f * sin(2 * a + 1f))
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.offset(x = x, y = y).width(420.dp)) {
+            MuImage(
+                model = cover,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(150.dp).graphicsLayer { shadowElevation = 16.dp.toPx(); shape = RoundedCornerShape(6.dp) }.clip(RoundedCornerShape(6.dp)),
+            )
+            Column(Modifier.padding(start = 18.dp)) {
+                Text(item.title ?: "", fontSize = 20.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(item.artistNames ?: "", fontSize = 12.sp, color = Color.White.copy(alpha = .8f), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+                val f = if (durMs > 0) (posMs.toFloat() / durMs).coerceIn(0f, 1f) else 0f
+                Box(Modifier.padding(top = 12.dp).fillMaxWidth().height(2.5.dp).clip(CircleShape).background(Color.White.copy(alpha = .3f))) {
+                    Box(Modifier.fillMaxHeight().fillMaxWidth(f).background(Color.White))
+                }
+                Text("${clock(posMs)} / ${if (durMs > 0) clock(durMs) else "-:--"}", fontSize = 10.sp, color = Color.White.copy(alpha = .8f), modifier = Modifier.padding(top = 4.dp))
+            }
+        }
+    }
+}
+
+/**
+ * Lyrics, full screen: synced lyrics follow the song (the line being sung bright, the rest dimmed);
+ * plain lyrics scroll with Up/Down. OK = play/pause, Left/Right = skip 10 s, Back = close.
+ */
+@Composable
+private fun NpLyrics(
+    viewModel: IvanaFinMusicViewModel,
+    item: AudioItem,
+    posMs: Long,
+    playing: Boolean,
+    onPlayPause: () -> Unit,
+    onSeek: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LaunchedEffect(item.id) { viewModel.loadLyrics(item.id) }
+    val got by viewModel.nowLyrics.collectAsState()
+    val lyrics = got?.takeIf { it.first == item.id }
+    val lines = lyrics?.second?.lyrics.orEmpty()
+    val synced = lines.any { it.start != null }
+    val offsetTicks = lyrics?.second?.metadata?.offset ?: 0L
+    val posTicks = posMs * 10_000 + offsetTicks
+    val current = if (synced) lines.indexOfLast { (it.start ?: Long.MAX_VALUE) <= posTicks } else -1
+    val list = rememberLazyListState()
+    val focus = remember { FocusRequester() }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) {
+        delay(50)
+        focus.tryRequestFocus()
+    }
+    LaunchedEffect(current) { if (current >= 0) list.animateScrollToItem(max(0, current - 2)) }
+    Box(
+        modifier
+            .fillMaxSize()
+            .focusRequester(focus)
+            .onPreviewKeyEvent {
+                if (it.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                when (it.key) {
+                    Key.DirectionUp -> scope.launch { list.animateScrollBy(-160f) }
+                    Key.DirectionDown -> scope.launch { list.animateScrollBy(160f) }
+                    Key.DirectionLeft -> onSeek(-10_000)
+                    Key.DirectionRight -> onSeek(10_000)
+                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.MediaPlayPause -> onPlayPause()
+                    else -> return@onPreviewKeyEvent false
+                }
+                true
+            }.focusable(),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 60.dp, top = 40.dp)) {
+            MuImage(model = item.imageUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(40.dp).clip(RoundedCornerShape(4.dp)))
+            Column(Modifier.padding(start = 12.dp)) {
+                Text(item.title ?: "", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+                Text(item.artistNames ?: "", fontSize = 11.sp, color = Color.White.copy(alpha = .75f), maxLines = 1)
+            }
+            if (!playing) Text("  " + Fa.PAUSE, fontFamily = FontAwesome, fontSize = 12.sp, color = Color.White.copy(alpha = .75f))
+        }
+        when {
+            lyrics == null -> Unit
+            lines.isEmpty() ->
+                Text("No lyrics for this song", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = .7f), modifier = Modifier.align(Alignment.CenterStart).padding(start = 60.dp))
+            else ->
+                LazyColumn(
+                    state = list,
+                    userScrollEnabled = false,
+                    contentPadding = PaddingValues(top = 110.dp, bottom = 200.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.fillMaxSize().padding(start = 60.dp, end = 160.dp),
+                ) {
+                    itemsIndexed(lines) { i, l ->
+                        val on = !synced || i == current
+                        val a by androidx.compose.animation.core.animateFloatAsState(if (on) 1f else if (i < current) .35f else .5f, tween(300), label = "ly")
+                        Text(
+                            l.text.ifBlank { "♪" },
+                            fontSize = 26.sp,
+                            lineHeight = 32.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            modifier = Modifier.graphicsLayer { alpha = a },
+                        )
+                    }
+                }
+        }
+    }
+}
+
+/** Up Next on Now Playing: the next songs in play order. OK plays one; hold OK for Move up / down / Remove. */
+@Composable
+private fun NpUpNext(
+    viewModel: IvanaFinMusicViewModel,
+    scroll: androidx.compose.foundation.ScrollState,
+) {
+    val player = viewModel.musicService.player
+    val state by viewModel.musicService.state.collectAsState()
+    // the queue in play order (follows shuffle), after the song that's playing
+    var next by remember { mutableStateOf<List<Pair<Int, AudioItem>>>(emptyList()) }
+    LaunchedEffect(state.queueVersion, state.queueSize, state.currentIndex, player.shuffleModeEnabled) {
+        val tl = player.currentTimeline
+        val out = ArrayList<Pair<Int, AudioItem>>()
+        if (!tl.isEmpty) {
+            var i = tl.getNextWindowIndex(player.currentMediaItemIndex, Player.REPEAT_MODE_OFF, player.shuffleModeEnabled)
+            while (i != androidx.media3.common.C.INDEX_UNSET && out.size < 20) {
+                (player.getMediaItemAt(i).localConfiguration?.tag as? AudioItem)?.let { out.add(i to it) }
+                i = tl.getNextWindowIndex(i, Player.REPEAT_MODE_OFF, player.shuffleModeEnabled)
+            }
+        }
+        next = out
+    }
+    if (next.isEmpty()) return
+    var menuFor by remember { mutableStateOf<UUID?>(null) }
+    Text("Up next", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(top = 30.dp, bottom = 6.dp))
+    Column(Modifier.offset(x = (-44).dp).width(560.dp)) {
+        next.forEach { (index, song) ->
+            key(song.id, index) {
+                MuTrackRow(
+                    number = "",
+                    title = song.title ?: "",
+                    sub = song.artistNames ?: "",
+                    duration = song.runtime?.let { minSecTicks(it.inWholeMilliseconds * 10_000) } ?: "",
+                    playing = false,
+                    paused = false,
+                    onClick = {
+                        menuFor = null
+                        viewModel.queuePlay(index)
+                    },
+                    onLongClick = { menuFor = if (menuFor == song.id) null else song.id },
+                )
+                if (menuFor == song.id) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(start = 72.dp, top = 2.dp, bottom = 8.dp)) {
+                        val first = next.first().first == index
+                        val last = next.last().first == index
+                        if (!first && !player.shuffleModeEnabled) MuPill(Fa.CHEVRON_UP, text = "Move up", onClick = { viewModel.queueMove(index, next[next.indexOfFirst { it.first == index } - 1].first) })
+                        if (!last && !player.shuffleModeEnabled) MuPill(Fa.CHEVRON_DOWN, text = "Move down", onClick = { viewModel.queueMove(index, next[next.indexOfFirst { it.first == index } + 1].first) })
+                        MuPill(Fa.REMOVE, text = "Remove", onClick = {
+                            menuFor = null
+                            viewModel.queueRemove(index)
+                        })
                     }
                 }
             }

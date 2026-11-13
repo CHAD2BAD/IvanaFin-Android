@@ -154,6 +154,8 @@ internal object Fa {
     const val MORE = ""
     const val SORT = ""
     const val CHECK = ""
+    const val LYRICS = ""
+    const val REMOVE = ""
 }
 
 /** The selected item's picture, top-right, fading into the page on the left and at the bottom. */
