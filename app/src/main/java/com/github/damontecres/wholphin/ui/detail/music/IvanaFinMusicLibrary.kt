@@ -345,11 +345,11 @@ private fun buildMixes(
     val notMixtapes = all.filter { discographyRow(it) != 2 && (it.data.productionYear ?: 0) > 0 }
     notMixtapes.groupBy { it.data.productionYear!! / 10 * 10 }.toSortedMap().forEach { (d, albums) ->
         if (albums.size >= 2) {
-            out.add(MusicMix("era", "s Mix", " albums", albums.shuffled().take(4).map { it.id }, albumIds = albums.map { it.id }))
+            out.add(MusicMix("era$d", "${d}s Mix", "${albums.size} albums", albums.shuffled().take(4).map { it.id }, albumIds = albums.map { it.id }))
         }
     }
     val tapes = all.filter { discographyRow(it) == 2 }
-    if (tapes.size >= 2) out.add(MusicMix("tapes", "Mixtapes & More Mix", " mixtapes", tapes.shuffled().take(4).map { it.id }, albumIds = tapes.map { it.id }))
+    if (tapes.size >= 2) out.add(MusicMix("tapes", "Mixtapes & More Mix", "${tapes.size} mixtapes", tapes.shuffled().take(4).map { it.id }, albumIds = tapes.map { it.id }))
     return out
 }
 
