@@ -1724,6 +1724,11 @@ private fun MusicLibraryView(
                 if (albumsOn) SortChip(sortIdx, onPick = { viewModel.setSort(it) })
             }
         }
+        if (playlists && items.isEmpty()) {
+            item(key = "noPlaylists", span = { GridItemSpan(maxLineSpan) }) {
+                Text("No playlists yet. Hold OK on a song and choose Add to playlist.", fontSize = 13.sp, color = Color.White.copy(alpha = .6f), modifier = Modifier.padding(top = 20.dp))
+            }
+        }
         itemsIndexed(items, key = { _, a -> a.id }) { _, a ->
             val mod = if (a.id == lastOpened) Modifier.focusRequester(back) else Modifier
             if (playlists) {
