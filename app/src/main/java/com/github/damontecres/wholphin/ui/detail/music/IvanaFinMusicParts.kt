@@ -183,7 +183,7 @@ internal fun HeroArt(
     Box(
         modifier =
             modifier
-                .then(if (square) Modifier.padding(top = 66.dp, end = 40.dp).size(190.dp) else Modifier.fillMaxWidth(.66f).height(340.dp))
+                .then(if (square) Modifier.padding(top = 24.dp, end = 40.dp).size(230.dp) else Modifier.fillMaxWidth(.66f).height(340.dp))
                 .graphicsLayer {
                     translationY = -scrollPx()
                     if (square) {
