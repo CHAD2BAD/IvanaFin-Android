@@ -2344,7 +2344,7 @@ private fun NowPlayingView(
     val bigCover = item.albumId?.let { viewModel.imageUrl(it, maxWidth = 400) } ?: item.imageUrl
     val npPal = rememberMuPal(item.albumId?.let { viewModel.imageUrl(it, maxWidth = 96) })
 
-    // Lyrics (full screen, Back closes them) and the screensaver (60 s without a key press)
+    // Lyrics (on the song screen, in the space on the right - user 2026-11-13) and the screensaver (60 s without a key press)
     var showLyrics by remember { mutableStateOf(false) }
     var asleep by remember { mutableStateOf(false) }
     var lastKey by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -2353,13 +2353,6 @@ private fun NowPlayingView(
         asleep = true
     }
     val sleepA by androidx.compose.animation.core.animateFloatAsState(if (asleep) 1f else 0f, tween(900), label = "sleep")
-    BackHandler(enabled = showLyrics) {
-        showLyrics = false
-        scope.launch {
-            delay(50)
-            ppFocus.tryRequestFocus()
-        }
-    }
 
     // Hold Left/Right on the progress bar: skips faster the longer it's held; the song moves once you let go
     var scrubTo by remember { mutableStateOf<Long?>(null) }
@@ -2378,11 +2371,9 @@ private fun NowPlayingView(
                 }
             },
     ) {
-        NpMovingBackground(item.albumId?.let { viewModel.imageUrl(it, maxWidth = 20) } ?: item.imageUrl, npPal)
+        NpMovingBackground(item.albumId?.let { viewModel.imageUrl(it, maxWidth = 64) } ?: item.imageUrl, npPal)
 
-        if (showLyrics) {
-            NpLyrics(viewModel, item, posMs, playing, onPlayPause, onSeek, modifier = Modifier.graphicsLayer { alpha = 1f - sleepA })
-        } else {
+        run {
             Column(
                 Modifier
                     .fillMaxSize()
@@ -2400,7 +2391,7 @@ private fun NowPlayingView(
                     }
                 }
                 Spacer(Modifier.height(150.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp), modifier = Modifier.fillMaxWidth(if (showLyrics) .5f else 1f)) {
                     MuImage(
                         model = bigCover,
                         contentDescription = null,
@@ -2527,7 +2518,7 @@ private fun NowPlayingView(
                         NpButton(Fa.NEXT, onClick = onNext)
                         NpButton(Fa.REPEAT, active = repeat != Player.REPEAT_MODE_OFF, dot = true, badge = if (repeat == Player.REPEAT_MODE_ONE) "1" else null, onClick = onRepeat)
                     }
-                    NpButton(Fa.LYRICS, onClick = { showLyrics = true }, modifier = Modifier.align(Alignment.CenterEnd))
+                    NpButton(Fa.LYRICS, active = showLyrics, onClick = { showLyrics = !showLyrics }, modifier = Modifier.align(Alignment.CenterEnd))
                 }
                 // Up Next: the coming songs (OK plays one, hold OK to move or remove it)
                 NpUpNext(viewModel, scroll)
@@ -2568,6 +2559,22 @@ private fun NowPlayingView(
             }
         }
 
+        // the lyrics, in the space on the right of the song (hidden once scrolled down to Up next)
+        if (showLyrics && scroll.value == 0) {
+            NpLyricsPanel(
+                viewModel,
+                item,
+                posMs,
+                durMs,
+                modifier =
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 84.dp, end = 60.dp)
+                        .fillMaxWidth(.44f)
+                        .height(250.dp)
+                        .graphicsLayer { alpha = 1f - sleepA },
+            )
+        }
         // the screensaver: the controls fade away, the cover, title and time drift slowly round the screen
         if (sleepA > 0f) NpScreensaver(bigCover, item, posMs, durMs, Modifier.graphicsLayer { alpha = sleepA })
     }
@@ -3243,6 +3250,73 @@ private fun MusicPlaylistView(
                     },
                 )
             }
+        }
+    }
+}
+
+/**
+ * Lyrics on the song screen (user 2026-11-13: not a new screen): the space on the right. Synced lyrics
+ * follow the song (the line being sung bright, about a third of the way down); plain lyrics move down
+ * slowly with the song. Faded out at the top and bottom edges.
+ */
+@Composable
+private fun NpLyricsPanel(
+    viewModel: IvanaFinMusicViewModel,
+    item: AudioItem,
+    posMs: Long,
+    durMs: Long,
+    modifier: Modifier = Modifier,
+) {
+    LaunchedEffect(item.id) { viewModel.loadLyrics(item.id) }
+    val got by viewModel.nowLyrics.collectAsState()
+    val lyrics = got?.takeIf { it.first == item.id }
+    val lines = lyrics?.second?.lyrics.orEmpty()
+    val synced = lines.any { it.start != null }
+    val offsetTicks = lyrics?.second?.metadata?.offset ?: 0L
+    val current = if (synced) lines.indexOfLast { (it.start ?: Long.MAX_VALUE) <= posMs * 10_000 + offsetTicks } else -1
+    val list = rememberLazyListState()
+    LaunchedEffect(current) { if (current >= 0) list.animateScrollToItem(max(0, current - 2)) }
+    // plain lyrics: move through them with the song
+    LaunchedEffect(synced, posMs / 5000, lines.size) {
+        if (!synced && lines.isNotEmpty() && durMs > 0) list.animateScrollToItem(((lines.size - 1) * posMs / durMs).toInt().coerceIn(0, lines.size - 1))
+    }
+    Box(
+        modifier.graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }.drawWithContent {
+            drawContent()
+            // fade out at the top and bottom
+            drawRect(
+                Brush.verticalGradient(0f to Color.Transparent, .14f to Color.Black, .8f to Color.Black, 1f to Color.Transparent),
+                blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
+            )
+        },
+    ) {
+        when {
+            lyrics == null -> Unit
+            lines.isEmpty() -> Text("No lyrics for this song", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = .6f), modifier = Modifier.padding(top = 80.dp))
+            else ->
+                LazyColumn(
+                    state = list,
+                    userScrollEnabled = false,
+                    contentPadding = PaddingValues(vertical = 30.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    itemsIndexed(lines) { i, l ->
+                        val a by androidx.compose.animation.core.animateFloatAsState(
+                            if (!synced || i == current) 1f else if (i < current) .3f else .45f,
+                            tween(300),
+                            label = "lyp",
+                        )
+                        Text(
+                            l.text.ifBlank { "♪" },
+                            fontSize = 19.sp,
+                            lineHeight = 25.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            modifier = Modifier.graphicsLayer { alpha = if (synced) a else .85f },
+                        )
+                    }
+                }
         }
     }
 }
