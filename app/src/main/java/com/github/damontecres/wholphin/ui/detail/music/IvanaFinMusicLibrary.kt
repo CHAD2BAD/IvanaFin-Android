@@ -2569,9 +2569,9 @@ private fun NowPlayingView(
                 modifier =
                     Modifier
                         .align(Alignment.TopEnd)
-                        .padding(top = 84.dp, end = 60.dp)
+                        .padding(top = 108.dp, end = 60.dp)
                         .fillMaxWidth(.36f)
-                        .height(250.dp)
+                        .height(240.dp)
                         .graphicsLayer { alpha = 1f - sleepA },
             )
         }
@@ -3285,7 +3285,7 @@ private fun NpLyricsPanel(
             drawContent()
             // fade out at the top and bottom
             drawRect(
-                Brush.verticalGradient(0f to Color.Transparent, .14f to Color.Black, .8f to Color.Black, 1f to Color.Transparent),
+                Brush.verticalGradient(0f to Color.Transparent, .08f to Color.Black, .9f to Color.Black, 1f to Color.Transparent),
                 blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
             )
         },
@@ -3297,7 +3297,7 @@ private fun NpLyricsPanel(
                 LazyColumn(
                     state = list,
                     userScrollEnabled = false,
-                    contentPadding = PaddingValues(vertical = 30.dp),
+                    contentPadding = PaddingValues(vertical = 14.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
