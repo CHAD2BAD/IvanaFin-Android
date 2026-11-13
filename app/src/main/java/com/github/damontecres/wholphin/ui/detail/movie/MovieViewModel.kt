@@ -172,7 +172,13 @@ class MovieViewModel
                                     limit = 25,
                                 ),
                             ).content.items
-                            .map { BaseItem(it) }
+                            // one card per film: the IMAX / alternative-format copy is its own item
+                            // (beta round 5: The Dark Knight listed itself and The Dark Knight Rises twice)
+                            .let { items ->
+                                val key = { n: String?, y: Int? -> "${n.orEmpty().lowercase()}|${y ?: ""}" }
+                                val seen = mutableSetOf(key(movie.data.name, movie.data.productionYear))
+                                items.filter { seen.add(key(it.name, it.productionYear)) }
+                            }.map { BaseItem(it) }
 
                     _state.update { it.copy(similar = similar) }
                 }
