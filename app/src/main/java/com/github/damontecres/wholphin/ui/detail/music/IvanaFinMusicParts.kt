@@ -445,7 +445,8 @@ internal fun CoverCard(
     panel: Boolean = false,
 ) {
     val interaction = remember { MutableInteractionSource() }
-    val focused by interaction.collectIsFocusedAsState()
+    // (from the Surface's own focus state: the interaction source's focus can be missed)
+    var focused by remember { mutableStateOf(false) }
     val shape = if (round) CircleShape else RoundedCornerShape(4.dp)
     val panelColor = if (panel) rememberMuPal(imageUrl)?.wash ?: Color.White.copy(alpha = .06f) else null
     Surface(
@@ -454,7 +455,10 @@ internal fun CoverCard(
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(4.dp)),
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-        modifier = modifier.then(if (width != null) Modifier.width(width) else Modifier).onFocusChanged { if (it.isFocused) onFocus() },
+        modifier = modifier.then(if (width != null) Modifier.width(width) else Modifier).onFocusChanged {
+            focused = it.isFocused
+            if (it.isFocused) onFocus()
+        },
     ) {
         Column(if (panelColor != null) Modifier.background(panelColor, RoundedCornerShape(8.dp)).padding(start = 7.dp, end = 7.dp, top = 7.dp, bottom = 9.dp) else Modifier) {
             val lift = muLift(focused)

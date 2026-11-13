@@ -2461,7 +2461,8 @@ private fun NpUpNext(
     if (next.isEmpty()) return
     var menuFor by remember { mutableStateOf<UUID?>(null) }
     Text("Up next", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(top = 30.dp, bottom = 6.dp))
-    Column(Modifier.offset(x = (-44).dp).width(560.dp)) {
+    // (rows pulled left so the song names line up with the page text)
+    Column(Modifier.offset(x = (-84).dp).width(640.dp)) {
         next.forEach { (index, song) ->
             key(song.id, index) {
                 MuTrackRow(
@@ -2478,7 +2479,7 @@ private fun NpUpNext(
                     onLongClick = { menuFor = if (menuFor == song.id) null else song.id },
                 )
                 if (menuFor == song.id) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(start = 72.dp, top = 2.dp, bottom = 8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(start = 84.dp, top = 2.dp, bottom = 8.dp)) {
                         val first = next.first().first == index
                         val last = next.last().first == index
                         if (!first && !player.shuffleModeEnabled) MuPill(Fa.CHEVRON_UP, text = "Move up", onClick = { viewModel.queueMove(index, next[next.indexOfFirst { it.first == index } - 1].first) })
