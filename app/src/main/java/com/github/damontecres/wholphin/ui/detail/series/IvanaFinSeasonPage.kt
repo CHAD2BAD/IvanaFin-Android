@@ -66,6 +66,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.layout
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private const val COLUMNS = 4
@@ -260,8 +261,12 @@ fun IvanaFinSeasonPage(
             is EpisodeList.Error -> ErrorMessage(episodes.message, episodes.exception)
             is EpisodeList.Success -> {
                 if (focusAfterSeasonChange) {
+                    // after choosing a season: stay at the top with the Season button selected, like
+                    // the Samsung app (beta round 5: focus went missing, or the page jumped to the episodes)
                     LaunchedEffect(episodes) {
-                        episodeFocusRequester.tryRequestFocus()
+                        delay(50)
+                        if (!seasonButtonFocusRequester.tryRequestFocus()) episodeFocusRequester.tryRequestFocus()
+                        scroll.animateScrollTo(0)
                         focusAfterSeasonChange = false
                     }
                 }
