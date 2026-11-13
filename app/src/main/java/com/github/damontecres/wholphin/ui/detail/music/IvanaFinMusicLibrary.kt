@@ -1714,7 +1714,7 @@ private fun MusicLibraryView(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.padding(top = 110.dp, bottom = 0.dp),
             ) {
-                Text("Your Library", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(end = 12.dp))
+                Text("Your Library", fontSize = MuType.pageTitle, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(end = 12.dp))
                 if (items.isNotEmpty()) Text("${items.size} ${if (playlists) (if (items.size == 1) "playlist" else "playlists") else if (artists) (if (items.size == 1) "artist" else "artists") else (if (items.size == 1) "album" else "albums")}", fontSize = 11.sp, color = Color.White.copy(alpha = .65f), modifier = Modifier.padding(end = 6.dp))
                 // (Left from Albums - the first tab - stays there; it jumped down into the grid)
                 val albumsOn = !artists && !playlists
@@ -2396,7 +2396,7 @@ private fun NowPlayingView(
                     }
                     Column(Modifier.padding(start = 10.dp)) {
                         Text("PLAYING FROM ALBUM", fontSize = 8.sp, letterSpacing = 1.sp, color = Color.White.copy(alpha = .75f))
-                        Text(item.albumTitle ?: item.title ?: "", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(item.albumTitle ?: item.title ?: "", fontSize = MuType.cardTitle, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
                 Spacer(Modifier.height(150.dp))
@@ -2430,7 +2430,7 @@ private fun NowPlayingView(
                                 .background(Color(0xFF333333)),
                     )
                     Column {
-                        Text(item.title ?: "", fontSize = 29.sp, lineHeight = 33.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(item.title ?: "", fontSize = MuType.heroTitle, lineHeight = 36.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         // the artist's name opens the artist's page (like the About the artist card)
                         Surface(
                             onClick = { artist?.id?.let(onArtist) },
@@ -2532,7 +2532,7 @@ private fun NowPlayingView(
                 // Up Next: the coming songs (OK plays one, hold OK to move or remove it)
                 NpUpNext(viewModel, scroll)
                 // About the artist
-                Text("About the artist", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(top = 34.dp, bottom = 10.dp))
+                Text("About the artist", fontSize = MuType.rowTitle, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(top = 34.dp, bottom = 10.dp))
                 val a = artist
                 Surface(
                     onClick = { a?.id?.let(onArtist) },
@@ -2560,7 +2560,7 @@ private fun NowPlayingView(
                         Column(Modifier.align(Alignment.BottomStart).padding(start = 18.dp, end = 18.dp, bottom = 14.dp)) {
                             Text(a?.name ?: item.artistNames ?: "", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
                             a?.data?.overview?.let {
-                                Text(it, fontSize = 10.5.sp, lineHeight = 15.sp, color = Color.White.copy(alpha = .85f), maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+                                Text(it, fontSize = MuType.cardTitle, lineHeight = 15.sp, color = Color.White.copy(alpha = .85f), maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
                             }
                         }
                     }
@@ -2768,7 +2768,7 @@ private fun NpUpNext(
     }
     if (next.isEmpty()) return
     var menuFor by remember { mutableStateOf<UUID?>(null) }
-    Text("Up next", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(top = 30.dp, bottom = 6.dp))
+    Text("Up next", fontSize = MuType.rowTitle, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(top = 30.dp, bottom = 6.dp))
     // (rows pulled left so the song names line up with the page text)
     Column(Modifier.offset(x = (-84).dp).width(640.dp)) {
         next.forEach { (index, song) ->
@@ -2955,7 +2955,7 @@ private fun BrowseTiles(
             }
         }
     Column(Modifier.padding(start = 40.dp, end = 40.dp, top = 18.dp)) {
-        Text("Browse all", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(bottom = 10.dp))
+        Text("Browse all", fontSize = MuType.rowTitle, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(bottom = 10.dp))
         lists.indices.chunked(5).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.padding(bottom = 14.dp)) {
                 row.forEach { i ->
@@ -3047,7 +3047,7 @@ private fun MusicBrowseView(
         item(key = "head", span = { GridItemSpan(maxLineSpan) }) {
             Column(Modifier.padding(top = 110.dp, bottom = 4.dp)) {
                 Text(if (b.artists != null) "Artists" else "Collection", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = .75f))
-                Text(b.name, fontSize = 34.sp, lineHeight = 38.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                Text(b.name, fontSize = MuType.heroTitle, lineHeight = 36.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
                 Text("${list.size} ${if (b.artists != null) (if (list.size == 1) "artist" else "artists") else (if (list.size == 1) "album" else "albums")}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = .75f))
             }
         }
@@ -3129,7 +3129,7 @@ private fun MuSongMenuDialog(
                     .background(Color(0xFF242424), RoundedCornerShape(12.dp))
                     .padding(22.dp),
         ) {
-            Text(song.name ?: "", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(song.name ?: "", fontSize = MuType.rowTitle, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(song.data.artists?.joinToString(", ") ?: song.data.albumArtist ?: "", fontSize = 11.sp, color = Color.White.copy(alpha = .65f), maxLines = 1, modifier = Modifier.padding(bottom = 6.dp))
             MuPill(Fa.NEXT, text = "Play next", onClick = onPlayNext, modifier = Modifier.fillMaxWidth().focusRequester(first))
             MuPill(Fa.MUSIC, text = "Add to queue", onClick = onAddToQueue, modifier = Modifier.fillMaxWidth())

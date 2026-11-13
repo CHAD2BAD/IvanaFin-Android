@@ -246,10 +246,10 @@ internal fun HeroText(
         verticalArrangement = Arrangement.Top,
         modifier = modifier.fillMaxWidth(.52f).padding(start = 40.dp, top = 124.dp).height(minHeight),
     ) {
-        if (kind != null) Text(kind, fontSize = 10.sp, fontWeight = FontWeight.Medium, color = MuDim, modifier = Modifier.padding(bottom = 4.dp))
+        if (kind != null) Text(kind, fontSize = MuType.label, fontWeight = FontWeight.Medium, color = MuDim, modifier = Modifier.padding(bottom = 4.dp))
         Text(
             title,
-            fontSize = 32.sp,
+            fontSize = MuType.heroTitle,
             lineHeight = 36.sp,
             fontWeight = FontWeight.Bold,
             color = Color.White,
@@ -516,8 +516,8 @@ internal fun CoverCard(
                         Text(
                             name,
                             style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = .6f), blurRadius = 3f)),
-                            fontSize = 10.sp,
-                            lineHeight = 12.sp,
+                            fontSize = MuType.cardTitle,
+                            lineHeight = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (playing) MuGreen else Color.White,
                             maxLines = 2,
@@ -529,7 +529,7 @@ internal fun CoverCard(
             if (nameBelow) {
                 Text(
                     name,
-                    fontSize = 11.sp,
+                    fontSize = MuType.cardTitle,
                     fontWeight = FontWeight.Medium,
                     color = if (playing) MuGreen else Color.White,
                     maxLines = 1,
@@ -540,7 +540,7 @@ internal fun CoverCard(
                 if (sub != null) {
                     Text(
                         sub,
-                        fontSize = 9.5.sp,
+                        fontSize = MuType.label,
                         color = Color.White.copy(alpha = .6f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -558,7 +558,7 @@ internal fun MuSectionTitle(
     text: String,
     modifier: Modifier = Modifier,
 ) {
-    Text(text, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = modifier.padding(start = 40.dp, bottom = 8.dp, top = 22.dp))
+    Text(text, fontSize = MuType.rowTitle, fontWeight = FontWeight.Bold, color = Color.White, modifier = modifier.padding(start = 40.dp, bottom = 8.dp, top = 22.dp))
 }
 
 /** One song: # (bars while playing, ▶ when selected) | title + artists | duration. */
@@ -609,8 +609,8 @@ internal fun MuTrackRow(
                 }
             }
             Column(Modifier.weight(1f)) {
-                Text(title, fontSize = 13.sp, color = if (playing) MuGreen else Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(sub, fontSize = 11.sp, color = Color.White.copy(alpha = .65f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(title, fontSize = MuType.body, color = if (playing) MuGreen else Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(sub, fontSize = MuType.cardTitle, color = Color.White.copy(alpha = .65f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Text(duration, fontSize = 11.sp, color = Color.White.copy(alpha = .65f))
         }
@@ -815,7 +815,7 @@ internal fun MixCard(
                     modifier = Modifier.padding(8.dp),
                 )
             }
-            Text(sub, fontSize = 9.5.sp, color = Color.White.copy(alpha = .6f), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+            Text(sub, fontSize = MuType.label, color = Color.White.copy(alpha = .6f), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
         }
     }
 }
@@ -834,3 +834,17 @@ internal class MuFlight {
 }
 
 internal val LocalMuFlight = androidx.compose.runtime.staticCompositionLocalOf<MuFlight?> { null }
+
+/**
+ * One set of text sizes for all of Music (plan part 5; same list as music-page.js MU_TYPE on the
+ * web/Samsung, in the 960-wide dp both use). The plan's 48/40/22/14/12 are for a 1920-wide screen:
+ * these are the same steps at this scale, kept at the sizes the pages already had.
+ */
+internal object MuType {
+    val heroTitle = 32.sp // album / artist / playlist / Now Playing title
+    val pageTitle = 26.sp // Your Library
+    val rowTitle = 16.sp // row headings: Recently added, Up next, About the artist
+    val body = 13.sp // a song's name in a list
+    val cardTitle = 11.sp // a card's name, a song's artist line
+    val label = 10.sp // small grey lines: "Album", times, a card's sub line
+}
