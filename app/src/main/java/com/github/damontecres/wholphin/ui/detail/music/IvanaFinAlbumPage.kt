@@ -110,6 +110,7 @@ fun IvanaFinAlbumPage(
     var showPlaylistDialog by remember { mutableStateOf<Optional<UUID>>(Optional.absent()) }
     val playlistState by playlistViewModel.playlistState.collectAsState()
     var showContextMenu by remember { mutableStateOf<ContextMenu?>(null) }
+    val songMenu = LocalMuSongMenu.current
     val moreDialogActions =
         remember {
             MusicContextActions(
@@ -335,7 +336,9 @@ fun IvanaFinAlbumPage(
                                         viewModel.play(false, index)
                                     }
                                 },
-                                onLongClick = { if (song != null) menuFor(song, index, true) },
+                                // the IvanaFin song menu (Play next, Add to queue, Add to playlist, Start radio) like
+                                // the other Music pages (beta round 5: no Start radio here); the old one elsewhere
+                                onLongClick = { if (song != null) songMenu?.invoke(song) ?: menuFor(song, index, true) },
                                 modifier =
                                     if (position.row == ROW_SONGS && position.column == index) {
                                         Modifier.focusRequester(songFocus)

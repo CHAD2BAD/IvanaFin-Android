@@ -81,6 +81,8 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -251,6 +253,12 @@ data class MusicHomeData(
  * A ready-made mix (plan part 4): plays [songIds] in order, or (era mixes) 60 random songs from
  * [albumIds]. [covers] = up to 4 album ids for the 2 x 2 cover.
  */
+data class PlayFrom(
+    val kind: String,
+    val name: String,
+    val ids: Set<UUID>,
+)
+
 data class MusicMix(
     val key: String,
     val name: String,
@@ -673,13 +681,19 @@ class IvanaFinMusicViewModel
             }
         }
 
+        /** Where the queue came from, for Now Playing's "PLAYING FROM ..." line (a mix or playlist; else the
+         * song's album). Beta round 5: On Repeat said PLAYING FROM ALBUM VULTURES 1. */
+        val playFrom = MutableStateFlow<PlayFrom?>(null)
+
         /** Play a list from [start] (or shuffled) */
         fun playList(
             items: List<BaseItem>,
             start: Int,
             shuffled: Boolean,
+            from: Pair<String, String>? = null,
         ) {
             if (items.isEmpty()) return
+            playFrom.value = from?.let { PlayFrom(it.first, it.second, items.map { s -> s.id }.toSet()) }
             viewModelScope.launchIO {
                 val list = if (shuffled) items.shuffled() else items
                 musicService.setQueue(list, false)
@@ -880,6 +894,7 @@ class IvanaFinMusicViewModel
                                 ),
                             ).toBaseItems(api, false)
                         }
+                    playFrom.value = PlayFrom("MIX", mix.name, songs.map { it.id }.toSet())
                     musicService.setQueue(songs, false)
                 } catch (ex: Exception) {
                     Timber.w(ex, "Playing mix failed")
@@ -1255,7 +1270,10 @@ fun IvanaFinMusicLibrary(
 
                 is MusicView.Artist ->
                     key(current.id) {
-                        MusicArtistView(viewModel, current.id, nowItem?.albumId, nowItem?.id, playing, onOpen = ::open, onScrolled = onScrolled)
+                        // its own saved state (scroll, rows, the album opened) so Back returns to the same card
+                        pageStates.SaveableStateProvider(pageKey(stack.lastIndex, current)) {
+                            MusicArtistView(viewModel, current.id, nowItem?.albumId, nowItem?.id, playing, onOpen = ::open, onScrolled = onScrolled)
+                        }
                     }
 
                 is MusicView.Album ->
@@ -2093,12 +2111,12 @@ private fun MusicLikedView(
                                 val p = viewModel.musicService.player
                                 if (p.isPlaying) p.pause() else p.play()
                             } else {
-                                viewModel.playList(list, 0, false)
+                                viewModel.playList(list, 0, false, "PLAYLIST" to "Liked Songs")
                             }
                         },
                         modifier = Modifier.focusRequester(playFocus),
                     )
-                    MuPill(glyph = Fa.SHUFFLE, text = "Shuffle", onClick = { viewModel.playList(list, 0, true) })
+                    MuPill(glyph = Fa.SHUFFLE, text = "Shuffle", onClick = { viewModel.playList(list, 0, true, "PLAYLIST" to "Liked Songs") })
                 }
             }
             if (list.isEmpty()) {
@@ -2125,7 +2143,7 @@ private fun MusicLikedView(
                             val p = viewModel.musicService.player
                             if (p.isPlaying) p.pause() else p.play()
                         } else {
-                            viewModel.playList(list, i, false)
+                            viewModel.playList(list, i, false, "PLAYLIST" to "Liked Songs")
                         }
                     },
                 )
@@ -2153,8 +2171,17 @@ private fun MusicArtistView(
     val data = state?.takeIf { it.artist.id == id } ?: return MuSkeleton()
     val listState = rememberLazyListState()
     val playFocus = remember { FocusRequester() }
+    // Back from an album opened here: select that album again (beta round 5: it went to the top, on Play)
+    var openedAlbum by androidx.compose.runtime.saveable.rememberSaveable(id) { mutableStateOf<String?>(null) }
+    val albumFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
         delay(60)
+        if (openedAlbum != null) {
+            repeat(5) {
+                if (albumFocus.tryRequestFocus()) return@LaunchedEffect
+                delay(60)
+            }
+        }
         playFocus.tryRequestFocus()
     }
     LaunchedEffect(listState) {
@@ -2258,7 +2285,11 @@ private fun MusicArtistView(
                                     imageUrl = viewModel.imageUrl(al.id),
                                     sub = al.data.productionYear?.toString() ?: "",
                                     playing = al.id == nowAlbumId,
-                                    onClick = { onOpen("album:${al.id}") },
+                                    onClick = {
+                                        openedAlbum = al.id.toString()
+                                        onOpen("album:${al.id}")
+                                    },
+                                    modifier = if (openedAlbum == al.id.toString()) Modifier.focusRequester(albumFocus) else Modifier,
                                 )
                             }
                         }
@@ -2386,8 +2417,10 @@ private fun NowPlayingView(
                         Text(Fa.DISC, fontFamily = FontAwesome, fontSize = 14.sp, color = Color(0xFF555555))
                     }
                     Column(Modifier.padding(start = 10.dp)) {
-                        Text("PLAYING FROM ALBUM", fontSize = 8.sp, letterSpacing = 1.sp, color = Color.White.copy(alpha = .75f))
-                        Text(item.albumTitle ?: item.title ?: "", fontSize = MuType.cardTitle, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val from by viewModel.playFrom.collectAsState()
+                        val pf = from?.takeIf { item.id in it.ids }
+                        Text("PLAYING FROM " + (pf?.kind ?: "ALBUM"), fontSize = 8.sp, letterSpacing = 1.sp, color = Color.White.copy(alpha = .75f))
+                        Text(pf?.name ?: item.albumTitle ?: item.title ?: "", fontSize = MuType.cardTitle, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
                 Spacer(Modifier.height(36.dp))
@@ -2559,8 +2592,9 @@ private fun NowPlayingView(
             }
         }
 
-        // the lyrics, in the space on the right of the song (hidden once scrolled down to Up next)
-        if (showLyrics && scroll.value == 0) {
+        // the lyrics, in the space on the right of the song; they move up with the page when it scrolls
+        // down to Up next (beta round 5: hiding them there left the Lyrics button on with no lyrics)
+        if (showLyrics) {
             NpLyricsPanel(
                 viewModel,
                 item,
@@ -2572,7 +2606,10 @@ private fun NowPlayingView(
                         .padding(top = 108.dp, end = 60.dp)
                         .fillMaxWidth(.36f)
                         .height(240.dp)
-                        .graphicsLayer { alpha = 1f - sleepA },
+                        .graphicsLayer {
+                            alpha = 1f - sleepA
+                            translationY = -scroll.value.toFloat()
+                        },
             )
         }
         // the screensaver: the controls fade away, the cover, title and time drift slowly round the screen
@@ -2775,6 +2812,20 @@ private fun NpUpNext(
     }
     if (next.isEmpty()) return
     var menuFor by remember { mutableStateOf<UUID?>(null) }
+    // the row whose menu is open: Back closes only the menu and goes back to its row (beta round 5:
+    // Back left Now Playing); the menu scrolls fully into view when it opens (it opened half off screen)
+    val menuRow = remember { FocusRequester() }
+    val menuView = remember { BringIntoViewRequester() }
+    BackHandler(enabled = menuFor != null) {
+        menuFor = null
+        menuRow.tryRequestFocus()
+    }
+    LaunchedEffect(menuFor) {
+        if (menuFor != null) {
+            delay(30)
+            menuView.bringIntoView()
+        }
+    }
     Text("Up next", fontSize = MuType.rowTitle, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(top = 30.dp, bottom = 6.dp))
     // (rows pulled left so the song names line up with the page text)
     Column(Modifier.offset(x = (-84).dp).width(640.dp)) {
@@ -2792,9 +2843,16 @@ private fun NpUpNext(
                         viewModel.queuePlay(index)
                     },
                     onLongClick = { menuFor = if (menuFor == song.id) null else song.id },
+                    modifier = if (menuFor == song.id) Modifier.focusRequester(menuRow) else Modifier,
                 )
                 if (menuFor == song.id) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(start = 84.dp, top = 2.dp, bottom = 8.dp)) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier =
+                            Modifier
+                                .bringIntoViewRequester(menuView)
+                                .padding(start = 84.dp, top = 2.dp, bottom = 8.dp),
+                    ) {
                         val first = next.first().first == index
                         val last = next.last().first == index
                         if (!first && !player.shuffleModeEnabled) MuPill(Fa.CHEVRON_UP, text = "Move up", onClick = { viewModel.queueMove(index, next[next.indexOfFirst { it.first == index } - 1].first) })
@@ -3108,12 +3166,12 @@ internal fun levelVolume(player: Player) {
 }
 
 /** Hold OK on a song: the Music song menu (IvanaFinMusicLibrary shows it) */
-private val LocalMuSongMenu = androidx.compose.runtime.compositionLocalOf<(BaseItem) -> Unit> { {} }
+internal val LocalMuSongMenu = androidx.compose.runtime.compositionLocalOf<((BaseItem) -> Unit)?> { null }
 
 @Composable
 private fun muSongMenu(song: BaseItem): () -> Unit {
     val open = LocalMuSongMenu.current
-    return { open(song) }
+    return { open?.invoke(song) }
 }
 
 /** The song menu: Play next, Add to queue, Add to playlist, Start radio (Back closes it) */
@@ -3200,12 +3258,12 @@ private fun MusicPlaylistView(
                                 val p = viewModel.musicService.player
                                 if (p.isPlaying) p.pause() else p.play()
                             } else {
-                                viewModel.playList(list, 0, false)
+                                viewModel.playList(list, 0, false, "PLAYLIST" to (pl.name ?: ""))
                             }
                         },
                         modifier = Modifier.focusRequester(playFocus),
                     )
-                    MuPill(glyph = Fa.SHUFFLE, text = "Shuffle", onClick = { viewModel.playList(list, 0, true) })
+                    MuPill(glyph = Fa.SHUFFLE, text = "Shuffle", onClick = { viewModel.playList(list, 0, true, "PLAYLIST" to (pl.name ?: "")) })
                     MuPill(
                         glyph = Fa.REMOVE,
                         text = if (confirmDelete) "Press again to delete" else "Delete",
@@ -3245,7 +3303,7 @@ private fun MusicPlaylistView(
                             val p = viewModel.musicService.player
                             if (p.isPlaying) p.pause() else p.play()
                         } else {
-                            viewModel.playList(list, i, false)
+                            viewModel.playList(list, i, false, "PLAYLIST" to (pl.name ?: ""))
                         }
                     },
                 )
