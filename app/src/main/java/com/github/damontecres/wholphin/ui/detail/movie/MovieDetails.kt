@@ -45,7 +45,8 @@ import com.github.damontecres.wholphin.data.model.Trailer
 import com.github.damontecres.wholphin.preferences.UserPreferences
 import com.github.damontecres.wholphin.services.TrailerService
 import com.github.damontecres.wholphin.ui.Cards
-import com.github.damontecres.wholphin.ui.RequestOrRestoreFocus
+import androidx.compose.runtime.LaunchedEffect
+import com.github.damontecres.wholphin.ui.tryRequestFocus
 import com.github.damontecres.wholphin.ui.cards.ChapterRow
 import com.github.damontecres.wholphin.ui.cards.ExtrasRow
 import com.github.damontecres.wholphin.ui.cards.ItemRow
@@ -361,7 +362,18 @@ fun MovieDetailsContent(
 
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
 
-    RequestOrRestoreFocus(focusRequesters.getOrNull(position))
+    // IvanaFin: the person opened from Cast & Crew (its card is focused directly on the way back)
+    var personIndex by rememberInt(0)
+
+    // IvanaFin: back on the page, the row's cards are laid out a frame after this runs - a single request
+    // failed and focus fell back to Play at the top (beta round 6: Back from a cast member, all clients)
+    LaunchedEffect(Unit) {
+        val target = focusRequesters.getOrNull(position) ?: return@LaunchedEffect
+        repeat(20) {
+            if (target.tryRequestFocus()) return@LaunchedEffect
+            kotlinx.coroutines.delay(50)
+        }
+    }
 
     // IvanaFin (2026-11-12, user design): the backdrop fills the whole screen, darkened towards the
     // bottom where the title and buttons sit (no extra darkening when scrolled to the rows - user choice)
@@ -490,16 +502,17 @@ fun MovieDetailsContent(
                         people = people,
                         onClick = {
                             position = PEOPLE_ROW
+                            personIndex = people.indexOf(it).coerceAtLeast(0)
                             onClickPerson.invoke(it)
                         },
                         onLongClick = { index, person ->
                             position = PEOPLE_ROW
+                            personIndex = index
                             onLongClickPerson.invoke(index, person)
                         },
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .focusRequester(focusRequesters[PEOPLE_ROW]),
+                        startIndex = personIndex,
+                        startCardFocusRequester = focusRequesters[PEOPLE_ROW],
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             }

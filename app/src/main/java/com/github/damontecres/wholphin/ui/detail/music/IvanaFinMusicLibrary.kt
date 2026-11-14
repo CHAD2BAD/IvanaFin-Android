@@ -2430,9 +2430,13 @@ private fun NowPlayingView(
     LaunchedEffect(showLyrics) { viewModel.lyricsOn = showLyrics }
     var asleep by remember { mutableStateOf(false) }
     var lastKey by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    // keys only reach the wake handler below while something inside Now Playing holds focus; if focus was lost
+    // (e.g. a removed Up next row) the screensaver could only be left with Back (beta round 6, f8)
+    var focusInside by remember { mutableStateOf(false) }
     LaunchedEffect(lastKey, showLyrics) {
         delay(60_000)
         asleep = true
+        if (!focusInside) runCatching { ppFocus.requestFocus() }
     }
     val sleepA by androidx.compose.animation.core.animateFloatAsState(if (asleep) 1f else 0f, tween(900), label = "sleep")
 
@@ -2442,6 +2446,7 @@ private fun NowPlayingView(
     Box(
         modifier
             .fillMaxSize()
+            .onFocusChanged { focusInside = it.hasFocus }
             .onPreviewKeyEvent {
                 lastKey = System.currentTimeMillis()
                 if (asleep) {
@@ -2893,6 +2898,9 @@ private fun NpUpNext(
     Column(Modifier.offset(x = (-84).dp).width(640.dp)) {
         next.forEach { (index, song) ->
             key(song.id, index) {
+              // focus leaving the row and its menu closes the menu; Left/Right on a row stay put
+              // (Right jumped up to Repeat and left the menu open - beta round 6, f8)
+              Column(Modifier.onFocusChanged { if (!it.hasFocus && menuFor == song.id) menuFor = null }) {
                 MuTrackRow(
                     number = "",
                     title = song.title ?: "",
@@ -2905,7 +2913,12 @@ private fun NpUpNext(
                         viewModel.queuePlay(index)
                     },
                     onLongClick = { menuFor = if (menuFor == song.id) null else song.id },
-                    modifier = if (menuFor == song.id) Modifier.focusRequester(menuRow) else Modifier,
+                    modifier =
+                        (if (menuFor == song.id) Modifier.focusRequester(menuRow) else Modifier)
+                            .focusProperties {
+                                left = FocusRequester.Cancel
+                                right = FocusRequester.Cancel
+                            },
                 )
                 if (menuFor == song.id) {
                     Row(
@@ -2925,6 +2938,7 @@ private fun NpUpNext(
                         })
                     }
                 }
+              }
             }
         }
     }
@@ -3152,6 +3166,8 @@ private fun MusicBrowseView(
     MuTintPal(remember(b.hue) { huePal(b.hue) })
     val gridState = rememberLazyGridState()
     val first = remember { FocusRequester() }
+    // the card last opened gets focus back on Back (it always went to the first card - beta round 6, f8 / f12)
+    var openedId by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
         delay(80)
         first.tryRequestFocus()
@@ -3179,9 +3195,9 @@ private fun MusicBrowseView(
             }
         }
         itemsIndexed(list, key = { _, a -> a.id }) { i, a ->
-            val mod = if (i == 0) Modifier.focusRequester(first) else Modifier
+            val mod = if (if (openedId == null) i == 0 else openedId == a.id.toString()) Modifier.focusRequester(first) else Modifier
             if (b.artists != null) {
-                CoverCard(name = a.name ?: "", imageUrl = viewModel.imageUrl(a.id), round = true, sub = "Artist", width = null, panel = true, onClick = { onOpen("artist:${a.id}") }, modifier = mod)
+                CoverCard(name = a.name ?: "", imageUrl = viewModel.imageUrl(a.id), round = true, sub = "Artist", width = null, panel = true, onClick = { openedId = a.id.toString(); onOpen("artist:${a.id}") }, modifier = mod)
             } else {
                 CoverCard(
                     name = a.name ?: "",
@@ -3190,7 +3206,7 @@ private fun MusicBrowseView(
                     playing = a.id == nowAlbumId,
                     width = null,
                     panel = true,
-                    onClick = { onOpen("album:${a.id}") },
+                    onClick = { openedId = a.id.toString(); onOpen("album:${a.id}") },
                     modifier = mod,
                 )
             }
