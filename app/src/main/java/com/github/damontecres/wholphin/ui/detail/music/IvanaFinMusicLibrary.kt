@@ -451,7 +451,9 @@ class IvanaFinMusicViewModel
                             enableImageTypes = listOf(ImageType.PRIMARY, ImageType.BACKDROP),
                         )
                     } else {
-                        api.artistsApi.getArtists(
+                        // album artists only: every "X feat. Y" song credit is an artist of its own in Jellyfin
+                        // (no picture) - search listed ~30 of those (beta round 6)
+                        api.artistsApi.getAlbumArtists(
                             parentId = libraryId,
                             userId = userId,
                             searchTerm = searchTerm,
