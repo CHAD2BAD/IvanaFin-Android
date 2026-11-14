@@ -253,7 +253,7 @@ class PlaybackViewModel
                                 parentId = trailersLib.id,
                                 recursive = true,
                                 includeItemTypes = listOf(org.jellyfin.sdk.model.api.BaseItemKind.VIDEO, org.jellyfin.sdk.model.api.BaseItemKind.MOVIE),
-                                fields = listOf(org.jellyfin.sdk.model.api.ItemFields.PROVIDER_IDS, org.jellyfin.sdk.model.api.ItemFields.PATH),
+                                fields = listOf(org.jellyfin.sdk.model.api.ItemFields.PROVIDER_IDS, org.jellyfin.sdk.model.api.ItemFields.PATH, org.jellyfin.sdk.model.api.ItemFields.MEDIA_SOURCES, org.jellyfin.sdk.model.api.ItemFields.MEDIA_STREAMS), // (the player skips an item without media sources)
                             ).content.items
                             .filter { t ->
                                 val m = nameRe.find(t.name.orEmpty()) ?: nameRe.find(t.path.orEmpty().substringAfterLast('\\').substringAfterLast('/'))
