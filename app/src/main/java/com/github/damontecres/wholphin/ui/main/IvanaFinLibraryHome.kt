@@ -451,7 +451,7 @@ private val HOME_ORDER = listOf("Movies", "Shows", "Star Wars", "Movies (Special
 /** Libraries kept on the server (folders untouched) but not shown as Home tiles (2026-11-12, user request). */
 // (Playlists: Jellyfin adds this library once anyone makes a playlist - playlists live in Music > Your Library;
 // beta round 6 showed it as a 7th, half-drawn tile)
-private val HOME_HIDDEN = setOf("Archive", "Ivana", "Playlists", "Trailers") // (Trailers: the period trailers before Movies (Special) films)
+private val HOME_HIDDEN = setOf("Archive", "Ivana", "Playlists")
 
 /** IvanaFin: names shown on the home tiles (the server keeps its own names). */
 private fun ivanaFinLibraryDisplayName(name: String?): String =
