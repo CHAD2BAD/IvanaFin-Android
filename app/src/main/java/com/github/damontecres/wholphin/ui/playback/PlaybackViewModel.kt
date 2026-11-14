@@ -437,10 +437,9 @@ class PlaybackViewModel
 
             viewModelScope.launch(ExceptionHandler()) { controllerViewState.observe() }
 
-            // (parenthesised: without them the trailers below were only added when cinema mode was OFF)
             val intros =
                 // If not resuming playback & cinema mode is enabled, get potential intros
-                (if (positionMs == 0L && preferences.appPreferences.playbackPreferences.cinemaMode) {
+                if (positionMs == 0L && preferences.appPreferences.playbackPreferences.cinemaMode) {
                     api.userLibraryApi
                         .getIntros(
                             itemId = playlistItem.id,
@@ -451,7 +450,7 @@ class PlaybackViewModel
                         }
                 } else {
                     emptyList()
-                }) +
+                } +
                     // IvanaFin (user 2026-11-14): Movies (Special) films started from the beginning get two trailers of
                     // films that were in cinemas around the same time first (works without cinema mode)
                     if (positionMs == 0L) ivfPeriodTrailers(queriedItem).map { PlaylistItem.Intro(BaseItem(it)) } else emptyList()
