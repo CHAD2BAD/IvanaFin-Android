@@ -382,7 +382,9 @@ fun MovieDetailsContent(
     LaunchedEffect(Unit) {
         val target = focusRequesters.getOrNull(position) ?: return@LaunchedEffect
         repeat(20) {
-            if (target.tryRequestFocus()) return@LaunchedEffect
+            // (requestFocus(direction) returns false while the card isn't laid out - tryRequestFocus() only
+            // logs a warning then, so it can't tell)
+            if (runCatching { target.requestFocus(androidx.compose.ui.focus.FocusDirection.Enter) }.getOrDefault(false)) return@LaunchedEffect
             kotlinx.coroutines.delay(50)
         }
     }
