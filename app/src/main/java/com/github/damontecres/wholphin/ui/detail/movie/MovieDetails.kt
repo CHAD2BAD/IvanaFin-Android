@@ -385,7 +385,10 @@ fun MovieDetailsContent(
     LaunchedEffect(Unit) {
         val target = focusRequesters.getOrNull(restoreRow) ?: return@LaunchedEffect
         position = restoreRow
-        repeat(20) {
+        // the list comes back at the top, where the cast row isn't built yet (so its card can't take focus):
+        // bring the cast row on screen first
+        if (restoreRow == PEOPLE_ROW && state.people.isNotEmpty()) runCatching { listState.scrollToItem(1) }
+        repeat(20) { n ->
             // (requestFocus(direction) returns false while the card isn't laid out - tryRequestFocus() only
             // logs a warning then, so it can't tell)
             if (runCatching { target.requestFocus(androidx.compose.ui.focus.FocusDirection.Enter) }.getOrDefault(false)) return@LaunchedEffect
