@@ -133,18 +133,18 @@ fun IvanaFinSeasonPage(
                 modifier = Modifier.fillMaxSize().bleedToScreenEdges(),
             )
         }
-        // (the same gradient as the film page: it keeps the logo and text readable)
+        // the picture shows clearly behind the logo at the top and darkens where the episodes start (about a
+        // third of the way down), so their text reads on any picture (2026-11-14 layout)
         Box(
             Modifier
                 .fillMaxSize()
                 .bleedToScreenEdges()
                 .background(
                     androidx.compose.ui.graphics.Brush.verticalGradient(
-                        0f to Color.Transparent,
-                        .2f to Color.Transparent,
-                        .4f to Color.Black.copy(alpha = .18f),
-                        .7f to Color.Black.copy(alpha = .72f),
-                        1f to Color.Black.copy(alpha = .94f),
+                        0f to Color.Black.copy(alpha = .1f),
+                        .25f to Color.Black.copy(alpha = .3f),
+                        .45f to Color.Black.copy(alpha = .72f),
+                        1f to Color.Black.copy(alpha = .9f),
                     ),
                 ),
         )
@@ -166,16 +166,12 @@ fun IvanaFinSeasonPage(
                 .verticalScroll(scroll)
                 .padding(start = 16.dp, end = 24.dp, bottom = 48.dp),
     ) {
-        // The first screen: everything at the bottom of a block as tall as the screen
+        // The header (user 2026-11-14: back to the old layout - logo at the top, the buttons under it and the
+        // episodes straight below on the first screen; the full-screen picture stays)
         Column(
-            verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Bottom),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(screenHeight)
-                    // (the film page's margins: 40dp from the left, 56dp from the right)
-                    .padding(start = 24.dp, end = 32.dp, bottom = 28.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
         ) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
                 TitleOrLogo(
@@ -190,61 +186,52 @@ fun IvanaFinSeasonPage(
                     textStyle = MaterialTheme.typography.labelMedium,
                 )
             }
-            // the season dropdown and "Play next episode": the film page's small see-through buttons
-            androidx.compose.runtime.CompositionLocalProvider(com.github.damontecres.wholphin.ui.components.LocalIvfGlassButtons provides true) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(top = 11.dp, bottom = 2.dp)
-                            // back on the buttons: the first screen again
-                            .onFocusChanged { if (it.hasFocus) scope.launch { scroll.animateScrollTo(0) } }
-                            .focusProperties {
-                                val firstLoaded = (episodes as? EpisodeList.Success)?.episodes?.firstOrNull() != null
-                                if (firstLoaded) down = firstEpisodeFocusRequester
-                            },
-                ) {
-                    // Keys keep the Play button the same node when the season button appears once
-                    // seasons load, so it keeps the initial focus
-                    androidx.compose.runtime.key("season") {
-                        if (showSeasonButton && season != null) {
-                            GlassButton(
-                                onClick = { showSeasonPicker = true },
-                                modifier = Modifier.focusRequester(seasonButtonFocusRequester),
-                            ) {
-                                Text(text = seasonLabel(season), style = MaterialTheme.typography.labelMedium, maxLines = 1)
-                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(20.dp))
-                            }
-                        }
-                    }
-                    androidx.compose.runtime.key("playNext") {
-                        GlassButton(
-                            onClick = onPlayNextEpisode,
-                            modifier = Modifier.focusRequester(playNextFocusRequester),
+            // User choice: just the season dropdown and "Play next episode", centred under the logo
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp, bottom = 4.dp)
+                        // back on the buttons: the top of the page again
+                        .onFocusChanged { if (it.hasFocus) scope.launch { scroll.animateScrollTo(0) } }
+                        .focusProperties {
+                            val firstLoaded = (episodes as? EpisodeList.Success)?.episodes?.firstOrNull() != null
+                            if (firstLoaded) down = firstEpisodeFocusRequester
+                        },
+            ) {
+                // Keys keep the Play button the same node when the season button appears once
+                // seasons load, so it keeps the initial focus
+                androidx.compose.runtime.key("season") {
+                    if (showSeasonButton && season != null) {
+                        Button(
+                            onClick = { showSeasonPicker = true },
+                            modifier = Modifier.width(HEADER_BUTTON_WIDTH).focusRequester(seasonButtonFocusRequester),
                         ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(22.dp))
-                            Text(
-                                text = stringResource(R.string.play_next_episode),
-                                style = MaterialTheme.typography.labelMedium,
-                                maxLines = 1,
-                                modifier = Modifier.padding(start = 4.dp),
-                            )
+                            androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                            Text(text = seasonLabel(season), style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                            androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
                         }
                     }
                 }
-            }
-            // the show's description, left-aligned across the full width (like the film page)
-            series.data.overview?.takeIf { it.isNotBlank() }?.let { overview ->
-                Text(
-                    text = overview,
-                    style = MaterialTheme.typography.bodySmall.copy(shadow = com.github.damontecres.wholphin.ui.theme.IvfTextShadow),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 5,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth().padding(start = 8.dp, top = 6.dp),
-                )
+                androidx.compose.runtime.key("playNext") {
+                    Button(
+                        onClick = onPlayNextEpisode,
+                        modifier = Modifier.width(HEADER_BUTTON_WIDTH).focusRequester(playNextFocusRequester),
+                    ) {
+                        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                        Icon(Icons.Default.PlayArrow, contentDescription = null)
+                        Text(
+                            text = stringResource(R.string.play_next_episode),
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                            modifier = Modifier.padding(start = 6.dp),
+                        )
+                        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                    }
+                }
             }
         }
         // the season's own description (when it has one), above its episodes
