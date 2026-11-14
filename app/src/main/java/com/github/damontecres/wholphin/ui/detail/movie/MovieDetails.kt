@@ -46,6 +46,7 @@ import com.github.damontecres.wholphin.preferences.UserPreferences
 import com.github.damontecres.wholphin.services.TrailerService
 import com.github.damontecres.wholphin.ui.Cards
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.github.damontecres.wholphin.ui.tryRequestFocus
 import com.github.damontecres.wholphin.ui.cards.ChapterRow
 import com.github.damontecres.wholphin.ui.cards.ExtrasRow
@@ -100,6 +101,11 @@ fun MovieDetails(
         onPauseOrDispose { }
     }
     val state by viewModel.state.collectAsState()
+    // IvanaFin: where you were on the page (row, cast card, scroll) - kept up here, outside the loading switch,
+    // so it survives the page being rebuilt on the way back (beta round 6: Back from a cast member landed on Play)
+    val ivfPosition = rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
+    val ivfPersonIndex = rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
+    val ivfListState = androidx.compose.foundation.lazy.rememberLazyListState()
 
     var overviewDialog by remember { mutableStateOf<ItemDetailsDialogInfo?>(null) }
     var showContextMenu by remember { mutableStateOf<ContextMenu?>(null) }
@@ -165,6 +171,9 @@ fun MovieDetails(
             }
             MovieDetailsContent(
                 preferences = preferences,
+                positionState = ivfPosition,
+                personIndexState = ivfPersonIndex,
+                listState = ivfListState,
                 movie = movie,
                 state = state,
                 onClickItem = { index, item ->
@@ -333,6 +342,9 @@ private const val DISCOVER_ROW = SIMILAR_ROW + 1
 @Composable
 fun MovieDetailsContent(
     preferences: UserPreferences,
+    positionState: androidx.compose.runtime.MutableIntState,
+    personIndexState: androidx.compose.runtime.MutableIntState,
+    listState: androidx.compose.foundation.lazy.LazyListState,
     movie: BaseItem,
     state: MovieState,
     playOnClick: (Duration) -> Unit,
@@ -355,7 +367,7 @@ fun MovieDetailsContent(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var position by rememberInt(0)
+    var position by positionState
     val focusRequesters = remember { List(DISCOVER_ROW + 1) { FocusRequester() } }
     val dto = movie.data
     val resumePosition = dto.userData?.playbackPositionTicks?.ticks ?: Duration.ZERO
@@ -363,7 +375,7 @@ fun MovieDetailsContent(
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
 
     // IvanaFin: the person opened from Cast & Crew (its card is focused directly on the way back)
-    var personIndex by rememberInt(0)
+    var personIndex by personIndexState
 
     // IvanaFin: back on the page, the row's cards are laid out a frame after this runs - a single request
     // failed and focus fell back to Play at the top (beta round 6: Back from a cast member, all clients)
@@ -377,7 +389,6 @@ fun MovieDetailsContent(
 
     // IvanaFin (2026-11-12, user design): the backdrop fills the whole screen, darkened towards the
     // bottom where the title and buttons sit (no extra darkening when scrolled to the rows - user choice)
-    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val imageUrlService = com.github.damontecres.wholphin.ui.LocalImageUrlService.current
     val backdropUrl =
         remember(movie) {
