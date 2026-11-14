@@ -265,7 +265,7 @@ private fun LibraryTile(
     // While the random backdrop is loading, show just the name on black (no flash of the old art)
     val showLibraryImage = !showBackdrop && backdropLoaded
     val displayName = ivanaFinLibraryDisplayName(library.name)
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(4.dp) // (sharp like the episode pictures - user 2026-11-14; was 16dp)
     Card(
         onClick = onClick,
         shape = CardDefaults.shape(shape),
@@ -325,7 +325,7 @@ private fun PictureTile(
 ) {
     val context = LocalContext.current
     var backdropError by remember(backdropUrl) { mutableStateOf(false) }
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(4.dp) // (sharp like the episode pictures - user 2026-11-14; was 16dp)
     Card(
         onClick = onClick,
         shape = CardDefaults.shape(shape),
