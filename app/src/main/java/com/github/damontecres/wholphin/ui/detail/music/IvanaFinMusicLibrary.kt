@@ -1545,7 +1545,15 @@ private fun MusicHomeView(
     val focusRestore = remember { FocusRequester() }
     LaunchedEffect(Unit) {
         delay(60)
-        if (restoreKey == null || !focusRestore.tryRequestFocus()) focusFirst.tryRequestFocus()
+        // (requestFocus(direction) says whether it worked - tryRequestFocus() "succeeds" on a card that isn't
+        // built yet, so Back from a mix landed on the first card - beta round 6, f11)
+        if (restoreKey != null) {
+            repeat(20) {
+                if (runCatching { focusRestore.requestFocus(androidx.compose.ui.focus.FocusDirection.Enter) }.getOrDefault(false)) return@LaunchedEffect
+                delay(50)
+            }
+        }
+        focusFirst.tryRequestFocus()
     }
     LaunchedEffect(listState) {
         snapshotFlow { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 100000f }.collect { onScrolled(it) }

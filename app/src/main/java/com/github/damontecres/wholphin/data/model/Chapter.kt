@@ -16,12 +16,15 @@ data class Chapter(
     val index: Int,
 ) {
     companion object {
+        private val CHINESE_CHAPTER = Regex("""^\s*第\s*(\d+)\s*章\s*$""")
+
         fun fromDto(dto: BaseItemDto): List<Chapter> =
             dto.chapters
                 ?.mapIndexed { index, chapter ->
                     Chapter(
                         itemId = dto.id,
-                        name = chapter.name,
+                        // IvanaFin: some files name chapters "第 01 章" (Chinese "Chapter 01") - Twin Peaks FWWM, beta round 6
+                        name = chapter.name?.let { n -> CHINESE_CHAPTER.matchEntire(n)?.let { "Chapter ${it.groupValues[1]}" } ?: n },
                         position = chapter.startPositionTicks.ticks,
                         tag = chapter.imageTag,
                         index = index,

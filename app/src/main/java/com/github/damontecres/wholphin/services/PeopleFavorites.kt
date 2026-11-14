@@ -42,6 +42,17 @@ class PeopleFavorites
                                 )
                             }
                         }.orEmpty()
+                // IvanaFin: one card per person - someone with several roles (Lauren Tom x3 in Batman Beyond,
+                // Coodie Simmons narrator + producer) had a card for each; their roles are joined (beta round 6)
                 people
+                    .groupBy { it.id }
+                    .values
+                    .map { same ->
+                        if (same.size == 1) {
+                            same[0]
+                        } else {
+                            same[0].copy(role = same.mapNotNull { p -> p.role?.takeIf { r -> r.isNotBlank() } }.distinct().joinToString(" / ").ifBlank { null })
+                        }
+                    }
             }
     }

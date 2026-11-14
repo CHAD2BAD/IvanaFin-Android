@@ -815,11 +815,12 @@ internal fun MixCard(
                 Box(
                     Modifier
                         .fillMaxSize()
-                        .background(Brush.verticalGradient(0f to Color.Black.copy(alpha = .55f), .45f to Color.Transparent)),
+                        .background(Brush.verticalGradient(0f to Color.Black.copy(alpha = .78f), .35f to Color.Black.copy(alpha = .45f), .6f to Color.Transparent)),
+                // (darker: the name was hard to read on bright collages - Mixtapes & More, beta round 6)
                 )
                 Text(
                     name,
-                    style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = .6f), blurRadius = 3f)),
+                    style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = .9f), blurRadius = 6f)),
                     fontSize = 12.sp,
                     lineHeight = 14.sp,
                     fontWeight = FontWeight.Bold,
