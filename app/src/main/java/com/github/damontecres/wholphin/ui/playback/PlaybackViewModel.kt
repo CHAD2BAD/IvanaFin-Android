@@ -105,6 +105,9 @@ import org.jellyfin.sdk.api.client.extensions.mediaSegmentsApi
 import org.jellyfin.sdk.api.client.extensions.sessionApi
 import org.jellyfin.sdk.api.client.extensions.trickplayApi
 import org.jellyfin.sdk.api.client.extensions.userLibraryApi
+import org.jellyfin.sdk.api.client.extensions.itemsApi
+import org.jellyfin.sdk.api.client.extensions.userViewsApi
+import org.jellyfin.sdk.api.client.extensions.libraryApi
 import org.jellyfin.sdk.api.client.extensions.videosApi
 import org.jellyfin.sdk.api.sockets.subscribe
 import org.jellyfin.sdk.model.DeviceInfo
@@ -213,6 +216,58 @@ class PlaybackViewModel
                     init()
                 }
         }
+
+        /**
+         * IvanaFin period trailers (user 2026-11-14): for a film in "Movies (Special)", two random trailers from the
+         * hidden "Trailers" library (E:\Trailers, built by ivanafin-trailers\build-trailers.ps1) of films released from
+         * 1 month before to 6 months after it - what a cinema audience would have seen. Never the film's own trailer.
+         * A trailer's date / TMDB id come from its metadata, or else its file name "YYYY-MM-DD - Title [tmdbNNN]".
+         */
+        private suspend fun ivfPeriodTrailers(film: org.jellyfin.sdk.model.api.BaseItemDto): List<org.jellyfin.sdk.model.api.BaseItemDto> =
+            try {
+                val premiere = film.premiereDate
+                if (film.type != org.jellyfin.sdk.model.api.BaseItemKind.MOVIE || premiere == null) {
+                    emptyList()
+                } else {
+                    val userId = serverRepository.currentUser?.id
+                    val inSpecial =
+                        api.libraryApi
+                            .getAncestors(itemId = film.id, userId = userId)
+                            .content
+                            .any { it.name == "Movies (Special)" }
+                    val trailersLib =
+                        api.userViewsApi
+                            .getUserViews(userId = userId)
+                            .content.items
+                            .firstOrNull { it.name == "Trailers" }
+                    if (!inSpecial || trailersLib == null) {
+                        emptyList()
+                    } else {
+                        val from = premiere.minusMonths(1)
+                        val to = premiere.plusMonths(6)
+                        val own = film.providerIds?.get("Tmdb")
+                        val nameRe = Regex("""^(\d{4}-\d{2}-\d{2}) - .*\[tmdb(\d+)]""")
+                        api.itemsApi
+                            .getItems(
+                                userId = userId,
+                                parentId = trailersLib.id,
+                                recursive = true,
+                                includeItemTypes = listOf(org.jellyfin.sdk.model.api.BaseItemKind.VIDEO, org.jellyfin.sdk.model.api.BaseItemKind.MOVIE),
+                                fields = listOf(org.jellyfin.sdk.model.api.ItemFields.PROVIDER_IDS, org.jellyfin.sdk.model.api.ItemFields.PATH),
+                            ).content.items
+                            .filter { t ->
+                                val m = nameRe.find(t.name.orEmpty()) ?: nameRe.find(t.path.orEmpty().substringAfterLast('\\').substringAfterLast('/'))
+                                val date = m?.groupValues?.get(1)?.let { java.time.LocalDate.parse(it).atStartOfDay() } ?: t.premiereDate // (file name first: the file's own date is the upload date)
+                                val tmdb = m?.groupValues?.get(2) ?: t.providerIds?.get("Tmdb")
+                                date != null && !date.isBefore(from) && !date.isAfter(to) && (own == null || tmdb != own)
+                            }.shuffled()
+                            .take(2)
+                    }
+                }
+            } catch (ex: Exception) {
+                Timber.w(ex, "Period trailers failed")
+                emptyList()
+            }
 
         private fun disconnectPlayer() {
             if (this@PlaybackViewModel::player.isInitialized) {
@@ -395,7 +450,10 @@ class PlaybackViewModel
                         }
                 } else {
                     emptyList()
-                }
+                } +
+                    // IvanaFin (user 2026-11-14): Movies (Special) films started from the beginning get two trailers of
+                    // films that were in cinemas around the same time first (works without cinema mode)
+                    if (positionMs == 0L) ivfPeriodTrailers(queriedItem).map { PlaylistItem.Intro(BaseItem(it)) } else emptyList()
             val firstItem =
                 if (intros.isNotEmpty()) {
                     Timber.v("Got %s intros", intros.size)
