@@ -774,13 +774,19 @@ internal fun MixCard(
     var focused by remember { mutableStateOf(false) }
     val lift = muLift(focused)
     val shape = RoundedCornerShape(4.dp)
+    // the mix starts playing: Back from Now Playing comes back to this card (it went to the mini player - round 6)
+    val (mark, onMark) = rememberClickMark()
     Surface(
-        onClick = onClick,
+        onClick = {
+            onMark()
+            onClick()
+        },
         shape = ClickableSurfaceDefaults.shape(shape),
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         modifier =
             modifier
+                .focusRequester(mark)
                 .width(106.dp)
                 .graphicsLayer {
                     scaleX = lift
