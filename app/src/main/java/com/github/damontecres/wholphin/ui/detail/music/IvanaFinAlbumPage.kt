@@ -259,7 +259,7 @@ fun IvanaFinAlbumPage(
                             artistName = who.takeIf { link },
                             onArtist = if (link) ({
                                 position = RowColumn(ROW_ARTIST, 0)
-                                onOpenArtist?.invoke(artist!!.id)
+                                onOpenArtist(artist.id)
                             }) else null,
                             artistModifier = Modifier.focusRequester(artistFocus),
                         )

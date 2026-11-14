@@ -100,16 +100,10 @@ class HomeViewModel
         private var nextTileBackdrops: Map<java.util.UUID, BaseItem?>? = null
         private var tileBackdropJob: Job? = null
 
-        /** IvanaFin: picture on the Discover home tile (a random Seerr trending backdrop). */
-        val discoverTileBackdrop = MutableStateFlow<String?>(null)
-        private var nextDiscoverTileBackdrop: String? = null
-        private var discoverBackdropPool: List<String> = emptyList()
-
         /** Home is on screen: make sure a next set is being prepared (first visit: show one now). */
         fun prepareTileBackdrops(
             libraries: List<BaseItem>,
             preload: suspend (BaseItem) -> Unit,
-            preloadUrl: suspend (String) -> Unit,
         ) {
             if (libraries.isEmpty() || tileBackdropJob?.isActive == true || nextTileBackdrops != null) return
             tileBackdropJob =
@@ -122,28 +116,11 @@ class HomeViewModel
                     if (tileBackdrops.value.isEmpty()) {
                         tileBackdrops.value = pick()
                     }
-                    if (discoverTileBackdrop.value == null) {
-                        discoverTileBackdrop.value = randomDiscoverBackdrop()
-                    }
                     val next = pick()
                     next.values.filterNotNull().forEach { preload(it) }
-                    nextDiscoverTileBackdrop = randomDiscoverBackdrop()?.also { preloadUrl(it) }
                     nextTileBackdrops = next
                 }
         }
-
-        /** IvanaFin: a random trending backdrop from Seerr (list fetched once), not the one shown now. */
-        private suspend fun randomDiscoverBackdrop(): String? =
-            try {
-                if (discoverBackdropPool.isEmpty() && seerrService.active.first()) {
-                    discoverBackdropPool = seerrService.trending().mapNotNull { it.backDropUrl }
-                }
-                discoverBackdropPool.filter { it != discoverTileBackdrop.value }.randomOrNull()
-                    ?: discoverBackdropPool.firstOrNull()
-            } catch (ex: Exception) {
-                Timber.w(ex, "Could not get a Discover tile backdrop")
-                null
-            }
 
         /** Home is being left: swap in the prepared set once the screen change has finished. */
         fun swapTileBackdropsAfterLeaving() {
@@ -159,8 +136,6 @@ class HomeViewModel
             nextTileBackdrops = null
             // keep the current picture for any library whose lookup failed
             tileBackdrops.update { current -> current + next.filterValues { it != null } }
-            nextDiscoverTileBackdrop?.let { discoverTileBackdrop.value = it }
-            nextDiscoverTileBackdrop = null
         }
 
         /**

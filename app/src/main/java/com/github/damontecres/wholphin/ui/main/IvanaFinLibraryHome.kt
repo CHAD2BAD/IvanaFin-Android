@@ -114,10 +114,8 @@ fun IvanaFinLibraryHome(
     lastOpenedIndex: Int = -1,
     // returns true only the first time it is called per visit to Home
     consumeSelectionRestore: () -> Boolean = { true },
-    // Extra tile after the libraries (null = Seerr not connected)
-    discover: DiscoverTile? = null,
 ) {
-    // Tiles after the libraries: Discover (when Seerr is connected), then Games
+    // Tile after the libraries: Games
     val context = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     // Games picture: the current one shows now, the next is preloaded and swapped in after leaving Home
@@ -134,7 +132,7 @@ fun IvanaFinLibraryHome(
         remember(context, gamesArt) {
             DiscoverTile(name = "Games", backdropUrl = gamesArt, onClick = { launchGames(context) })
         }
-    val extraTiles = listOfNotNull(discover, gamesTile)
+    val extraTiles = listOfNotNull(gamesTile)
     val shownLibraries = libraries.filter { it.name !in HOME_HIDDEN }
     val tileCount = shownLibraries.size + extraTiles.size
     val currentOnShown by rememberUpdatedState(onShown)
@@ -282,7 +280,7 @@ private fun LibraryTile(
             if (showBackdrop || !showLibraryImage) {
                 if (showBackdrop) {
                     AsyncImage(
-                        model = remember(backdropUrl) { tileBackdropRequest(context, backdropUrl!!) },
+                        model = remember(backdropUrl) { tileBackdropRequest(context, backdropUrl) },
                         contentDescription = library.name,
                         contentScale = ContentScale.Crop,
                         onError = { backdropError = true },

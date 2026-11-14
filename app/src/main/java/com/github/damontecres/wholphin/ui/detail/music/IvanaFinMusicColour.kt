@@ -164,10 +164,10 @@ private fun paletteOf(src: Bitmap): MuPal {
         bk.r += r
         bk.g += g
         bk.b += b
-        if (best == null || bk.n > best!!.n) best = bk
+        if (best == null || bk.n > best.n) best = bk
     }
     if (edgeDark >= edgeN * .6f || best == null) return MuPal(Color.Black, acc, ink, Color(0xFF222222).copy(alpha = .88f)) // (cards: dark grey, so they still show on a black page)
-    val bb = best!!
+    val bb = best
     var er = bb.r / bb.n / 255f
     var eg = bb.g / bb.n / 255f
     var eb = bb.b / bb.n / 255f

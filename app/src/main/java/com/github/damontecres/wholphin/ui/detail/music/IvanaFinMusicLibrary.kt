@@ -378,7 +378,6 @@ class IvanaFinMusicViewModel
         private val prefs = context.getSharedPreferences("ivanafin", Context.MODE_PRIVATE)
         private var libraryId: UUID? = null
         val userId: UUID? get() = serverRepository.currentUser?.id
-        val userName: String get() = serverRepository.currentUser?.name ?: ""
 
         val home = MutableStateFlow<MusicHomeData?>(null)
         val library = MutableStateFlow<List<BaseItem>>(emptyList())
@@ -578,7 +577,7 @@ class IvanaFinMusicViewModel
                         sortBy = listOf(ItemSortBy.SORT_NAME),
                         fields = listOf(ItemFields.CHILD_COUNT),
                     ),
-                ).toBaseItems(api, false).filter { it.data.mediaType == null || it.data.mediaType == org.jellyfin.sdk.model.api.MediaType.AUDIO || it.data.mediaType == org.jellyfin.sdk.model.api.MediaType.UNKNOWN }
+                ).toBaseItems(api, false).filter { it.data.mediaType == org.jellyfin.sdk.model.api.MediaType.AUDIO || it.data.mediaType == org.jellyfin.sdk.model.api.MediaType.UNKNOWN }
             } catch (ex: Exception) {
                 Timber.w(ex, "Loading playlists failed")
                 emptyList()
@@ -825,34 +824,6 @@ class IvanaFinMusicViewModel
             a: BaseItem,
             artist: Boolean = false,
         ) = if (artist) artistArt(a, 96) else imageUrl(a.id, maxWidth = 96)
-
-        /**
-         * Now Playing: the artist's picture from when the album came out. The backdrops are dated in
-         * ProviderIds.IvfEras = "fromYear:backdropIndex,..." (jellyfin-web-custom/backup/artist-eras.ps1);
-         * none: the first backdrop.
-         */
-        fun eraArt(
-            a: BaseItem,
-            year: Int,
-            maxWidth: Int = 1920,
-        ): String {
-            val tags = a.data.backdropImageTags.orEmpty()
-            val eras =
-                a.data.providerIds
-                    ?.get("IvfEras")
-                    ?.split(',')
-                    ?.mapNotNull { e ->
-                        val p = e.split(':')
-                        val y = p.getOrNull(0)?.trim()?.toIntOrNull()
-                        val i = p.getOrNull(1)?.trim()?.toIntOrNull()
-                        if (y != null && i != null && i < tags.size) y to i else null
-                    }?.sortedBy { it.first }
-                    .orEmpty()
-            if (eras.isEmpty() || year <= 0) return artistArt(a, maxWidth)
-            var pick = eras.first()
-            eras.forEach { if (it.first <= year) pick = it }
-            return api.imageApi.getItemImageUrl(itemId = a.id, imageType = ImageType.BACKDROP, imageIndex = pick.second, tag = tags[pick.second], maxWidth = maxWidth)
-        }
 
         fun userImageUrl() = userId?.let { api.imageApi.getUserImageUrl(it) }
 
@@ -1185,7 +1156,7 @@ fun IvanaFinMusicLibrary(
             onClick = {
                 playlistVm.addToPlaylist(it.id, id)
                 playlistFor = null
-                toast("Added to ${it.name ?: "playlist"}")
+                toast("Added to ${it.name}")
             },
             createEnabled = true,
             onCreatePlaylist = {
@@ -1361,6 +1332,9 @@ fun IvanaFinMusicLibrary(
                 // selected there, else its first item) - plain focus search found nothing below the bar
                 onDown = { pageFocus.tryRequestFocus() },
             )
+            // (its own recomposition scope: the play position changes twice a second, and only Now
+            // Playing reads it - the rest of the Music screen doesn't re-run with it)
+            MuScope {
             if (npOpen && nowItem != null) {
                 // opening: Now Playing fades in while its cover flies in from where it was (the album
                 // picture on the page when a song was started there, else the mini player's cover)
@@ -1402,10 +1376,15 @@ fun IvanaFinMusicLibrary(
             }
             }
             }
+            }
         }
     }
     }
 }
+
+/** A composable lambda is its own recomposition scope: state read inside re-runs only this part. */
+@Composable
+private fun MuScope(content: @Composable () -> Unit) = content()
 
 // ---- top bar ---------------------------------------------------------------------------------------
 
@@ -2780,90 +2759,6 @@ private fun NpScreensaver(
                 }
                 Text("${clock(posMs)} / ${if (durMs > 0) clock(durMs) else "-:--"}", fontSize = 10.sp, color = Color.White.copy(alpha = .8f), modifier = Modifier.padding(top = 4.dp))
             }
-        }
-    }
-}
-
-/**
- * Lyrics, full screen: synced lyrics follow the song (the line being sung bright, the rest dimmed);
- * plain lyrics scroll with Up/Down. OK = play/pause, Left/Right = skip 10 s, Back = close.
- */
-@Composable
-private fun NpLyrics(
-    viewModel: IvanaFinMusicViewModel,
-    item: AudioItem,
-    posMs: Long,
-    playing: Boolean,
-    onPlayPause: () -> Unit,
-    onSeek: (Long) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    LaunchedEffect(item.id) { viewModel.loadLyrics(item.id) }
-    val got by viewModel.nowLyrics.collectAsState()
-    val lyrics = got?.takeIf { it.first == item.id }
-    val lines = lyrics?.second?.lyrics.orEmpty()
-    val synced = lines.any { it.start != null }
-    val offsetTicks = lyrics?.second?.metadata?.offset ?: 0L
-    val posTicks = posMs * 10_000 + offsetTicks
-    val current = if (synced) lines.indexOfLast { (it.start ?: Long.MAX_VALUE) <= posTicks } else -1
-    val list = rememberLazyListState()
-    val focus = remember { FocusRequester() }
-    val scope = rememberCoroutineScope()
-    LaunchedEffect(Unit) {
-        delay(50)
-        focus.tryRequestFocus()
-    }
-    LaunchedEffect(current) { if (current >= 0) list.animateScrollToItem(max(0, current - 2)) }
-    Box(
-        modifier
-            .fillMaxSize()
-            .focusRequester(focus)
-            .onPreviewKeyEvent {
-                if (it.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                when (it.key) {
-                    Key.DirectionUp -> scope.launch { list.animateScrollBy(-160f) }
-                    Key.DirectionDown -> scope.launch { list.animateScrollBy(160f) }
-                    Key.DirectionLeft -> onSeek(-10_000)
-                    Key.DirectionRight -> onSeek(10_000)
-                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.MediaPlayPause -> onPlayPause()
-                    else -> return@onPreviewKeyEvent false
-                }
-                true
-            }.focusable(),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 60.dp, top = 40.dp)) {
-            MuImage(model = item.imageUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(40.dp).clip(RoundedCornerShape(4.dp)))
-            Column(Modifier.padding(start = 12.dp)) {
-                Text(item.title ?: "", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
-                Text(item.artistNames ?: "", fontSize = 11.sp, color = Color.White.copy(alpha = .75f), maxLines = 1)
-            }
-            if (!playing) Text("  " + Fa.PAUSE, fontFamily = FontAwesome, fontSize = 12.sp, color = Color.White.copy(alpha = .75f))
-        }
-        when {
-            lyrics == null -> Unit
-            lines.isEmpty() ->
-                Text("No lyrics for this song", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = .7f), modifier = Modifier.align(Alignment.CenterStart).padding(start = 60.dp))
-            else ->
-                LazyColumn(
-                    state = list,
-                    userScrollEnabled = false,
-                    contentPadding = PaddingValues(top = 110.dp, bottom = 200.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.fillMaxSize().padding(start = 60.dp, end = 160.dp),
-                ) {
-                    itemsIndexed(lines) { i, l ->
-                        val on = !synced || i == current
-                        val a by androidx.compose.animation.core.animateFloatAsState(if (on) 1f else if (i < current) .35f else .5f, tween(300), label = "ly")
-                        Text(
-                            l.text.ifBlank { "♪" },
-                            fontSize = 26.sp,
-                            lineHeight = 32.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            modifier = Modifier.graphicsLayer { alpha = a },
-                        )
-                    }
-                }
         }
     }
 }

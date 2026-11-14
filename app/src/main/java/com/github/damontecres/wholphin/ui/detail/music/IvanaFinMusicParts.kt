@@ -681,15 +681,6 @@ internal class MuBringIntoView(
     }
 }
 
-/** Never scrolls by itself (Now Playing scrolls on its own) */
-internal object MuNoAutoScroll : BringIntoViewSpec {
-    override fun calculateScrollDistance(
-        offset: Float,
-        size: Float,
-        containerSize: Float,
-    ): Float = 0f
-}
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun MuScroll(

@@ -295,15 +295,9 @@ fun HomePage(
             val tileBackdrops by viewModel.tileBackdrops.collectAsState()
             val imageUrlService = com.github.damontecres.wholphin.ui.LocalImageUrlService.current
             val context = androidx.compose.ui.platform.LocalContext.current
-            // IvanaFin: Seerr discover/requests as the 6th home tile, shown once Seerr is connected
-            val seerrActive by viewModel.seerrActive.collectAsState(false)
-            val discoverBackdrop by viewModel.discoverTileBackdrop.collectAsState()
-            val discoverName = stringResource(R.string.discover)
             if (useLibraryGridHome() && !libraries.isNullOrEmpty()) {
                 IvanaFinLibraryHome(
                     libraries = libraries,
-                    discover = null, // IvanaFin: Discover is a top button now
-
                     lastOpenedIndex = viewModel.homeLastOpenedIndex.intValue,
                     onExtraOpened = { viewModel.homeLastOpenedIndex.intValue = it }, // come back to Discover / Games
                     consumeSelectionRestore = viewModel::consumeHomeSelectionRestore,
@@ -332,7 +326,6 @@ fun HomePage(
                         viewModel.prepareTileBackdrops(
                             libraries,
                             preload = { item -> tileBackdropUrl(imageUrlService, item)?.let { preloadUrl(it) } },
-                            preloadUrl = preloadUrl,
                         )
                     },
                     modifier = modifier,

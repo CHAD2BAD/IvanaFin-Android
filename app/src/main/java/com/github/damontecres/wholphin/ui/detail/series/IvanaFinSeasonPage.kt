@@ -204,7 +204,7 @@ fun IvanaFinSeasonPage(
                 // Keys keep the Play button the same node when the season button appears once
                 // seasons load, so it keeps the initial focus
                 androidx.compose.runtime.key("season") {
-                    if (showSeasonButton && season != null) {
+                    if (showSeasonButton) {
                         Button(
                             onClick = { showSeasonPicker = true },
                             modifier = Modifier.width(HEADER_BUTTON_WIDTH).focusRequester(seasonButtonFocusRequester),
@@ -460,23 +460,6 @@ private fun EpisodeGridItem(
         // the details line sits at the bottom, so it lines up across the row (round-4 beta)
         androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
         Box(Modifier.padding(top = 4.dp)) { WebEpisodeDetailsLine(episode) }
-    }
-}
-
-/** The film page's small see-through button (white 14%, the selected one light), for the show page's first screen */
-@Composable
-private fun GlassButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
-) {
-    com.github.damontecres.wholphin.ui.components.Button(
-        onClick = onClick,
-        colors = com.github.damontecres.wholphin.ui.components.ivfButtonColors(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 0.dp),
-        modifier = modifier.height(32.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, content = content)
     }
 }
 
