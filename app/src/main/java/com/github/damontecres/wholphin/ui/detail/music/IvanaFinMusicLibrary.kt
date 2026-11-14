@@ -856,6 +856,9 @@ class IvanaFinMusicViewModel
 
         fun userImageUrl() = userId?.let { api.imageApi.getUserImageUrl(it) }
 
+        /** Browse-all grids: the card last opened (key -> item id), so Back selects it again */
+        val browseOpened = mutableMapOf<String, String>()
+
         /** Leaving Music: the music stops (it only plays while you're in Music). */
         fun stopMusic() {
             appScope.launch { musicService.stop() }
@@ -3169,10 +3172,17 @@ private fun MusicBrowseView(
     val gridState = rememberLazyGridState()
     val first = remember { FocusRequester() }
     // the card last opened gets focus back on Back (it always went to the first card - beta round 6, f8 / f12)
-    var openedId by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
+    // (kept in the view model: this view's own remembered state does not survive the album page opening)
+    val openedId = viewModel.browseOpened[key]
+    val list0 = b.artists ?: b.items.sortedByDescending { it.data.productionYear ?: 0 }
     LaunchedEffect(Unit) {
+        val at = openedId?.let { id -> list0.indexOfFirst { it.id.toString() == id } } ?: -1
+        if (at >= 0) runCatching { gridState.scrollToItem(at + 1) } // (+1: the heading item)
         delay(80)
-        first.tryRequestFocus()
+        repeat(20) {
+            if (runCatching { first.requestFocus(androidx.compose.ui.focus.FocusDirection.Enter) }.getOrDefault(false)) return@LaunchedEffect
+            delay(50)
+        }
     }
     LaunchedEffect(gridState) {
         snapshotFlow { if (gridState.firstVisibleItemIndex == 0) gridState.firstVisibleItemScrollOffset.toFloat() else 100000f }.collect { onScrolled(it) }
@@ -3199,7 +3209,7 @@ private fun MusicBrowseView(
         itemsIndexed(list, key = { _, a -> a.id }) { i, a ->
             val mod = if (if (openedId == null) i == 0 else openedId == a.id.toString()) Modifier.focusRequester(first) else Modifier
             if (b.artists != null) {
-                CoverCard(name = a.name ?: "", imageUrl = viewModel.imageUrl(a.id), round = true, sub = "Artist", width = null, panel = true, onClick = { openedId = a.id.toString(); onOpen("artist:${a.id}") }, modifier = mod)
+                CoverCard(name = a.name ?: "", imageUrl = viewModel.imageUrl(a.id), round = true, sub = "Artist", width = null, panel = true, onClick = { viewModel.browseOpened[key] = a.id.toString(); onOpen("artist:${a.id}") }, modifier = mod)
             } else {
                 CoverCard(
                     name = a.name ?: "",
@@ -3208,7 +3218,7 @@ private fun MusicBrowseView(
                     playing = a.id == nowAlbumId,
                     width = null,
                     panel = true,
-                    onClick = { openedId = a.id.toString(); onOpen("album:${a.id}") },
+                    onClick = { viewModel.browseOpened[key] = a.id.toString(); onOpen("album:${a.id}") },
                     modifier = mod,
                 )
             }
