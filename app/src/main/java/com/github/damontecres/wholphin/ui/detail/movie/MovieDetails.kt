@@ -379,8 +379,12 @@ fun MovieDetailsContent(
 
     // IvanaFin: back on the page, the row's cards are laid out a frame after this runs - a single request
     // failed and focus fell back to Play at the top (beta round 6: Back from a cast member, all clients)
+    // (read once, as the page is built: Play gets focus by default a moment later and its focus handler
+    // resets the row to the header before this ran - so Back always landed on Play)
+    val restoreRow = remember { position }
     LaunchedEffect(Unit) {
-        val target = focusRequesters.getOrNull(position) ?: return@LaunchedEffect
+        val target = focusRequesters.getOrNull(restoreRow) ?: return@LaunchedEffect
+        position = restoreRow
         repeat(20) {
             // (requestFocus(direction) returns false while the card isn't laid out - tryRequestFocus() only
             // logs a warning then, so it can't tell)
