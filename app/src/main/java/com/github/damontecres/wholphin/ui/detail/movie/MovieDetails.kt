@@ -338,6 +338,7 @@ private const val CHAPTER_ROW = TRAILER_ROW + 1
 private const val EXTRAS_ROW = CHAPTER_ROW + 1
 private const val SIMILAR_ROW = EXTRAS_ROW + 1
 private const val DISCOVER_ROW = SIMILAR_ROW + 1
+private const val PLANET_ROW = DISCOVER_ROW + 1 // IvanaFin: Star Wars films (SwPlanets.kt)
 
 @Composable
 fun MovieDetailsContent(
@@ -368,7 +369,11 @@ fun MovieDetailsContent(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var position by positionState
-    val focusRequesters = remember { List(DISCOVER_ROW + 1) { FocusRequester() } }
+    val focusRequesters = remember { List(PLANET_ROW + 1) { FocusRequester() } }
+    // IvanaFin: Star Wars planets (above Cast & Crew); the card open, and the planet to select after it
+    val planets = remember(movie.id) { SwPlanets.forFilm(context, movie.id) }
+    var planetOpen by remember { mutableStateOf<Int?>(null) }
+    var planetIndex by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
     val dto = movie.data
     val resumePosition = dto.userData?.playbackPositionTicks?.ticks ?: Duration.ZERO
 
@@ -387,7 +392,9 @@ fun MovieDetailsContent(
         position = restoreRow
         // the list comes back at the top, where the cast row isn't built yet (so its card can't take focus):
         // bring the cast row on screen first
-        if (restoreRow == PEOPLE_ROW && state.people.isNotEmpty()) runCatching { listState.scrollToItem(1) }
+        // (the Planets row, on Star Wars films, comes before it)
+        if (restoreRow == PEOPLE_ROW && state.people.isNotEmpty()) runCatching { listState.scrollToItem(if (planets.isNotEmpty()) 2 else 1) }
+        if (restoreRow == PLANET_ROW && planets.isNotEmpty()) runCatching { listState.scrollToItem(1) }
         repeat(20) { n ->
             // (requestFocus(direction) returns false while the card isn't laid out - tryRequestFocus() only
             // logs a warning then, so it can't tell)
@@ -441,6 +448,19 @@ fun MovieDetailsContent(
                     .bleedToScreenEdges()
                     .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = dim)),
             )
+        }
+        planetOpen?.let { start ->
+            PlanetDialog(planets = planets, startIndex = start, onDismiss = { last ->
+                planetOpen = null
+                // back on the row at the planet last shown (its card holds the row's focus requester)
+                planetIndex = last
+                scope.launch(ExceptionHandler()) {
+                    repeat(10) {
+                        if (runCatching { focusRequesters[PLANET_ROW].requestFocus() }.getOrDefault(false)) return@launch
+                        kotlinx.coroutines.delay(50)
+                    }
+                }
+            })
         }
         LazyColumn(
             state = listState,
@@ -512,6 +532,21 @@ fun MovieDetailsContent(
                         moreIsMediaInfo = true,
                     )
                         },
+                    )
+                }
+            }
+            if (planets.isNotEmpty()) {
+                item {
+                    PlanetRow(
+                        planets = planets,
+                        onClick = {
+                            position = PLANET_ROW
+                            planetIndex = it
+                            planetOpen = it
+                        },
+                        startIndex = planetIndex,
+                        startCardFocusRequester = focusRequesters[PLANET_ROW],
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             }
