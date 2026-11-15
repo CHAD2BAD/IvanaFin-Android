@@ -20,6 +20,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -248,6 +250,9 @@ fun MovieDetails(
                 onConfirmDelete = { state.movie?.let { viewModel.deleteItem(it) } },
                 onChooseVersion = { contextActions.onChooseVersion.invoke(movie, it) },
                 modifier = modifier,
+                // IvanaFin: Star Wars - before/after on the timeline, and opening films/shows from the cards
+                swStory = androidx.compose.runtime.produceState<SwNeighbours?>(null, movie.id) { value = viewModel.swStory() }.value,
+                onOpenItem = { id, series -> viewModel.navigateTo(com.github.damontecres.wholphin.ui.nav.Destination.MediaItem(id, if (series) org.jellyfin.sdk.model.api.BaseItemKind.SERIES else org.jellyfin.sdk.model.api.BaseItemKind.MOVIE)) },
                 // IvanaFin: Audio / Subtitles buttons on the movie page
                 onChooseTracks =
                     if (compactDetailHeader()) {
@@ -339,6 +344,9 @@ private const val EXTRAS_ROW = CHAPTER_ROW + 1
 private const val SIMILAR_ROW = EXTRAS_ROW + 1
 private const val DISCOVER_ROW = SIMILAR_ROW + 1
 private const val PLANET_ROW = DISCOVER_ROW + 1 // IvanaFin: Star Wars films (SwPlanets.kt)
+private const val CHAR_ROW = PLANET_ROW + 1
+private const val SHIP_ROW = CHAR_ROW + 1
+private const val STORY_ROW = SHIP_ROW + 1
 
 @Composable
 fun MovieDetailsContent(
@@ -365,15 +373,21 @@ fun MovieDetailsContent(
     onChooseVersion: (MediaSourceInfo) -> Unit,
     modifier: Modifier = Modifier,
     onChooseTracks: ((MediaStreamType) -> Unit)? = null,
+    swStory: SwNeighbours? = null,
+    onOpenItem: (java.util.UUID, Boolean) -> Unit = { _, _ -> },
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var position by positionState
-    val focusRequesters = remember { List(PLANET_ROW + 1) { FocusRequester() } }
-    // IvanaFin: Star Wars planets (above Cast & Crew); the card open, and the planet to select after it
-    val planets = remember(movie.id) { SwPlanets.forFilm(context, movie.id) }
-    var planetOpen by remember { mutableStateOf<Int?>(null) }
-    var planetIndex by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
+    val focusRequesters = remember { List(STORY_ROW + 1) { FocusRequester() } }
+    // IvanaFin: Star Wars extras (rows above Cast & Crew); the card open (kind, index), and the card to
+    // select in each row after it
+    val sw = remember(movie.id) { SwPlanets.film(context, movie.id) }
+    val planets = sw?.planets.orEmpty()
+    val swRows = remember(sw) { listOfNotNull(sw?.planets?.takeIf { it.isNotEmpty() }?.let { Triple("Featured Planets", it, PLANET_ROW) }, sw?.chars?.takeIf { it.isNotEmpty() }?.let { Triple("Characters", it, CHAR_ROW) }, sw?.ships?.takeIf { it.isNotEmpty() }?.let { Triple("Starships & Vehicles", it, SHIP_ROW) }) }
+    var swOpen by remember { mutableStateOf<Pair<Int, Int>?>(null) } // (row constant, index)
+    val swIndex = rememberSaveable(saver = androidx.compose.runtime.saveable.listSaver(save = { it.toList() }, restore = { it.toMutableStateList() })) { androidx.compose.runtime.mutableStateListOf(0, 0, 0) }
+    var crawlOpen by remember { mutableStateOf(false) }
     val dto = movie.data
     val resumePosition = dto.userData?.playbackPositionTicks?.ticks ?: Duration.ZERO
 
@@ -393,8 +407,8 @@ fun MovieDetailsContent(
         // the list comes back at the top, where the cast row isn't built yet (so its card can't take focus):
         // bring the cast row on screen first
         // (the Planets row, on Star Wars films, comes before it)
-        if (restoreRow == PEOPLE_ROW && state.people.isNotEmpty()) runCatching { listState.scrollToItem(if (planets.isNotEmpty()) 2 else 1) }
-        if (restoreRow == PLANET_ROW && planets.isNotEmpty()) runCatching { listState.scrollToItem(1) }
+        if (restoreRow == PEOPLE_ROW && state.people.isNotEmpty()) runCatching { listState.scrollToItem(1 + swRows.size) }
+        swRows.forEachIndexed { i, r -> if (restoreRow == r.third) runCatching { listState.scrollToItem(1 + i) } }
         repeat(20) { n ->
             // (requestFocus(direction) returns false while the card isn't laid out - tryRequestFocus() only
             // logs a warning then, so it can't tell)
@@ -449,21 +463,24 @@ fun MovieDetailsContent(
                     .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = dim)),
             )
         }
-        planetOpen?.let { start ->
-            PlanetDialog(planets = planets, startIndex = start, onDismiss = { last ->
-                planetOpen = null
-                // back on the row at the planet last shown (its card holds the row's focus requester)
-                planetIndex = last
-                scope.launch(ExceptionHandler()) {
-                    // (after the row has moved its requester to that card - straight away it still sat on the old one)
-                    kotlinx.coroutines.delay(120)
-                    repeat(10) {
-                        if (runCatching { focusRequesters[PLANET_ROW].requestFocus() }.getOrDefault(false)) return@launch
-                        kotlinx.coroutines.delay(50)
+        swOpen?.let { (row, start) ->
+            val r = swRows.firstOrNull { it.third == row }
+            if (r != null) {
+                SwCardDialog(entries = r.second, startIndex = start, currentId = movie.id, onDismiss = { last ->
+                    swOpen = null
+                    // back on the row at the card last shown (it holds the row's focus requester)
+                    swIndex[row - PLANET_ROW] = last
+                    scope.launch(ExceptionHandler()) {
+                        kotlinx.coroutines.delay(120)
+                        repeat(10) {
+                            if (runCatching { focusRequesters[row].requestFocus() }.getOrDefault(false)) return@launch
+                            kotlinx.coroutines.delay(50)
+                        }
                     }
-                }
-            })
+                }, onOpen = { l -> swOpen = null; l.id?.let { onOpenItem(it, l.series) } })
+            }
         }
+        if (crawlOpen) sw?.crawl?.let { SwCrawlDialog(it, onDismiss = { crawlOpen = false }) }
         LazyColumn(
             state = listState,
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -493,6 +510,14 @@ fun MovieDetailsContent(
                                 .padding(start = 40.dp, end = 56.dp, bottom = 28.dp),
                         // IvanaFin: buttons sit under the info line, like Jellyfin web
                         buttons = {
+                    // IvanaFin: Star Wars - the era under the info line, Opening Crawl after the buttons
+                    Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                    val swYear = movie.data.providerIds?.get("SwYear")
+                    val swKey = movie.data.providerIds?.get("SwTimeline")?.toDoubleOrNull()
+                    if (sw != null && !swYear.isNullOrBlank() && swKey != null) {
+                        androidx.tv.material3.Text(swYear + " · " + swEra(swKey), color = androidx.compose.ui.graphics.Color(0xFFF5C518), fontSize = 12.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium, modifier = Modifier.padding(bottom = 4.dp))
+                    }
+                    androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     ExpandablePlayButtons(
                         title = movie.title ?: "",
                         resumePosition = resumePosition,
@@ -533,21 +558,31 @@ fun MovieDetailsContent(
                         onChooseSubtitles = onChooseTracks?.let { { it(MediaStreamType.SUBTITLE) } },
                         moreIsMediaInfo = true,
                     )
+                    if (sw?.crawl != null) {
+                        com.github.damontecres.wholphin.ui.components.ExpandableFaButton(
+                            title = R.string.ivf_opening_crawl,
+                            iconStringRes = R.string.fa_list_ul,
+                            onClick = { crawlOpen = true },
+                        )
+                    }
+                    }
+                    }
                         },
                     )
                 }
             }
-            if (planets.isNotEmpty()) {
+            swRows.forEach { (title, entries, row) ->
                 item {
-                    PlanetRow(
-                        planets = planets,
+                    SwRow(
+                        title = title,
+                        entries = entries,
                         onClick = {
-                            position = PLANET_ROW
-                            planetIndex = it
-                            planetOpen = it
+                            position = row
+                            swIndex[row - PLANET_ROW] = it
+                            swOpen = row to it
                         },
-                        startIndex = planetIndex,
-                        startCardFocusRequester = focusRequesters[PLANET_ROW],
+                        startIndex = swIndex[row - PLANET_ROW],
+                        startCardFocusRequester = focusRequesters[row],
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -605,6 +640,11 @@ fun MovieDetailsContent(
                                 .fillMaxWidth()
                                 .focusRequester(focusRequesters[CHAPTER_ROW]),
                     )
+                }
+            }
+            if (swStory != null && (swStory.before != null || swStory.after != null)) {
+                item {
+                    SwStoryRow(swStory, onOpen = { id, series -> position = STORY_ROW; onOpenItem(id, series) }, modifier = Modifier.fillMaxWidth().focusRequester(focusRequesters[STORY_ROW]))
                 }
             }
             state.similar.letNotEmpty { similar ->

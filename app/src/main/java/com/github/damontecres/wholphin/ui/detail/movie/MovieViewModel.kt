@@ -270,6 +270,9 @@ class MovieViewModel
             themeSongPlayer.stop()
         }
 
+        /** IvanaFin: before / after this film on the Star Wars timeline (null for other films) */
+        suspend fun swStory(): SwNeighbours? = if (SwPlanets.film(context, itemId) == null) null else swNeighbours(api, itemId)
+
         fun navigateTo(destination: Destination) {
             release()
             navigationManager.navigateTo(destination)

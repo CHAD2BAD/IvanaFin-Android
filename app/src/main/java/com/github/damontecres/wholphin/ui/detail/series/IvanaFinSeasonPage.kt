@@ -100,7 +100,15 @@ fun IvanaFinSeasonPage(
     onPlayNextEpisode: () -> Unit,
     onClickPerson: (Person) -> Unit,
     modifier: Modifier = Modifier,
+    onOpenItem: (java.util.UUID, Boolean) -> Unit = { _, _ -> },
 ) {
+    // IvanaFin: Star Wars shows - Featured Planets above Cast & Crew (SwPlanets.kt)
+    val swContext = LocalContext.current
+    val swPlanets = remember(series.id) { com.github.damontecres.wholphin.ui.detail.movie.SwPlanets.showPlanets(swContext, series.id) }
+    var swOpen by remember { mutableStateOf<Int?>(null) }
+    var swIndex by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    val swRowFocus = remember { FocusRequester() }
+    val swScope = androidx.compose.runtime.rememberCoroutineScope()
     val season = seasons.getOrNull(selectedSeasonIndex)
     // IvanaFin: a show with only one season has no Season button (nothing to choose)
     val showSeasonButton = season != null && seasons.size > 1
@@ -302,6 +310,16 @@ fun IvanaFinSeasonPage(
             }
         }
 
+        if (swPlanets.isNotEmpty()) {
+            com.github.damontecres.wholphin.ui.detail.movie.SwRow(
+                title = "Featured Planets",
+                entries = swPlanets,
+                onClick = { swIndex = it; swOpen = it },
+                startIndex = swIndex,
+                startCardFocusRequester = swRowFocus,
+                modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+            )
+        }
         // Web: Cast & Crew
         if (people.isNotEmpty()) {
             PersonRow(
@@ -316,6 +334,26 @@ fun IvanaFinSeasonPage(
             )
         }
     }
+    }
+
+    swOpen?.let { start ->
+        com.github.damontecres.wholphin.ui.detail.movie.SwCardDialog(
+            entries = swPlanets,
+            startIndex = start,
+            currentId = series.id,
+            onDismiss = { last ->
+                swOpen = null
+                swIndex = last
+                swScope.launch {
+                    kotlinx.coroutines.delay(120)
+                    repeat(10) {
+                        if (runCatching { swRowFocus.requestFocus() }.getOrDefault(false)) return@launch
+                        kotlinx.coroutines.delay(50)
+                    }
+                }
+            },
+            onOpen = { l -> swOpen = null; l.id?.let { onOpenItem(it, l.series) } },
+        )
     }
 
     if (showSeasonPicker) {

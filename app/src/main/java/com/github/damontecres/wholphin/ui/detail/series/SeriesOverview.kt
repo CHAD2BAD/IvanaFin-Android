@@ -252,6 +252,7 @@ fun SeriesOverview(
                 castFocusRequester = castCrewRowFocusRequester,
                 castStartIndex = castIndex,
                 castCardFocusRequester = castCardFocusRequester,
+                onOpenItem = { id, isSeries -> viewModel.navigateTo(Destination.MediaItem(id, if (isSeries) org.jellyfin.sdk.model.api.BaseItemKind.SERIES else org.jellyfin.sdk.model.api.BaseItemKind.MOVIE)) },
                 onChangeSeason = { index ->
                     if (index != position.seasonTabIndex) {
                         state.seasons.getOrNull(index)?.let { season ->
