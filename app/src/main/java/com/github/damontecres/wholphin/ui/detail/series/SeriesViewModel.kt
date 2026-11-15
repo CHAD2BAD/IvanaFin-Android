@@ -68,8 +68,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.libraryApi
-import org.jellyfin.sdk.api.client.extensions.tvShowsApi
-import org.jellyfin.sdk.api.client.extensions.userLibraryApi
+import org.jellyfin.sdk.api.client.extensions.showApi
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ItemFields
 import org.jellyfin.sdk.model.api.ItemSortBy
@@ -125,7 +124,7 @@ class SeriesViewModel
                 addCloseable { themeSongPlayer.stop() }
                 val series =
                     try {
-                        api.userLibraryApi
+                        api.libraryApi
                             .getItem(seriesId)
                             .content
                             .let { BaseItem(it) }
@@ -252,7 +251,7 @@ class SeriesViewModel
                     // IvanaFin: Jellyfin web shows a "Next Up" section on series pages
                     viewModelScope.launchIO {
                         val nextUp =
-                            api.tvShowsApi
+                            api.showApi
                                 .getNextUp(seriesId = seriesId, fields = ItemRowFields, limit = 1)
                                 .content.items
                                 .firstOrNull()
@@ -321,7 +320,7 @@ class SeriesViewModel
         private suspend fun resolveStartSeason(): SeasonEpisodeIds? =
             try {
                 val nextUp =
-                    api.tvShowsApi
+                    api.showApi
                         .getNextUp(seriesId = seriesId, limit = 1)
                         .content.items
                         .firstOrNull()
@@ -329,7 +328,7 @@ class SeriesViewModel
                 if (nextUp != null && nextSeasonId != null) {
                     SeasonEpisodeIds(nextSeasonId, nextUp.parentIndexNumber, nextUp.id, nextUp.indexNumber)
                 } else {
-                    val seasons = api.tvShowsApi.getSeasons(seriesId).content.items
+                    val seasons = api.showApi.getSeasons(seriesId).content.items
                     val first = seasons.firstOrNull { (it.indexNumber ?: 0) >= 1 } ?: seasons.firstOrNull()
                     first?.let { SeasonEpisodeIds(it.id, it.indexNumber, null, null) }
                 }
@@ -493,7 +492,7 @@ class SeriesViewModel
             viewModelScope.launchIO {
                 try {
                     val series =
-                        api.userLibraryApi
+                        api.libraryApi
                             .getItem(seriesId)
                             .content
                             .let(::BaseItem)
@@ -565,9 +564,9 @@ class SeriesViewModel
          */
         fun playNextUp() {
             viewModelScope.launch(ExceptionHandler() + WholphinDispatchers.IO) {
-                val result by api.tvShowsApi.getNextUp(seriesId = seriesId)
+                val result by api.showApi.getNextUp(seriesId = seriesId)
                 val nextUp =
-                    result.items.firstOrNull() ?: api.tvShowsApi
+                    result.items.firstOrNull() ?: api.showApi
                         .getEpisodes(
                             seriesId,
                             limit = 1,
@@ -662,7 +661,7 @@ class SeriesViewModel
                         .get(item.id) {
                             viewModelScope.async(WholphinDispatchers.IO) {
                                 val list =
-                                    api.userLibraryApi
+                                    api.libraryApi
                                         .getItem(item.id)
                                         .content.people
                                         ?.map { Person.fromDto(context, it, api) }

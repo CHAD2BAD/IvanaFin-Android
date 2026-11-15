@@ -49,7 +49,7 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import org.jellyfin.sdk.api.client.exception.InvalidStatusException
 import org.jellyfin.sdk.model.api.BaseItemKind
-import org.jellyfin.sdk.api.client.extensions.itemsApi
+import org.jellyfin.sdk.api.client.extensions.libraryApi
 import timber.log.Timber
 import java.util.UUID
 import javax.inject.Inject
@@ -153,7 +153,7 @@ class HomeViewModel
         /** IvanaFin: picture libraries (Ivana) - a random photo (tileBackdropUrl shows the photo itself). */
         private suspend fun randomPhoto(libraryId: java.util.UUID): BaseItem? =
             try {
-                api.itemsApi
+                api.libraryApi
                     .getItems(
                         org.jellyfin.sdk.model.api.request.GetItemsRequest(
                             userId = serverRepository.currentUser?.id,
@@ -175,7 +175,7 @@ class HomeViewModel
         /** IvanaFin: Music tile - a random album with a cover (tileBackdropUrl shows its cover). */
         private suspend fun randomAlbumCover(libraryId: java.util.UUID): BaseItem? =
             try {
-                api.itemsApi
+                api.libraryApi
                     .getItems(
                         org.jellyfin.sdk.model.api.request.GetItemsRequest(
                             userId = serverRepository.currentUser?.id,
@@ -218,7 +218,7 @@ class HomeViewModel
         /** IvanaFin: a random movie or series with a backdrop from [libraryId], for the home tiles. */
         suspend fun randomLibraryBackdrop(libraryId: java.util.UUID): BaseItem? =
             try {
-                    api.itemsApi
+                    api.libraryApi
                         .getItems(
                             org.jellyfin.sdk.model.api.request.GetItemsRequest(
                                 userId = serverRepository.currentUser?.id,

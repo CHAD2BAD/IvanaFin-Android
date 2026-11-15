@@ -16,7 +16,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.foundation.layout.fillMaxWidth
 import com.github.damontecres.wholphin.ui.theme.IvanaFinSwTimeline
 import com.github.damontecres.wholphin.ui.theme.LocalSwTimeline
-import org.jellyfin.sdk.api.client.extensions.itemsApi
+import org.jellyfin.sdk.api.client.extensions.libraryApi
 import org.jellyfin.sdk.model.api.ItemFields
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -102,8 +102,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jellyfin.sdk.api.client.ApiClient
-import org.jellyfin.sdk.api.client.extensions.libraryApi
-import org.jellyfin.sdk.api.client.extensions.userLibraryApi
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.CollectionType
 import org.jellyfin.sdk.model.api.ImageType
@@ -177,7 +175,7 @@ class CollectionFolderViewModel
                         itemId.toUUIDOrNull()?.let {
                             // IvanaFin: reuse the library item Home already loaded (saves a round trip)
                             com.github.damontecres.wholphin.ui.theme.IvanaFinLibraryCache.get(it) ?:
-                            api.userLibraryApi
+                            api.libraryApi
                                 .getItem(it)
                                 .content
                                 .let(::BaseItem)
@@ -282,7 +280,12 @@ class CollectionFolderViewModel
                 api.libraryApi
                     .getAncestors(item.id, user.id)
                     .content
-                    .firstNotNullOfOrNull { ancestor -> libraryDisplayInfoDao.getItem(user, ancestor.id) }
+                    .firstNotNullOfOrNull { ancestor ->
+                        libraryDisplayInfoDao.getItem(
+                            user,
+                            ancestor.id,
+                        )
+                    }
             } catch (ex: Exception) {
                 Timber.w(ex, "Error getting ancestors for %s", item.id)
                 null
@@ -457,7 +460,7 @@ class CollectionFolderViewModel
                     ),
                 ).copy(includeItemTypes = listOf(BaseItemKind.MOVIE, BaseItemKind.SERIES), recursive = true)
             val items =
-                api.itemsApi
+                api.libraryApi
                     .getItems(request)
                     .content.items
                     .map { BaseItem(it, useSeriesForPrimary) }

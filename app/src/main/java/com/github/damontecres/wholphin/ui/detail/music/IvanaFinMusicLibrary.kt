@@ -154,8 +154,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import com.github.damontecres.wholphin.ui.DetailItemFields
 import org.jellyfin.sdk.api.client.extensions.instantMixApi
-import org.jellyfin.sdk.api.client.extensions.playlistsApi
-import org.jellyfin.sdk.api.client.extensions.lyricsApi
+import org.jellyfin.sdk.api.client.extensions.playlistApi
+import org.jellyfin.sdk.api.client.extensions.lyricApi
 import org.jellyfin.sdk.api.client.extensions.libraryApi
 import org.jellyfin.sdk.model.api.LyricDto
 import com.github.damontecres.wholphin.ui.toServerString
@@ -164,10 +164,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jellyfin.sdk.model.serializer.toUUIDOrNull
 import org.jellyfin.sdk.api.client.ApiClient
-import org.jellyfin.sdk.api.client.extensions.artistsApi
+import org.jellyfin.sdk.api.client.extensions.artistApi
 import org.jellyfin.sdk.api.client.extensions.imageApi
-import org.jellyfin.sdk.api.client.extensions.userLibraryApi
-import org.jellyfin.sdk.api.client.extensions.userViewsApi
+import org.jellyfin.sdk.api.client.extensions.userViewApi
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.CollectionType
 import org.jellyfin.sdk.model.api.ImageType
@@ -428,7 +427,7 @@ class IvanaFinMusicViewModel
 
         private suspend fun findMusicLibrary(): UUID? =
             try {
-                api.userViewsApi
+                api.userViewApi
                     .getUserViews(userId = userId)
                     .content.items
                     .firstOrNull { it.collectionType == CollectionType.MUSIC }
@@ -442,7 +441,7 @@ class IvanaFinMusicViewModel
             try {
                 val r =
                     if (searchTerm == null) {
-                        api.artistsApi.getAlbumArtists(
+                        api.artistApi.getAlbumArtists(
                             parentId = libraryId,
                             userId = userId,
                             sortBy = listOf(ItemSortBy.SORT_NAME),
@@ -452,7 +451,7 @@ class IvanaFinMusicViewModel
                     } else {
                         // album artists only: every "X feat. Y" song credit is an artist of its own in Jellyfin
                         // (no picture) - search listed ~30 of those (beta round 6)
-                        api.artistsApi.getAlbumArtists(
+                        api.artistApi.getAlbumArtists(
                             parentId = libraryId,
                             userId = userId,
                             searchTerm = searchTerm,
@@ -514,7 +513,7 @@ class IvanaFinMusicViewModel
             val user = userId ?: return
             viewModelScope.launchIO {
                 try {
-                    api.playlistsApi.createPlaylist(
+                    api.playlistApi.createPlaylist(
                         org.jellyfin.sdk.model.api.CreatePlaylistDto(
                             name = name,
                             ids = emptyList(),
@@ -587,7 +586,7 @@ class IvanaFinMusicViewModel
             if (playlist.value?.first?.id != id) playlist.value = null
             viewModelScope.launchIO {
                 try {
-                    val p = BaseItem.from(api.userLibraryApi.getItem(itemId = id).content, api, false)
+                    val p = BaseItem.from(api.libraryApi.getItem(itemId = id).content, api, false)
                     val songs = request(GetItemsRequest(parentId = id, includeItemTypes = listOf(BaseItemKind.AUDIO), fields = DetailItemFields)).toBaseItems(api, false)
                     playlist.value = p to songs
                 } catch (ex: Exception) {
@@ -669,7 +668,7 @@ class IvanaFinMusicViewModel
             if (artist.value?.artist?.id != id) artist.value = null
             viewModelScope.launchIO {
                 try {
-                    val a = BaseItem.from(api.userLibraryApi.getItem(itemId = id).content, api, false)
+                    val a = BaseItem.from(api.libraryApi.getItem(itemId = id).content, api, false)
                     val albums =
                         request(
                             GetItemsRequest(
@@ -777,14 +776,14 @@ class IvanaFinMusicViewModel
             nowJob =
                 viewModelScope.launchIO {
                     try {
-                        val dto = api.userLibraryApi.getItem(itemId = item.id).content
+                        val dto = api.libraryApi.getItem(itemId = item.id).content
                         nowFav.value = dto.userData?.isFavorite == true
                         nowYear.value = dto.productionYear
-                            ?: dto.albumId?.let { aid -> runCatching { api.userLibraryApi.getItem(itemId = aid).content.productionYear }.getOrNull() }
+                            ?: dto.albumId?.let { aid -> runCatching { api.libraryApi.getItem(itemId = aid).content.productionYear }.getOrNull() }
                             ?: 0
                         val artistId = dto.albumArtists?.firstOrNull()?.id ?: item.artistId
                         if (artistId != null && nowArtist.value?.id != artistId) {
-                            nowArtist.value = BaseItem.from(api.userLibraryApi.getItem(itemId = artistId).content, api, false)
+                            nowArtist.value = BaseItem.from(api.libraryApi.getItem(itemId = artistId).content, api, false)
                         }
                     } catch (ex: Exception) {
                         Timber.w(ex, "Loading now playing details failed")
@@ -844,7 +843,7 @@ class IvanaFinMusicViewModel
             viewModelScope.launchIO {
                 val l =
                     try {
-                        api.lyricsApi.getLyrics(id).content.takeIf { !it.lyrics.isNullOrEmpty() }
+                        api.lyricApi.getLyrics(id).content.takeIf { !it.lyrics.isNullOrEmpty() }
                     } catch (ex: Exception) {
                         // 404 = the song has no lyrics
                         null

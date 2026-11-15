@@ -37,7 +37,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.jellyfin.sdk.api.client.ApiClient
-import org.jellyfin.sdk.api.client.extensions.userLibraryApi
+import org.jellyfin.sdk.api.client.extensions.libraryApi
 import org.jellyfin.sdk.model.api.MediaStreamType
 import timber.log.Timber
 import java.util.UUID
@@ -45,7 +45,7 @@ import com.github.damontecres.wholphin.data.model.Chapter
 import com.github.damontecres.wholphin.data.model.Person
 import com.github.damontecres.wholphin.services.PeopleFavorites
 import com.github.damontecres.wholphin.ui.ItemRowFields
-import org.jellyfin.sdk.api.client.extensions.tvShowsApi
+import org.jellyfin.sdk.api.client.extensions.showApi
 import org.jellyfin.sdk.model.api.PersonKind
 
 @HiltViewModel(assistedFactory = EpisodeViewModel.Factory::class)
@@ -92,7 +92,7 @@ class EpisodeViewModel
             viewModelScope.launchIO {
                 try {
                     val item =
-                        api.userLibraryApi.getItem(itemId).content.let {
+                        api.libraryApi.getItem(itemId).content.let {
                             BaseItem.from(it, api)
                         }
                     _state.update { it.copy(episode = DataLoadingState.Success(item)) }
@@ -110,7 +110,7 @@ class EpisodeViewModel
                 try {
                     val prefs = userPreferencesService.getCurrent()
                     val item =
-                        api.userLibraryApi.getItem(itemId).content.let {
+                        api.libraryApi.getItem(itemId).content.let {
                             BaseItem(it)
                         }
                     val chosenStreams =
@@ -151,7 +151,7 @@ class EpisodeViewModel
             if (seriesId != null && seasonId != null) {
                 viewModelScope.launchIO {
                     val episodes =
-                        api.tvShowsApi
+                        api.showApi
                             .getEpisodes(seriesId = seriesId, seasonId = seasonId, fields = ItemRowFields)
                             .content.items
                             .filter { it.id != item.id }

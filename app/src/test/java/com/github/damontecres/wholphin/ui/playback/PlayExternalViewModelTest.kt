@@ -41,14 +41,14 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.jellyfin.sdk.api.client.ApiClient
-import org.jellyfin.sdk.api.client.extensions.playStateApi
+import org.jellyfin.sdk.api.client.extensions.libraryApi
+import org.jellyfin.sdk.api.client.extensions.sessionApi
 import org.jellyfin.sdk.api.client.extensions.subtitleApi
-import org.jellyfin.sdk.api.client.extensions.userLibraryApi
-import org.jellyfin.sdk.api.client.extensions.videosApi
-import org.jellyfin.sdk.api.operations.PlayStateApi
+import org.jellyfin.sdk.api.client.extensions.videoApi
+import org.jellyfin.sdk.api.operations.LibraryApi
+import org.jellyfin.sdk.api.operations.SessionApi
 import org.jellyfin.sdk.api.operations.SubtitleApi
-import org.jellyfin.sdk.api.operations.UserLibraryApi
-import org.jellyfin.sdk.api.operations.VideosApi
+import org.jellyfin.sdk.api.operations.VideoApi
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.extensions.inWholeTicks
 import org.junit.After
@@ -70,10 +70,10 @@ class PlayExternalViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
     private val context = mockk<Context>()
     private val api = mockk<ApiClient>()
-    private val userLibraryApi = mockk<UserLibraryApi>()
-    private val videosApi = mockk<VideosApi>()
+    private val libraryApi = mockk<LibraryApi>()
+    private val videoApi = mockk<VideoApi>()
     private val subtitleApi = mockk<SubtitleApi>()
-    private val playStateApi = mockk<PlayStateApi>(relaxed = true)
+    private val sessionApi = mockk<SessionApi>(relaxed = true)
     private val serverRepository = mockk<ServerRepository>()
     private val itemPlaybackDao = mockk<ItemPlaybackDao>()
     private val playlistCreator = mockk<PlaylistCreator>()
@@ -109,18 +109,18 @@ class PlayExternalViewModelTest {
         mockkStatic(::getExternalPlayers)
         every { getExternalPlayers(context) } returns
             listOf(ExternalPlayerApp("VLC", null, vlc.flattenToString()))
-        every { api.userLibraryApi } returns userLibraryApi
-        every { api.videosApi } returns videosApi
+        every { api.libraryApi } returns libraryApi
+        every { api.videoApi } returns videoApi
         every { api.subtitleApi } returns subtitleApi
-        every { api.playStateApi } returns playStateApi
+        every { api.sessionApi } returns sessionApi
         every { serverRepository.currentUser } returns null
-        coEvery { userLibraryApi.getItem(movie.id) } returns successResponse(movie)
+        coEvery { libraryApi.getItem(movie.id) } returns successResponse(movie)
         coEvery { streamChoiceService.chooseSource(any(), any()) } returns mediaSource
         coEvery { streamChoiceService.chooseSubtitleStream(any(), any(), any(), any(), any(), any()) } returns
             StreamChoiceResult(subtitle, StreamChoiceReason.Unknown)
         coEvery { streamChoiceService.getSeriesTrackChoices(any<BaseItemDto>(), SeriesTrackChoiceType.SUBTITLE) } returns emptyList()
         every {
-            videosApi.getVideoStreamUrl(
+            videoApi.getVideoStreamUrl(
                 itemId = movie.id,
                 mediaSourceId = mediaSource.id,
                 static = true,
@@ -225,7 +225,7 @@ class PlayExternalViewModelTest {
     fun `Playback list starts from beginning`() =
         runTest(testDispatcher) {
             val playlist = playlist()
-            coEvery { userLibraryApi.getItem(playlist.id) } returns successResponse(playlist)
+            coEvery { libraryApi.getItem(playlist.id) } returns successResponse(playlist)
             coEvery { playlistCreator.createFrom(any(), any(), any(), any(), any(), any()) } returns
                 PlaylistCreationResult.Success(Playlist.fromMedia(listOf(BaseItem(movie))))
 
@@ -270,7 +270,7 @@ class PlayExternalViewModelTest {
             assertFalse(intent.getBooleanExtra("forceresume", true))
             assertEquals(title, intent.getStringExtra("forcename"))
             assertEquals(subtitleUri, intent.getParcelableExtra<Uri>("forcedsrt"))
-            coVerify(exactly = 1) { playStateApi.reportPlaybackStart(any()) }
-            coVerify(exactly = 0) { playStateApi.reportPlaybackStopped(any()) }
+            coVerify(exactly = 1) { sessionApi.reportPlaybackStart(any()) }
+            coVerify(exactly = 0) { sessionApi.reportPlaybackStopped(any()) }
         }
 }
