@@ -818,6 +818,29 @@ class IvanaFinMusicViewModel
             maxWidth: Int = 1280,
         ) = if (!a.data.backdropImageTags.isNullOrEmpty()) imageUrl(a.id, ImageType.BACKDROP, maxWidth) else imageUrl(a.id, ImageType.PRIMARY, maxWidth)
 
+        /**
+         * The artist as they looked in [year]: their backdrops are dated in ProviderIds.IvfEras =
+         * "fromYear:backdropIndex,..." (jellyfin-web-custom/backup/artist-eras.ps1; web: eraArt()).
+         * Null when the artist has no dated pictures or the year is unknown.
+         */
+        fun eraArt(
+            a: BaseItem,
+            year: Int,
+            maxWidth: Int = 900,
+        ): String? {
+            val count = a.data.backdropImageTags?.size ?: 0
+            if (year <= 0 || count == 0) return null
+            val eras =
+                (a.data.providerIds?.get("IvfEras") ?: return null)
+                    .split(',')
+                    .mapNotNull { e -> e.split(':').takeIf { it.size == 2 }?.let { (y, i) -> y.toIntOrNull()?.let { yy -> i.toIntOrNull()?.let { ii -> yy to ii } } } }
+                    .filter { (y, i) -> y > 0 && i < count }
+                    .sortedBy { it.first }
+            if (eras.isEmpty()) return null
+            val pick = eras.lastOrNull { it.first <= year } ?: eras.first()
+            return api.imageApi.getItemImageUrl(itemId = a.id, imageType = ImageType.BACKDROP, imageIndex = pick.second, maxWidth = maxWidth)
+        }
+
         /** A small copy of an item's picture to read its colours from (artists: the wide one) */
         fun tintUrl(
             a: BaseItem,
@@ -2406,6 +2429,7 @@ private fun NowPlayingView(
     val fly = remember { androidx.compose.animation.core.Animatable(if (flyFrom != null) 0f else 1f) }
     LaunchedEffect(coverAt) { if (coverAt != null) fly.animateTo(1f, tween(450, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
     val artist by viewModel.nowArtist.collectAsState()
+    val nowYear by viewModel.nowYear.collectAsState()
     val scroll = rememberScrollState()
     val ppFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
@@ -2631,7 +2655,8 @@ private fun NowPlayingView(
                     Box(Modifier.fillMaxSize()) {
                         if (a != null) {
                             MuImage(
-                                model = viewModel.imageUrl(a.id, maxWidth = 900),
+                                // the artist as they looked when this album came out, else their main photo
+                                model = viewModel.eraArt(a, nowYear) ?: viewModel.imageUrl(a.id, maxWidth = 900),
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 alignment = androidx.compose.ui.BiasAlignment(0f, -.6f),
