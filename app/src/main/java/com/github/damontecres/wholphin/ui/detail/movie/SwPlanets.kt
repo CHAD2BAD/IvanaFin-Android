@@ -61,8 +61,8 @@ import java.util.UUID
 data class SwPlanet(
     val slug: String,
     val name: String,
+    /** "Items/<id>/Images/Backdrop/<n>": the pictures are stored on the Jellyfin server (see [imageUrl]) */
     val image: String,
-    val imageLarge: String,
     val region: String,
     val climate: String,
     val terrain: String,
@@ -88,7 +88,6 @@ object SwPlanets {
                             slug = slug,
                             name = o.optString("name"),
                             image = o.optString("image"),
-                            imageLarge = o.optString("imageLarge").ifBlank { o.optString("image") },
                             region = o.optString("region"),
                             climate = o.optString("climate"),
                             terrain = o.optString("terrain"),
@@ -111,6 +110,23 @@ object SwPlanets {
         context: Context,
         id: UUID,
     ): List<SwPlanet> = load(context)[id.toString().replace("-", "")].orEmpty()
+}
+
+/** The planet's picture from the Jellyfin server, [width] px wide. */
+@Composable
+private fun SwPlanet.imageUrl(width: Int): String? {
+    val service = com.github.damontecres.wholphin.ui.LocalImageUrlService.current
+    return remember(image, width) {
+        val m = Regex("""Items/([0-9a-fA-F]{32})/Images/Backdrop/(\d+)""").find(image) ?: return@remember null
+        val hex = m.groupValues[1]
+        val id = UUID.fromString(hex.replace(Regex("(.{8})(.{4})(.{4})(.{4})(.{12})"), "$1-$2-$3-$4-$5"))
+        service.getItemImageUrl(
+            itemId = id,
+            imageType = org.jellyfin.sdk.model.api.ImageType.BACKDROP,
+            maxWidth = width,
+            imageIndex = m.groupValues[2].toInt(),
+        )
+    }
 }
 
 @Composable
@@ -139,7 +155,7 @@ fun PlanetRow(
                 PersonCard(
                     name = planet.name,
                     role = planet.region,
-                    imageUrl = planet.image,
+                    imageUrl = planet.imageUrl(320),
                     favorite = false,
                     onClick = { onClick(index) },
                     onLongClick = {},
@@ -188,7 +204,7 @@ fun PlanetDialog(
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(22.dp)) {
                 AsyncImage(
-                    model = p.imageLarge,
+                    model = p.imageUrl(500),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.size(170.dp).clip(CircleShape).background(Color.Black),
