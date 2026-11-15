@@ -140,7 +140,7 @@ fun PlanetRow(
     val firstFocus = remember { FocusRequester() }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = modifier) {
         Text(
-            text = "Planets",
+            text = "Featured Planets",
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(start = 8.dp),
