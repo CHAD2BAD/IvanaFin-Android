@@ -455,6 +455,8 @@ fun MovieDetailsContent(
                 // back on the row at the planet last shown (its card holds the row's focus requester)
                 planetIndex = last
                 scope.launch(ExceptionHandler()) {
+                    // (after the row has moved its requester to that card - straight away it still sat on the old one)
+                    kotlinx.coroutines.delay(120)
                     repeat(10) {
                         if (runCatching { focusRequesters[PLANET_ROW].requestFocus() }.getOrDefault(false)) return@launch
                         kotlinx.coroutines.delay(50)
