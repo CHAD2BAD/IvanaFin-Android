@@ -158,6 +158,8 @@ fun SeasonCard(
         modifier = modifier.size(width, height),
     ) {
         Card(
+            shape = com.github.damontecres.wholphin.ui.theme.ivfPosterCardShape(),
+            border = com.github.damontecres.wholphin.ui.theme.ivfPosterCardBorder(),
             modifier =
                 Modifier
                     .size(imageWidth, imageHeight)

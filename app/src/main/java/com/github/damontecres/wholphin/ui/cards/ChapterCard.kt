@@ -60,6 +60,8 @@ fun ChapterCard(
         }
     var width by remember { mutableStateOf(AspectRatios.WIDE * cardHeight) }
     Card(
+        shape = com.github.damontecres.wholphin.ui.theme.ivfPosterCardShape(),
+        border = com.github.damontecres.wholphin.ui.theme.ivfPosterCardBorder(),
         modifier = modifier.height(cardHeight),
         onClick = onClick,
         onLongClick = onLongClick,

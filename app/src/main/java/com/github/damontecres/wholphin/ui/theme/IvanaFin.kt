@@ -125,3 +125,21 @@ val IvfTextShadow =
         offset = androidx.compose.ui.geometry.Offset(0f, 2f),
         blurRadius = 10f,
     )
+
+/** IvanaFin: posters and pictures everywhere get the Home tiles' small corners (user 2026-11-15; was 8dp) */
+val IvfPosterShape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+
+/** The card shape for a poster / picture card */
+@Composable
+fun ivfPosterCardShape() = androidx.tv.material3.CardDefaults.shape(IvfPosterShape)
+
+/** The usual selected-card outline (3dp, the theme's border colour) following the poster corners */
+@Composable
+fun ivfPosterCardBorder(shape: androidx.compose.ui.graphics.Shape = IvfPosterShape) =
+    androidx.tv.material3.CardDefaults.border(
+        focusedBorder =
+            androidx.tv.material3.Border(
+                androidx.compose.foundation.BorderStroke(3.dp, androidx.tv.material3.MaterialTheme.colorScheme.border),
+                shape = shape,
+            ),
+    )

@@ -117,7 +117,8 @@ fun BannerCard(
             CardDefaults.colors(
 //                containerColor = Color.Transparent,
             ),
-        shape = cornerRadius?.let { CardDefaults.shape(RoundedCornerShape(it)) } ?: CardDefaults.shape(),
+        shape = cornerRadius?.let { CardDefaults.shape(RoundedCornerShape(it)) } ?: com.github.damontecres.wholphin.ui.theme.ivfPosterCardShape(),
+        border = com.github.damontecres.wholphin.ui.theme.ivfPosterCardBorder(cornerRadius?.let { RoundedCornerShape(it) } ?: com.github.damontecres.wholphin.ui.theme.IvfPosterShape),
     ) {
         Box(
             modifier =

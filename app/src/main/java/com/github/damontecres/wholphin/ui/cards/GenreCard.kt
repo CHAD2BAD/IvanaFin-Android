@@ -63,6 +63,8 @@ fun GenreCard(
 ) {
     val background = rememberIdColor(genreId).copy(alpha = .6f)
     Card(
+        shape = com.github.damontecres.wholphin.ui.theme.ivfPosterCardShape(),
+        border = com.github.damontecres.wholphin.ui.theme.ivfPosterCardBorder(),
         modifier = modifier,
         onClick = onClick,
         onLongClick = onLongClick,
@@ -78,7 +80,7 @@ fun GenreCard(
                 Modifier
                     .aspectRatio(AspectRatios.WIDE)
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(8.dp)),
+                    .clip(com.github.damontecres.wholphin.ui.theme.IvfPosterShape),
         ) {
             if (imageUrl != null) {
                 AsyncImage(

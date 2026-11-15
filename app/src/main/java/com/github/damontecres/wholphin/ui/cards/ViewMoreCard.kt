@@ -81,6 +81,8 @@ fun ViewMoreCard(
         modifier = modifier,
     ) {
         Card(
+            shape = com.github.damontecres.wholphin.ui.theme.ivfPosterCardShape(),
+            border = com.github.damontecres.wholphin.ui.theme.ivfPosterCardBorder(),
             modifier =
                 Modifier
                     .size(width, height)

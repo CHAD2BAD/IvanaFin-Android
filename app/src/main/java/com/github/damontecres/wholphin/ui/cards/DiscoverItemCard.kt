@@ -84,6 +84,8 @@ fun DiscoverItemCard(
         modifier = modifier.size(width, Dp.Unspecified),
     ) {
         Card(
+            shape = com.github.damontecres.wholphin.ui.theme.ivfPosterCardShape(),
+            border = com.github.damontecres.wholphin.ui.theme.ivfPosterCardBorder(),
             modifier =
                 Modifier
                     .size(width, Dp.Unspecified)

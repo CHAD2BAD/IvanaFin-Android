@@ -86,7 +86,7 @@ fun GridCard(
     ) {
         // IvanaFin: no grow; white outline just outside the picture while highlighted
         val outlineOnly = posterOutlineOnly()
-        val posterCorner = 8.dp
+        val posterCorner = 4.dp // (the Home tiles' small corners - user 2026-11-15; was 8dp)
         Card(
             modifier =
                 Modifier
@@ -124,9 +124,9 @@ fun GridCard(
             onClick = onClick,
             onLongClick = onLongClick,
             interactionSource = interactionSource,
-            shape = if (outlineOnly) CardDefaults.shape(RoundedCornerShape(posterCorner)) else CardDefaults.shape(),
+            shape = if (outlineOnly) CardDefaults.shape(RoundedCornerShape(posterCorner)) else com.github.damontecres.wholphin.ui.theme.ivfPosterCardShape(),
             scale = if (outlineOnly) CardDefaults.scale(focusedScale = 1f) else CardDefaults.scale(),
-            border = if (outlineOnly) CardDefaults.border(focusedBorder = Border.None) else CardDefaults.border(),
+            border = if (outlineOnly) CardDefaults.border(focusedBorder = Border.None) else com.github.damontecres.wholphin.ui.theme.ivfPosterCardBorder(),
             colors =
                 CardDefaults.colors(
                     containerColor = Color.Transparent,

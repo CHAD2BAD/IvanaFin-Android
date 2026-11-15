@@ -67,6 +67,8 @@ fun StudioCard(
     val background = rememberIdColor(studioId).copy(alpha = .4f)
     var error by remember { mutableStateOf(false) }
     Card(
+        shape = com.github.damontecres.wholphin.ui.theme.ivfPosterCardShape(),
+        border = com.github.damontecres.wholphin.ui.theme.ivfPosterCardBorder(),
         modifier = modifier,
         onClick = onClick,
         onLongClick = onLongClick,
@@ -82,7 +84,7 @@ fun StudioCard(
                 Modifier
                     .aspectRatio(AspectRatios.WIDE)
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(8.dp)),
+                    .clip(com.github.damontecres.wholphin.ui.theme.IvfPosterShape),
         ) {
             if (imageUrl != null && !error) {
                 AsyncImage(
