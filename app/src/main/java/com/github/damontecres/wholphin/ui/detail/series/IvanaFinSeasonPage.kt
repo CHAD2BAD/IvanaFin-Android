@@ -199,15 +199,8 @@ fun IvanaFinSeasonPage(
                     series.ui.quickDetails,
                     null,
                     textStyle = MaterialTheme.typography.labelMedium,
-                )
-            }
-            // Star Wars: the season's place in the story ("22 BBY · Fall of the Jedi"), gold as on film pages
-            if (sw != null && sw.year.isNotBlank()) {
-                Text(
-                    sw.year + " · " + com.github.damontecres.wholphin.ui.detail.movie.swEra(sw.k),
-                    color = Color(0xFFF5C518),
-                    fontSize = androidx.compose.ui.unit.TextUnit(12f, androidx.compose.ui.unit.TextUnitType.Sp),
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                    // Star Wars: the season's in-universe year first ("22 BBY")
+                    prefix = sw?.year,
                 )
             }
             // User choice: just the season dropdown and "Play next episode", centred under the logo

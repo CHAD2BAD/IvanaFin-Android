@@ -39,10 +39,15 @@ fun QuickDetails(
     modifier: Modifier = Modifier,
     textStyle: TextStyle = MaterialTheme.typography.titleSmall,
     endsAt: DateTime? = null,
+    /** IvanaFin: shown first, before the release year (Star Wars: the in-universe year, "19 BBY") */
+    prefix: String? = null,
 ) {
     val enabled = LocalInterfaceCustomization.current.enabledDisplayToggles
     val inlineContentMap = rememberQuickDetailsContentMap(textStyle)
     Row(modifier = modifier) {
+        if (!prefix.isNullOrBlank()) {
+            QuickDetailsText(androidx.compose.ui.text.buildAnnotatedString { append(prefix); dot() }, Modifier, textStyle, inlineContentMap)
+        }
         if (details != null) {
             QuickDetailsText(details.basic, Modifier, textStyle, inlineContentMap)
             if (DisplayToggle.OFFICIAL_RATING in enabled) {

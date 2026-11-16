@@ -61,7 +61,10 @@ fun MovieDetailsHeader(
         }
         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
             // smaller info line (user request)
-            QuickDetails(movie.ui.quickDetails, movie.timeRemainingOrRuntime, textStyle = MaterialTheme.typography.labelMedium)
+            // IvanaFin: Star Wars films start with the in-universe year ("19 BBY")
+            val swContext = androidx.compose.ui.platform.LocalContext.current
+            val swYear = androidx.compose.runtime.remember(movie.id) { if (SwPlanets.film(swContext, movie.id) != null) movie.data.providerIds?.get("SwYear") else null }
+            QuickDetails(movie.ui.quickDetails, movie.timeRemainingOrRuntime, textStyle = MaterialTheme.typography.labelMedium, prefix = swYear)
         }
 
         // Buttons, centred under the info line

@@ -510,13 +510,8 @@ fun MovieDetailsContent(
                                 .padding(start = 40.dp, end = 56.dp, bottom = 28.dp),
                         // IvanaFin: buttons sit under the info line, like Jellyfin web
                         buttons = {
-                    // IvanaFin: Star Wars - the era under the info line, Opening Crawl after the buttons
+                    // IvanaFin: Star Wars - Opening Crawl after the buttons (the in-universe year starts the info line)
                     Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-                    val swYear = movie.data.providerIds?.get("SwYear")
-                    val swKey = movie.data.providerIds?.get("SwTimeline")?.toDoubleOrNull()
-                    if (sw != null && !swYear.isNullOrBlank() && swKey != null) {
-                        androidx.tv.material3.Text(swYear + " · " + swEra(swKey), color = androidx.compose.ui.graphics.Color(0xFFF5C518), fontSize = 12.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium, modifier = Modifier.padding(bottom = 4.dp))
-                    }
                     androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     ExpandablePlayButtons(
                         title = movie.title ?: "",
