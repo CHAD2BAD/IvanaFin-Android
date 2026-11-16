@@ -339,6 +339,12 @@ class SeriesViewModel
                 null
             }
 
+        /** IvanaFin: Star Wars - what comes before / after a season of this show on the timeline (SwPlanets.kt) */
+        suspend fun swSeasonStory(
+            seriesId: java.util.UUID,
+            k: Double,
+        ) = com.github.damontecres.wholphin.ui.detail.movie.swNeighboursAt(api, seriesId, k)
+
         fun onResumePage() {
             state.value.series.successValue?.let { item ->
                 viewModelScope.launchDefault { backdropService.submit(item) }

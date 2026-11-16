@@ -101,15 +101,22 @@ fun IvanaFinSeasonPage(
     onClickPerson: (Person) -> Unit,
     modifier: Modifier = Modifier,
     onOpenItem: (java.util.UUID, Boolean) -> Unit = { _, _ -> },
+    swStory: suspend (Double) -> com.github.damontecres.wholphin.ui.detail.movie.SwNeighbours? = { null },
 ) {
-    // IvanaFin: Star Wars shows - Featured Planets above Cast & Crew (SwPlanets.kt)
-    val swContext = LocalContext.current
-    val swPlanets = remember(series.id) { com.github.damontecres.wholphin.ui.detail.movie.SwPlanets.showPlanets(swContext, series.id) }
-    var swOpen by remember { mutableStateOf<Int?>(null) }
-    var swIndex by remember { androidx.compose.runtime.mutableIntStateOf(0) }
-    val swRowFocus = remember { FocusRequester() }
-    val swScope = androidx.compose.runtime.rememberCoroutineScope()
     val season = seasons.getOrNull(selectedSeasonIndex)
+    // IvanaFin: Star Wars shows - per season (they change with the Season button): era line, Featured
+    // Planets, Characters, Starships & Vehicles and In Story Order above Cast & Crew (SwPlanets.kt)
+    val swContext = LocalContext.current
+    val sw = remember(season?.id) { season?.let { com.github.damontecres.wholphin.ui.detail.movie.SwPlanets.season(swContext, it.id) } }
+    val swRows =
+        remember(sw) {
+            if (sw == null) emptyList() else listOf("Featured Planets" to sw.planets, "Characters" to sw.chars, "Starships & Vehicles" to sw.ships).filter { it.second.isNotEmpty() }
+        }
+    var swOpen by remember { mutableStateOf<Pair<Int, Int>?>(null) } // row, card
+    val swIndex = remember(season?.id) { androidx.compose.runtime.mutableStateListOf(0, 0, 0) }
+    val swRowFocus = remember { List(3) { FocusRequester() } }
+    val swScope = androidx.compose.runtime.rememberCoroutineScope()
+    val swNb = androidx.compose.runtime.produceState<com.github.damontecres.wholphin.ui.detail.movie.SwNeighbours?>(null, sw) { value = sw?.let { swStory(it.k) } }.value
     // IvanaFin: a show with only one season has no Season button (nothing to choose)
     val showSeasonButton = season != null && seasons.size > 1
     var showSeasonPicker by remember { mutableStateOf(false) }
@@ -192,6 +199,15 @@ fun IvanaFinSeasonPage(
                     series.ui.quickDetails,
                     null,
                     textStyle = MaterialTheme.typography.labelMedium,
+                )
+            }
+            // Star Wars: the season's place in the story ("22 BBY · Fall of the Jedi"), gold as on film pages
+            if (sw != null && sw.year.isNotBlank()) {
+                Text(
+                    sw.year + " · " + com.github.damontecres.wholphin.ui.detail.movie.swEra(sw.k),
+                    color = Color(0xFFF5C518),
+                    fontSize = androidx.compose.ui.unit.TextUnit(12f, androidx.compose.ui.unit.TextUnitType.Sp),
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
                 )
             }
             // User choice: just the season dropdown and "Play next episode", centred under the logo
@@ -310,15 +326,20 @@ fun IvanaFinSeasonPage(
             }
         }
 
-        if (swPlanets.isNotEmpty()) {
-            com.github.damontecres.wholphin.ui.detail.movie.SwRow(
-                title = "Featured Planets",
-                entries = swPlanets,
-                onClick = { swIndex = it; swOpen = it },
-                startIndex = swIndex,
-                startCardFocusRequester = swRowFocus,
-                modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
-            )
+        swRows.forEachIndexed { row, (title, entries) ->
+            androidx.compose.runtime.key(season?.id, row) {
+                com.github.damontecres.wholphin.ui.detail.movie.SwRow(
+                    title = title,
+                    entries = entries,
+                    onClick = { swIndex[row] = it; swOpen = row to it },
+                    startIndex = swIndex[row],
+                    startCardFocusRequester = swRowFocus[row],
+                    modifier = Modifier.fillMaxWidth().padding(top = if (row == 0) 24.dp else 0.dp),
+                )
+            }
+        }
+        if (swNb != null && (swNb.before != null || swNb.after != null)) {
+            com.github.damontecres.wholphin.ui.detail.movie.SwStoryRow(swNb, onOpen = onOpenItem, modifier = Modifier.fillMaxWidth())
         }
         // Web: Cast & Crew
         if (people.isNotEmpty()) {
@@ -336,18 +357,18 @@ fun IvanaFinSeasonPage(
     }
     }
 
-    swOpen?.let { start ->
+    swOpen?.let { (row, start) ->
         com.github.damontecres.wholphin.ui.detail.movie.SwCardDialog(
-            entries = swPlanets,
+            entries = swRows.getOrNull(row)?.second ?: return@let,
             startIndex = start,
             currentId = series.id,
             onDismiss = { last ->
                 swOpen = null
-                swIndex = last
+                swIndex[row] = last
                 swScope.launch {
                     kotlinx.coroutines.delay(120)
                     repeat(10) {
-                        if (runCatching { swRowFocus.requestFocus() }.getOrDefault(false)) return@launch
+                        if (runCatching { swRowFocus[row].requestFocus() }.getOrDefault(false)) return@launch
                         kotlinx.coroutines.delay(50)
                     }
                 }

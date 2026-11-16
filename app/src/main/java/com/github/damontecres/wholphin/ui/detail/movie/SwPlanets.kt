@@ -104,6 +104,9 @@ data class SwCrawl(val episode: String, val title: String, val text: List<String
 
 data class SwFilm(val planets: List<SwEntry>, val chars: List<SwEntry>, val ships: List<SwEntry>, val crawl: SwCrawl?)
 
+/** One season of a Star Wars show (k = its SwTimeline place, year = "22 BBY"). */
+data class SwSeason(val k: Double, val year: String, val planets: List<SwEntry>, val chars: List<SwEntry>, val ships: List<SwEntry>)
+
 fun hexToUuid(hex: String): UUID? =
     runCatching {
         val h = hex.replace("-", "")
@@ -181,13 +184,20 @@ object SwPlanets {
         )
     }
 
-    /** A Star Wars show's Featured Planets (empty for anything else). */
-    fun showPlanets(
+    /** A Star Wars show season's extras (planets, characters, starships, its place in the story), or null. */
+    fun season(
         context: Context,
         id: UUID,
-    ): List<SwEntry> {
-        val d = data(context) ?: return emptyList()
-        return list(d, "planet", d.optJSONObject("shows")?.optJSONObject(id.hex())?.optJSONArray("planets"))
+    ): SwSeason? {
+        val d = data(context) ?: return null
+        val s = d.optJSONObject("seasons")?.optJSONObject(id.hex()) ?: return null
+        return SwSeason(
+            k = s.optDouble("k"),
+            year = s.optString("year"),
+            planets = list(d, "planet", s.optJSONArray("planets")),
+            chars = list(d, "char", s.optJSONArray("chars")),
+            ships = list(d, "ship", s.optJSONArray("ships")),
+        )
     }
 
     // Kept for older callers
@@ -220,6 +230,26 @@ suspend fun swNeighbours(
     itemId: UUID,
 ): SwNeighbours? =
     runCatching {
+        val groups = swTimelineGroups(api)
+        val at = groups.indexOfFirst { g -> g.any { it.id == itemId } }
+        if (at < 0) null else SwNeighbours(groups.getOrNull(at - 1)?.first(), groups.getOrNull(at + 1)?.first())
+    }.getOrNull()
+
+/** Before / after a show season at timeline place [k] (the show's own entry left out). */
+suspend fun swNeighboursAt(
+    api: ApiClient,
+    seriesId: UUID,
+    k: Double,
+): SwNeighbours? =
+    runCatching {
+        val groups = swTimelineGroups(api, except = seriesId)
+        SwNeighbours(groups.lastOrNull { it[0].key <= k }?.first(), groups.firstOrNull { it[0].key > k }?.first())
+    }.getOrNull()
+
+private suspend fun swTimelineGroups(
+    api: ApiClient,
+    except: UUID? = null,
+): List<List<SwTimelineItem>> {
         val items =
             api.libraryApi
                 .getItems(
@@ -237,16 +267,16 @@ suspend fun swNeighbours(
                 .mapNotNull { x ->
                     val k = x.providerIds?.get("SwTimeline")?.toDoubleOrNull() ?: return@mapNotNull null
                     SwTimelineItem(x.id, x.name ?: "", k, x.providerIds?.get("SwYear") ?: "", x.type == BaseItemKind.SERIES)
-                }.sortedBy { it.key }
+                }.filter { it.id != except }
+                .sortedBy { it.key }
         // copies of one film (35mm, extended, novel-named edits) sit within 0.05 of each other: one entry each
         val groups = mutableListOf<MutableList<SwTimelineItem>>()
         for (x in tl) {
             val g = groups.lastOrNull()
             if (g != null && x.key - g[0].key <= 0.05) g.add(x) else groups.add(mutableListOf(x))
         }
-        val at = groups.indexOfFirst { g -> g.any { it.id == itemId } }
-        if (at < 0) null else SwNeighbours(groups.getOrNull(at - 1)?.first(), groups.getOrNull(at + 1)?.first())
-    }.getOrNull()
+        return groups
+}
 
 // ---- pictures -------------------------------------------------------------------------------------------
 @Composable
