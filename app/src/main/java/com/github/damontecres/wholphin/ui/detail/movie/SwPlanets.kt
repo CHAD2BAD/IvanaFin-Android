@@ -286,9 +286,10 @@ private fun swImageUrl(
 ): String? {
     val service = com.github.damontecres.wholphin.ui.LocalImageUrlService.current
     return remember(path, width) {
-        val m = Regex("""Items/([0-9a-fA-F]{32})/Images/Backdrop/(\d+)""").find(path) ?: return@remember null
+        // "?tag=": the picture's own tag, so a picture saved earlier for the same place is never shown instead
+        val m = Regex("""Items/([0-9a-fA-F]{32})/Images/Backdrop/(\d+)(?:\?tag=(\w+))?""").find(path) ?: return@remember null
         val id = hexToUuid(m.groupValues[1]) ?: return@remember null
-        service.getItemImageUrl(itemId = id, imageType = ImageType.BACKDROP, maxWidth = width, imageIndex = m.groupValues[2].toInt())
+        service.getItemImageUrl(itemId = id, imageType = ImageType.BACKDROP, maxWidth = width, imageIndex = m.groupValues[2].toInt(), tag = m.groupValues[3].ifBlank { null })
     }
 }
 
