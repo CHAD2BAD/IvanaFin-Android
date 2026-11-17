@@ -50,9 +50,11 @@ val gitTags =
 
 val gitDescribe =
     providers
-        .exec { commandLine("git", "describe", "--tags", "--long", "--match=v*") }
+        // IvanaFin: its own version tags (ivf-v1.0.0 ...), kept apart from the Wholphin v* tags
+        .exec { commandLine("git", "describe", "--tags", "--long", "--match=ivf-v*") }
         .standardOutput.asText
         .getOrElse("v0.0.0")
+        .removePrefix("ivf-")
 
 // IvanaFin: versionCode rises with every commit so launchers (e.g. Fire TV) refresh cached icons
 val gitCommitCount =
@@ -92,6 +94,19 @@ configure<ApplicationExtension> {
     }
 
     signingConfigs {
+        // IvanaFin release key: kept outside the repo, in ~/.gradle/gradle.properties (IVF_RELEASE_*)
+        val ivfStore = providers.gradleProperty("IVF_RELEASE_STORE_FILE").orNull
+        if (ivfStore != null) {
+            create("ivfRelease") {
+                storeFile = file(ivfStore)
+                storePassword = providers.gradleProperty("IVF_RELEASE_STORE_PASSWORD").get()
+                keyAlias = providers.gradleProperty("IVF_RELEASE_KEY_ALIAS").get()
+                keyPassword = providers.gradleProperty("IVF_RELEASE_STORE_PASSWORD").get()
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
         if (shouldSign.get()) {
             create("ci") {
                 file("ci.keystore").writeBytes(
@@ -231,7 +246,7 @@ androidComponents {
                         .getFilter(FilterConfiguration.FilterType.ABI)
                         .let { if (it != null) "-${it.identifier}" else "" }
                 val outputFileName =
-                    "Wholphin-${variant.flavorName}-${variant.buildType}-${output.versionName.get()}-${output.versionCode.get()}$abi.apk"
+                    "IvanaFin-${variant.flavorName}-${variant.buildType}-${output.versionName.get()}-${output.versionCode.get()}$abi.apk"
                 output.outputFileName = outputFileName
             }
     }
