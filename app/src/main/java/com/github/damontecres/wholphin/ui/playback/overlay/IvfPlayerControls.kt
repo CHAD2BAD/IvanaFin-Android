@@ -68,11 +68,14 @@ import kotlin.time.Duration.Companion.seconds
 // theme, measured from a photo of the Samsung:
 //   [prev] [chapter back] [rewind] (PLAY) [forward] [chapter next] [next]  Ends at 21:10 ....  [skip] [heart] [cc] [audio] [settings]
 //   0:09 ======================== seek bar with chapter ticks ======================== -2:27:01
-// Buttons have no background until selected (then a #d1d5db circle with a dark icon), play/pause is the big
+// Buttons have no background until selected (then a blue #2563eb circle with a white icon), play/pause is the big
 // one, played part of the bar #d1d5db, the rest 50% grey.
 
-internal val IvfOsdSelected = Color(0xFFD1D5DB)
-internal val IvfOsdSelectedIcon = Color(0xFF131414)
+internal val IvfOsdSelected = Color(0xFFD1D5DB) // played part of the seek bar
+// selected button: the Samsung theme blue (ElegantFin --highlightOutlineColor) with a white icon - the user
+// likes seeing clearly what is selected (2026-11-17)
+internal val IvfOsdFocus = Color(0xFF2563EB)
+internal val IvfOsdSelectedIcon = Color.White
 internal val IvfOsdTrack = Color(0x80808080)
 private val IvfOsdText =
     TextStyle(
@@ -209,7 +212,7 @@ fun IvfPlaybackControls(
     }
 }
 
-/** A round player button: just the icon, a #d1d5db circle with a dark icon when selected. */
+/** A round player button: just the icon, a blue circle with a white icon when selected. */
 @Composable
 fun IvfOsdButton(
     @DrawableRes iconRes: Int,
@@ -234,7 +237,7 @@ fun IvfOsdButton(
             ClickableSurfaceDefaults.colors(
                 containerColor = Color.Transparent,
                 contentColor = Color.White,
-                focusedContainerColor = IvfOsdSelected,
+                focusedContainerColor = IvfOsdFocus,
                 focusedContentColor = IvfOsdSelectedIcon,
                 disabledContainerColor = Color.Transparent,
                 disabledContentColor = Color.White.copy(alpha = 0.4f),
