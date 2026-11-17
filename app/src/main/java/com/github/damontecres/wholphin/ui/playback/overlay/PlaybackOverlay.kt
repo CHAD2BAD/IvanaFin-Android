@@ -292,7 +292,7 @@ fun PlaybackOverlay(
                                 .align(Alignment.BottomStart)
                                 .offsetByPercent(
                                     xPercentage = seekProgressPercent.coerceIn(0f, 1f),
-                                ).padding(bottom = 64.dp), // IvanaFin: just above the seek bar (bottom row)
+                                ).padding(bottom = 84.dp), // IvanaFin: just above the seek bar (bottom row)
                     ) {
                         TrickplayPreview(
                             seekProgressMs = seekProgressMs,

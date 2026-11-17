@@ -105,7 +105,8 @@ fun IvfPlaybackControls(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.padding(horizontal = 48.dp),
+        // matched to photos of the Samsung: closer to the screen edges and ~20dp higher than first built
+        modifier = modifier.padding(start = 24.dp, end = 24.dp, bottom = 20.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
@@ -136,9 +137,9 @@ fun IvfPlaybackControls(
                     IvfOsdButton(
                         iconRes = if (showPlay) R.drawable.baseline_play_arrow_24 else R.drawable.baseline_pause_24,
                         onControllerInteraction = onControllerInteraction,
-                        size = 56.dp,
-                        iconSize = 34.dp,
-                        modifier = Modifier.padding(horizontal = 6.dp).focusRequester(initialFocusRequester),
+                        size = 66.dp,
+                        iconSize = 38.dp,
+                        modifier = Modifier.padding(horizontal = 8.dp).focusRequester(initialFocusRequester),
                     ) {
                         if (showPlay) {
                             player.play()
@@ -162,13 +163,13 @@ fun IvfPlaybackControls(
                         }
                     }
                 }
-                IvfEndsAt(player, Modifier.padding(start = 24.dp))
+                IvfEndsAt(player, Modifier.padding(start = 28.dp))
                 Spacer(Modifier.weight(1f))
                 // right: skip intro/credits, favourite, subtitles, audio, settings
                 Row(
                     modifier = Modifier.focusGroup(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
                     currentSegment?.let { segment ->
                         TextButton(
@@ -214,8 +215,8 @@ fun IvfOsdButton(
     @DrawableRes iconRes: Int,
     onControllerInteraction: () -> Unit,
     modifier: Modifier = Modifier,
-    size: Dp = 40.dp,
-    iconSize: Dp = 24.dp,
+    size: Dp = 36.dp,
+    iconSize: Dp = 22.dp,
     enabled: Boolean = true,
     iconColor: Color? = null,
     onClick: () -> Unit,
