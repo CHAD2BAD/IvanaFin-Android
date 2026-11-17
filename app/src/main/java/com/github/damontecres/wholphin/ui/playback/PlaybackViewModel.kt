@@ -100,6 +100,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.jellyfin.sdk.api.client.ApiClient
+import org.jellyfin.sdk.api.client.extensions.userDataApi
 import org.jellyfin.sdk.api.client.extensions.libraryApi
 import org.jellyfin.sdk.api.client.extensions.mediaInfoApi
 import org.jellyfin.sdk.api.client.extensions.mediaSegmentApi
@@ -1024,6 +1025,18 @@ class PlaybackViewModel
                     Timber.w("Trying to change subtitle, but currentPlayback is null")
                 }
             }
+
+        /** IvanaFin: the heart button in the player controls */
+        fun setFavorite(favorite: Boolean) {
+            viewModelScope.launchIO {
+                val id = currentItem.item.id
+                if (favorite) {
+                    api.userDataApi.markFavoriteItem(id)
+                } else {
+                    api.userDataApi.unmarkFavoriteItem(id)
+                }
+            }
+        }
 
         fun changeMaxBitrate(newMaxBitrate: Long) {
             viewModelScope.launchIO {

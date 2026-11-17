@@ -326,6 +326,10 @@ fun PlaybackPageContent(
             is PlaybackAction.ChangeBitrate -> {
                 viewModel.changeMaxBitrate(it.maxBitrate)
             }
+
+            is PlaybackAction.ToggleFavorite -> {
+                viewModel.setFavorite(it.favorite)
+            }
         }
     }
 
@@ -480,7 +484,7 @@ fun PlaybackPageContent(
                 player = player,
                 controllerViewState = controllerViewState,
                 showPlay = playPauseState.showPlay,
-                previousEnabled = true,
+                previousEnabled = state.hasPrevious, // IvanaFin: like the Samsung, no "previous" button on a film
                 nextEnabled = state.hasNext,
                 seekEnabled = true,
                 seekForward = preferences.appPreferences.playbackPreferences.skipForwardMs.milliseconds,

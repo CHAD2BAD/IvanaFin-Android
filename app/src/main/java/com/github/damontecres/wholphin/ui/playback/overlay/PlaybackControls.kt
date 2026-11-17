@@ -127,6 +127,11 @@ sealed interface PlaybackAction {
     data class ChangeBitrate(
         val maxBitrate: Long,
     ) : PlaybackAction
+
+    // IvanaFin: the heart button in the player
+    data class ToggleFavorite(
+        val favorite: Boolean,
+    ) : PlaybackAction
 }
 
 /**
@@ -150,6 +155,8 @@ fun PlaybackControls(
     seekForward: Duration,
     currentSegment: MediaSegmentDto?,
     modifier: Modifier = Modifier,
+    chapters: List<com.github.damontecres.wholphin.data.model.Chapter> = emptyList(),
+    favorite: Boolean = false,
     initialFocusRequester: FocusRequester = remember { FocusRequester() },
     seekBarInteractionSource: MutableInteractionSource = remember { MutableInteractionSource() },
 ) {
@@ -167,74 +174,28 @@ fun PlaybackControls(
             initialFocusRequester.tryRequestFocus()
         }
     }
-    Column(
+    // IvanaFin: the Samsung (Jellyfin web) layout, see IvfPlayerControls.kt
+    IvfPlaybackControls(
+        player = player,
+        controllerViewState = controllerViewState,
+        onPlaybackActionClick = onPlaybackActionClick,
+        onClickPlaybackDialogType = onClickPlaybackDialogType,
+        onSeekProgress = onSeekProgress,
+        showPlay = showPlay,
+        previousEnabled = previousEnabled,
+        nextEnabled = nextEnabled,
+        seekEnabled = seekEnabled,
+        seekBack = seekBack,
+        skipBackOnResume = skipBackOnResume,
+        seekForward = seekForward,
+        currentSegment = currentSegment,
+        chapters = chapters,
+        favorite = favorite,
+        onControllerInteraction = { onControllerInteraction() },
+        initialFocusRequester = initialFocusRequester,
+        seekBarInteractionSource = seekBarInteractionSource,
         modifier = modifier.bringIntoViewRequester(bringIntoViewRequester),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(0.dp),
-    ) {
-        SeekBar(
-            player = player,
-            controllerViewState = controllerViewState,
-            onSeekProgress = onSeekProgress,
-            interactionSource = seekBarInteractionSource,
-            isEnabled = seekEnabled,
-            intervals = seekBarIntervals,
-            seekBack = seekBack,
-            seekForward = seekForward,
-            modifier =
-                Modifier
-                    .padding(vertical = 0.dp)
-                    .fillMaxWidth(.95f),
-        )
-        Box(
-            modifier =
-                Modifier
-                    .padding(horizontal = 8.dp)
-                    .fillMaxWidth(),
-        ) {
-            LeftPlaybackButtons(
-                onControllerInteraction = onControllerInteraction,
-                onClickPlaybackDialogType = onClickPlaybackDialogType,
-                modifier = Modifier.align(Alignment.CenterStart),
-            )
-
-            PlaybackButtons(
-                player = player,
-                initialFocusRequester = initialFocusRequester,
-                onControllerInteraction = onControllerInteraction,
-                onPlaybackActionClick = onPlaybackActionClick,
-                showPlay = showPlay,
-                previousEnabled = previousEnabled,
-                nextEnabled = nextEnabled,
-                seekBack = seekBack,
-                seekForward = seekForward,
-                skipBackOnResume = skipBackOnResume,
-                modifier = Modifier.align(Alignment.Center),
-            )
-
-            Row(
-                modifier = Modifier.align(Alignment.CenterEnd),
-            ) {
-                currentSegment?.let { segment ->
-                    TextButton(
-                        stringRes = segment.type.skipStringRes,
-                        onClick = {
-                            player.seekTo(segment.endTicks.ticks.inWholeMilliseconds)
-                        },
-                        modifier =
-                            Modifier
-                                .align(Alignment.CenterVertically)
-                                .padding(end = 32.dp),
-                    )
-                }
-                RightPlaybackButtons(
-                    onControllerInteraction = onControllerInteraction,
-                    onClickPlaybackDialogType = onClickPlaybackDialogType,
-                    modifier = Modifier,
-                )
-            }
-        }
-    }
+    )
 }
 
 @OptIn(UnstableApi::class, ExperimentalMaterial3Api::class)

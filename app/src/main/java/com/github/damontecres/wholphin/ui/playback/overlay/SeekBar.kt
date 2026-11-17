@@ -146,6 +146,8 @@ fun IntervalSeekBarImpl(
     modifier: Modifier = Modifier,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
     enabled: Boolean = true,
+    ivfStyle: Boolean = false,
+    markers: List<Float> = emptyList(),
 ) {
     val isFocused by interactionSource.collectIsFocusedAsState()
     var hasSeeked by remember { mutableStateOf(false) }
@@ -180,6 +182,8 @@ fun IntervalSeekBarImpl(
         },
         interactionSource = interactionSource,
         modifier = modifier,
+        ivfStyle = ivfStyle,
+        markers = markers,
     )
 }
 
@@ -199,6 +203,8 @@ private fun SeekBarDisplay(
     interactionSource: MutableInteractionSource,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    ivfStyle: Boolean = false,
+    markers: List<Float> = emptyList(),
 ) {
     val color = MaterialTheme.colorScheme.border
     val onSurface = MaterialTheme.colorScheme.onSurface
@@ -207,8 +213,10 @@ private fun SeekBarDisplay(
     var leftHandledByRepeat by remember { mutableStateOf(false) }
     var rightHandledByRepeat by remember { mutableStateOf(false) }
     val animatedIndicatorHeight by animateDpAsState(
-        targetValue = 6.dp.times((if (isFocused) 2f else 1f)),
+        targetValue = if (ivfStyle) 16.dp else 6.dp.times((if (isFocused) 2f else 1f)),
     )
+    // IvanaFin (Samsung look): the bar's own thickness grows a little when selected
+    val ivfTrack by animateDpAsState(targetValue = if (isFocused) 6.dp else 4.dp)
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Canvas(
@@ -284,6 +292,33 @@ private fun SeekBarDisplay(
                     }.focusable(enabled = enabled, interactionSource = interactionSource),
             onDraw = {
                 val yOffset = size.height.div(2)
+                if (ivfStyle) {
+                    // Jellyfin web + ElegantFin: 50% grey track, #d1d5db played part, chapter ticks above it,
+                    // and a white pill-shaped thumb only while the bar is selected
+                    val t = ivfTrack.toPx()
+                    drawLine(IvfOsdTrack, Offset(0f, yOffset), Offset(size.width, yOffset), t, StrokeCap.Round)
+                    drawLine(IvfOsdSelected, Offset(0f, yOffset), Offset(size.width * progress.coerceIn(0f, 1f), yOffset), t, StrokeCap.Round)
+                    val tick = 1.5.dp.toPx()
+                    for (m in markers) {
+                        drawLine(
+                            Color.White.copy(alpha = 0.8f),
+                            Offset(size.width * m, yOffset - t / 2 - 5.dp.toPx()),
+                            Offset(size.width * m, yOffset - t / 2 - 2.dp.toPx()),
+                            tick,
+                        )
+                    }
+                    if (isFocused) {
+                        val w = 6.dp.toPx()
+                        val h = 16.dp.toPx()
+                        drawRoundRect(
+                            color = Color.White,
+                            topLeft = Offset(size.width * progress.coerceIn(0f, 1f) - w / 2, yOffset - h / 2),
+                            size = androidx.compose.ui.geometry.Size(w, h),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(w / 2, w / 2),
+                        )
+                    }
+                    return@Canvas
+                }
                 drawLine(
                     color = onSurface.copy(alpha = 0.25f),
                     start = Offset(x = 0f, y = yOffset),

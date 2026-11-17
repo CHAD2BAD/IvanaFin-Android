@@ -8,7 +8,9 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
@@ -64,6 +66,8 @@ fun PlaybackController(
     onChangeState: (OverlayViewState) -> Unit,
     modifier: Modifier = Modifier,
     seekBarInteractionSource: MutableInteractionSource = remember { MutableInteractionSource() },
+    chapters: List<com.github.damontecres.wholphin.data.model.Chapter> = emptyList(),
+    favorite: Boolean = false,
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -87,15 +91,16 @@ fun PlaybackController(
             seekBarInteractionSource = seekBarInteractionSource,
             currentSegment = currentSegment,
             modifier = Modifier,
+            chapters = chapters,
+            favorite = favorite,
         )
         when (nextState) {
             OverlayViewState.CHAPTERS -> {
-                Text(
-                    text = stringResource(R.string.chapters),
-                    style = MaterialTheme.typography.titleLarge,
+                // IvanaFin: no visible label (the Samsung has none); Down from the bar still opens the chapters
+                Box(
                     modifier =
                         Modifier
-                            .padding(start = 16.dp, top = 0.dp)
+                            .size(1.dp)
                             .onFocusChanged {
                                 if (it.isFocused) onChangeState.invoke(nextState)
                             }.focusable(),
@@ -103,12 +108,10 @@ fun PlaybackController(
             }
 
             OverlayViewState.QUEUE -> {
-                Text(
-                    text = stringResource(R.string.queue),
-                    style = MaterialTheme.typography.titleLarge,
+                Box(
                     modifier =
                         Modifier
-                            .padding(start = 16.dp, top = 0.dp)
+                            .size(1.dp)
                             .onFocusChanged {
                                 if (it.isFocused) onChangeState.invoke(nextState)
                             }.focusable(),
@@ -149,81 +152,15 @@ fun Controller(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     seekBarInteractionSource: MutableInteractionSource = remember { MutableInteractionSource() },
+    chapters: List<com.github.damontecres.wholphin.data.model.Chapter> = emptyList(),
+    favorite: Boolean = false,
 ) {
-    val seekBarFocused by seekBarInteractionSource.collectIsFocusedAsState()
-    val verticalOffset by animateDpAsState(
-        targetValue = if (seekBarFocused) (-32).dp else 0.dp,
-        label = "TitleBumpOffset",
-        animationSpec =
-            spring(
-                stiffness = Spring.StiffnessMediumLow,
-                visibilityThreshold = Dp.VisibilityThreshold,
-            ),
-    )
-
+    // IvanaFin: no title/year above the controls (the logo is at the top, like the Samsung); "Ends at" is in
+    // the button row
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier,
     ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier =
-                Modifier
-                    .padding(start = 16.dp)
-                    .offset(y = verticalOffset),
-        ) {
-            title?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontSize = titleTextSize,
-                    maxLines = 1,
-                    overflow = TextOverflow.MiddleEllipsis,
-                    modifier = Modifier.fillMaxWidth(.75f),
-                )
-            }
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.End),
-            ) {
-                subtitle?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontSize = subtitleTextSize,
-                        maxLines = 1,
-                        overflow = TextOverflow.MiddleEllipsis,
-                        modifier = Modifier.fillMaxWidth(.75f),
-                    )
-                }
-
-                val context = LocalContext.current
-                var endTimeStr by remember { mutableStateOf("...") }
-                LaunchedEffect(player, context) {
-                    while (isActive) {
-                        val remaining =
-                            (player.duration - player.currentPosition)
-                                .div(player.playbackParameters.speed)
-                                .toLong()
-                                .milliseconds
-                        val endTime = LocalTime.now().plusSeconds(remaining.inWholeSeconds)
-                        endTimeStr = formatTime(context, endTime)
-                        delay(1.seconds)
-                    }
-                }
-                Text(
-                    text = stringResource(R.string.ends_at, endTimeStr),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier =
-                        Modifier
-                            .padding(end = 32.dp),
-                )
-            }
-        }
         PlaybackControls(
             modifier = Modifier.fillMaxWidth(),
             player = player,
@@ -243,6 +180,8 @@ fun Controller(
             skipBackOnResume = skipBackOnResume,
             currentSegment = currentSegment,
             onClickPlaybackDialogType = onClickPlaybackDialogType,
+            chapters = chapters,
+            favorite = favorite,
         )
     }
 }

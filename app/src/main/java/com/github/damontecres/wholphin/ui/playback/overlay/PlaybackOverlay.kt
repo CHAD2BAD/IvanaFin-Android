@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.media3.common.Player
 import coil3.compose.AsyncImage
 import com.github.damontecres.wholphin.data.model.BaseItem
@@ -119,6 +120,12 @@ fun PlaybackOverlay(
     val onChangeState = { newState: OverlayViewState ->
         state = newState
     }
+    // IvanaFin: the heart in the controls (shown at once, saved on the server by PlaybackPage)
+    var favorite by remember(item?.id) { mutableStateOf(item?.favorite == true) }
+    val onAction = { action: PlaybackAction ->
+        if (action is PlaybackAction.ToggleFavorite) favorite = action.favorite
+        onPlaybackActionClick(action)
+    }
 
     Box(
         modifier = modifier,
@@ -130,24 +137,23 @@ fun PlaybackOverlay(
             exit = fadeOut(),
             modifier = Modifier.matchParentSize(),
         ) {
-            // Background scrim for OSD readability
-            val scrimBrush =
-                remember {
-                    Brush.verticalGradient(
-                        colors =
-                            listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.5f),
-                                Color.Black.copy(alpha = 0.80f),
-                            ),
-                    )
-                }
-            Box(
-                modifier =
+            // IvanaFin: Jellyfin web + ElegantFin shading - black 80% fading out by 45% of each band, at the
+            // top (logo, clock) and the bottom (controls)
+            Column(Modifier.fillMaxSize()) {
+                Box(
                     Modifier
-                        .fillMaxSize()
-                        .background(scrimBrush),
-            )
+                        .fillMaxWidth()
+                        .weight(0.28f)
+                        .background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.8f), 0.45f to Color.Black.copy(alpha = 0.35f), 1f to Color.Transparent)),
+                )
+                Box(Modifier.fillMaxWidth().weight(0.37f))
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .weight(0.35f)
+                        .background(Brush.verticalGradient(0f to Color.Transparent, 0.55f to Color.Black.copy(alpha = 0.35f), 1f to Color.Black.copy(alpha = 0.8f))),
+                )
+            }
         }
 
         AnimatedContent(
@@ -198,8 +204,10 @@ fun PlaybackOverlay(
                         seekBack = seekBack,
                         skipBackOnResume = skipBackOnResume,
                         seekForward = seekForward,
-                        onPlaybackActionClick = onPlaybackActionClick,
+                        onPlaybackActionClick = onAction,
                         onClickPlaybackDialogType = onClickPlaybackDialogType,
+                        chapters = chapters,
+                        favorite = favorite,
                         onSeekBarChange = {
                             onSeekBarChange(it)
                             seekProgressMs = it
@@ -284,7 +292,7 @@ fun PlaybackOverlay(
                                 .align(Alignment.BottomStart)
                                 .offsetByPercent(
                                     xPercentage = seekProgressPercent.coerceIn(0f, 1f),
-                                ).padding(bottom = controllerHeight - titleHeight - subtitleHeight),
+                                ).padding(bottom = 64.dp), // IvanaFin: just above the seek bar (bottom row)
                     ) {
                         TrickplayPreview(
                             seekProgressMs = seekProgressMs,
@@ -298,6 +306,20 @@ fun PlaybackOverlay(
 
         // Top
         val logoImageUrl = LocalImageUrlService.current.rememberImageUrl(item, ImageType.LOGO)
+        AnimatedVisibility(
+            visible = !showDebugInfo && logoImageUrl.isNullOrBlank() && item?.title.isNotNullOrBlank() && controllerViewState.controlsVisible,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.TopStart),
+        ) {
+            androidx.tv.material3.Text(
+                text = listOfNotNull(item?.title, item?.subtitleLong?.takeIf { it.isNotBlank() }).joinToString(" · "),
+                color = Color.White,
+                fontSize = 20.sp,
+                maxLines = 1,
+                modifier = Modifier.padding(start = 48.dp, top = 28.dp).fillMaxWidth(0.7f),
+            )
+        }
         AnimatedVisibility(
             visible = !showDebugInfo && logoImageUrl.isNotNullOrBlank() && controllerViewState.controlsVisible,
             enter = slideIn { IntOffset(x = -it.width / 2, y = -it.height / 2) } + fadeIn(),
