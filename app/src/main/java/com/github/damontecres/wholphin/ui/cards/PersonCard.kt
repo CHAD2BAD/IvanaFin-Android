@@ -76,6 +76,8 @@ fun PersonCard(
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
+    // IvanaFin: Star Wars character rows let the name wrap instead of cutting it short
+    nameLines: Int = 1,
 ) {
     val hideOverlayDelay = 1_000L
 
@@ -165,7 +167,7 @@ fun PersonCard(
         SlidingCardText(focused) {
             Text(
                 text = name ?: "",
-                maxLines = 1,
+                maxLines = nameLines,
                 // IvanaFin: "..." on a long name; the selected card scrolls it instead (marquee)
                 overflow = TextOverflow.Ellipsis, // (no scrolling text: centred, it was cut at both ends - "ohnny Knoxville", beta round 5; web also uses "...")
                 textAlign = TextAlign.Center,

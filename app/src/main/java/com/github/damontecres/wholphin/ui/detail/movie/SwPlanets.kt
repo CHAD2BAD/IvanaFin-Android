@@ -349,7 +349,9 @@ fun SwRow(
                 } else {
                     PersonCard(
                         name = e.name,
-                        role = e.sub,
+                        // characters: name only (it may wrap), species only in the card
+                        role = if (e.kind == "char") null else e.sub,
+                        nameLines = if (e.kind == "char") 3 else 1,
                         imageUrl = swImageUrl(e.image, 320),
                         favorite = false,
                         onClick = { onClick(index) },
