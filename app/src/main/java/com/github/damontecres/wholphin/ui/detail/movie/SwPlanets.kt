@@ -68,6 +68,7 @@ import com.github.damontecres.wholphin.ui.cards.PersonCard
 import com.github.damontecres.wholphin.ui.cards.personRowCardWidth
 import com.github.damontecres.wholphin.ui.ifElse
 import org.jellyfin.sdk.api.client.ApiClient
+import org.jellyfin.sdk.api.client.extensions.imageApi
 import org.jellyfin.sdk.api.client.extensions.libraryApi
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ImageType
