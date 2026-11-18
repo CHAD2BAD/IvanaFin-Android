@@ -228,9 +228,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         viewModel.appStart(intent)
+        // IvanaFin: no window background under the app (always fully covered; one less full-screen fill per frame)
+        window.setBackgroundDrawable(null)
         setContent {
             MaterialTheme(colorScheme = PurpleThemeColors.darkScheme) {
-                Surface(Modifier.fillMaxSize()) {
+                // IvanaFin: transparent - MainContent's Surface is the one opaque background (each hidden
+                // full-screen fill costs the Fire TV a whole screen of drawing every frame; 2026-11-18)
+                Surface(Modifier.fillMaxSize(), colors = androidx.tv.material3.SurfaceDefaults.colors(containerColor = Color.Transparent)) {
                     val userPreferences by userPreferencesService.flow.collectAsState(null)
                     if (userPreferences == null) {
                         // Show loading page if it is taking a while to get app preferences

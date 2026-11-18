@@ -50,10 +50,10 @@ fun MainContent(
     modifier: Modifier = Modifier,
 ) {
     val preferences by rememberUpdatedState(userPreferences)
+    // IvanaFin: the Surface paints the background itself - the .background() under it was a hidden
+    // second full-screen fill every frame (Fire TV smoothness, 2026-11-18)
     Surface(
-        modifier =
-            modifier
-                .background(MaterialTheme.colorScheme.background),
+        modifier = modifier,
         shape = RectangleShape,
     ) {
 //                            val backStack = rememberNavBackStack(SetupDestination.Loading)

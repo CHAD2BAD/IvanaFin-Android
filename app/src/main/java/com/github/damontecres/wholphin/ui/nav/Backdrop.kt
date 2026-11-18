@@ -150,7 +150,9 @@ fun Backdrop(
                     },
         )
     }
-    if (backdropStyle != BackdropStyle.BACKDROP_NONE) {
+    // IvanaFin: nothing to show = draw nothing (the empty layer below still cost several full-area fills
+    // every frame: offscreen layer + fade masks; Fire TV overdraw check 2026-11-18)
+    if (backdropStyle != BackdropStyle.BACKDROP_NONE && backdrop.imageUrl != null) {
         Box(
             modifier = modifier.fillMaxSize(),
         ) {
