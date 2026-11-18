@@ -80,6 +80,9 @@ class HomeViewModel
         // IvanaFin: show the Discover (Seerr) button on the home page only when Seerr is connected
         val seerrActive = seerrService.active
 
+        /** IvanaFin: Settings > Home Screen Libraries (order + ticks) - the home tiles follow it. */
+        val navDrawerState = navDrawerService.state
+
         /**
          * IvanaFin: backdrops shown on the home library tiles. The NEXT set is fetched (and its
          * images preloaded) while Home is on screen, and only swapped in when Home is left, so a
@@ -94,6 +97,18 @@ class HomeViewModel
         private var restoreHomeSelection = true
 
         fun consumeHomeSelectionRestore(): Boolean = restoreHomeSelection.also { restoreHomeSelection = false }
+
+        /** IvanaFin: the "Other" page (libraries without a tile of their own) is showing instead of Home. */
+        val otherOpen = androidx.compose.runtime.mutableStateOf(false)
+
+        /** IvanaFin: tile last opened on the Other page (-1 = none yet). */
+        val otherLastOpenedIndex = androidx.compose.runtime.mutableIntStateOf(-1)
+
+        /** IvanaFin: Back from Other - select the Other tile on Home again. */
+        fun closeOther() {
+            otherOpen.value = false
+            restoreHomeSelection = true
+        }
 
         /** IvanaFin: last library list, so the tiles stay on screen while Home reloads its rows. */
         var lastHomeLibraries: List<BaseItem>? = null

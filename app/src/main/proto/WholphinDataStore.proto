@@ -212,6 +212,10 @@ message InterfacePreferences {
   bool show_logos = 13;
   SearchPreferences search_preferences = 14;
   repeated DisplayToggle display_toggles = 15;
+  // IvanaFin: Games tile on Home (opens Moonlight into the owner's PC) - off for everyone else
+  bool ivf_games_tile = 100;
+  // IvanaFin: true = no "Other" tile on Home (the unticked libraries) - shown by default
+  bool ivf_hide_other_tile = 101;
 }
 
 message AdvancedPreferences {

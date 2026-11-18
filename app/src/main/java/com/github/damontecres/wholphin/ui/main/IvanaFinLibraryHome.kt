@@ -40,6 +40,7 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import coil3.request.transformations
 import androidx.compose.foundation.background
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.geometry.Offset
@@ -55,6 +56,24 @@ import com.github.damontecres.wholphin.ui.tryRequestFocus
 import org.jellyfin.sdk.model.api.ImageType
 
 /** IvanaFin: the extra "Discover" (Seerr) tile shown after the libraries on Home. */
+/** IvanaFin: the "Other" home tile - its picture (one of the libraries inside) and what it opens. */
+class OtherTileInfo(
+    val backdropUrl: String?,
+    val onClick: () -> Unit,
+)
+
+/** IvanaFin: header of the Other page - its name where Home has its buttons. */
+@Composable
+fun IvanaFinOtherHeader() {
+    Text(
+        text = "Other",
+        style = MaterialTheme.typography.headlineMedium,
+        color = Color.White,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 16.dp),
+    )
+}
+
 class DiscoverTile(
     val name: String,
     val backdropUrl: String?,
@@ -92,9 +111,30 @@ private fun launchGames(context: android.content.Context) {
 }
 
 /**
- * IvanaFin home: just the top buttons and the libraries as big tiles filling the screen,
- * three per row (3 x 3) in the server's library order (Movies, Shows, Star Wars, Movies (Special) /
- * Archive, Music) followed by a Discover tile and a Games tile.
+ * IvanaFin: the libraries shown as Home tiles - the order and ticks from Settings > Home Screen
+ * Libraries (Wholphin's nav drawer list; untouched = the server's order, all shown). Libraries the
+ * list doesn't know yet go at the end. Playlists never get a tile (playlists live in Music).
+ */
+fun ivanaFinHomeLibraries(
+    libraries: List<BaseItem>,
+    navDrawer: com.github.damontecres.wholphin.services.NavDrawerItemState,
+): List<BaseItem> {
+    val order = navDrawer.items.mapNotNull { (it as? com.github.damontecres.wholphin.ui.nav.ServerNavDrawerItem)?.itemId }
+    val hidden =
+        navDrawer.moreItems
+            .mapNotNull { (it as? com.github.damontecres.wholphin.ui.nav.ServerNavDrawerItem)?.itemId }
+            .toSet()
+    return libraries
+        .filter { it.id !in hidden && it.data.collectionType != org.jellyfin.sdk.model.api.CollectionType.PLAYLISTS }
+        .withIndex()
+        .sortedBy { (i, lib) -> order.indexOf(lib.id).let { if (it < 0) 1000 + i else it } }
+        .map { it.value }
+}
+
+/**
+ * IvanaFin home: just the top buttons and the libraries as big tiles filling the screen, in the
+ * order given (see [ivanaFinHomeLibraries]), then the Games tile when switched on in Settings.
+ * Up to 4 tiles: 2 across; more: 3 across. More than 3 rows scroll instead of shrinking.
  */
 @Composable
 fun IvanaFinLibraryHome(
@@ -114,17 +154,24 @@ fun IvanaFinLibraryHome(
     lastOpenedIndex: Int = -1,
     // returns true only the first time it is called per visit to Home
     consumeSelectionRestore: () -> Boolean = { true },
+    // Settings > Games Tile (off by default: it opens Moonlight into the owner's PC)
+    showGames: Boolean = false,
+    // the "Other" tile (libraries without a tile of their own), null = none
+    otherTile: OtherTileInfo? = null,
 ) {
     // Tile after the libraries: Games
     val context = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val currentShowGames by rememberUpdatedState(showGames)
     // Games picture: the current one shows now, the next is preloaded and swapped in after leaving Home
     var gamesArt by remember { mutableStateOf(GamesArt.current) }
     LifecycleResumeEffect(Unit) {
         gamesArt = GamesArt.current
         val next = GamesArt.next
-        scope.launch {
-            coil3.SingletonImageLoader.get(context).execute(tileBackdropRequest(context, next))
+        if (currentShowGames) {
+            scope.launch {
+                coil3.SingletonImageLoader.get(context).execute(tileBackdropRequest(context, next))
+            }
         }
         onPauseOrDispose { GamesArt.swap() }
     }
@@ -132,8 +179,15 @@ fun IvanaFinLibraryHome(
         remember(context, gamesArt) {
             DiscoverTile(name = "Games", backdropUrl = gamesArt, onClick = { launchGames(context) })
         }
-    val extraTiles = listOfNotNull(gamesTile)
-    val shownLibraries = libraries.filter { it.name !in HOME_HIDDEN }
+    val currentOtherTile by rememberUpdatedState(otherTile)
+    val otherDiscoverTile =
+        otherTile?.let { info ->
+            remember(info.backdropUrl) {
+                DiscoverTile(name = "Other", backdropUrl = info.backdropUrl, onClick = { currentOtherTile?.onClick?.invoke() })
+            }
+        }
+    val extraTiles = listOfNotNull(otherDiscoverTile, gamesTile.takeIf { showGames })
+    val shownLibraries = libraries
     val tileCount = shownLibraries.size + extraTiles.size
     val currentOnShown by rememberUpdatedState(onShown)
     // Bumped every time Home comes (back) on screen, to re-run the focus choice below
@@ -173,20 +227,32 @@ fun IvanaFinLibraryHome(
                     .fillMaxWidth()
                     .padding(top = 8.dp, bottom = 32.dp, end = 16.dp), // bottom gap = side margins
         ) {
-            val columns = 3 // IvanaFin: 3 x 2 (Movies, Shows, Star Wars / Movies (Special), Music, Games)
+            // IvanaFin: up to 4 tiles 2 across, more 3 across (yours: 3 x 2); past 3 rows the grid scrolls
+            val columns =
+                when {
+                    tileCount <= 1 -> 1
+                    tileCount <= 4 -> 2
+                    else -> 3
+                }
             val rows = ((tileCount + columns - 1) / columns).coerceAtLeast(1)
+            val visibleRows = rows.coerceAtMost(3)
             val gap = 16.dp
             val tileWidth = (maxWidth - gap * (columns - 1)) / columns
-            val tileHeight = (maxHeight - gap * (rows - 1)) / rows
-            // libraries (BaseItem) and Discover / Games (DiscoverTile) in the user's order (HOME_ORDER)
-            val tiles: List<Any> =
-                (shownLibraries + extraTiles).withIndex().sortedBy { (i, t) ->
-                    val name = if (t is BaseItem) t.name else (t as DiscoverTile).name
-                    HOME_ORDER.indexOf(name).let { if (it < 0) 100 + i else it }
-                }.map { it.value }
+            val tileHeight = (maxHeight - gap * (visibleRows - 1)) / visibleRows
+            // libraries (BaseItem) in the order given, then Games (DiscoverTile)
+            val tiles: List<Any> = shownLibraries + extraTiles
             Column(
                 verticalArrangement = Arrangement.spacedBy(gap),
-                modifier = Modifier.fillMaxSize(),
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .then(
+                            if (rows > visibleRows) {
+                                Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())
+                            } else {
+                                Modifier
+                            },
+                        ),
             ) {
                 tiles.chunked(columns).forEachIndexed { rowIndex, rowItems ->
                     Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
@@ -439,17 +505,6 @@ private object GamesArt {
         next = pick(current)
     }
 }
-
-/**
- * IvanaFin: the home tiles' order, left to right, row by row (the user's choice, 2026-11-11) - same
- * list in jellyfin-web-custom home-grid.js HOME_ORDER. Libraries not named here follow at the end.
- */
-private val HOME_ORDER = listOf("Movies", "Shows", "Star Wars", "Movies (Special)", "Music", "Games")
-
-/** Libraries kept on the server (folders untouched) but not shown as Home tiles (2026-11-12, user request). */
-// (Playlists: Jellyfin adds this library once anyone makes a playlist - playlists live in Music > Your Library;
-// beta round 6 showed it as a 7th, half-drawn tile)
-private val HOME_HIDDEN = setOf("Archive", "Ivana", "Playlists")
 
 /** IvanaFin: names shown on the home tiles (the server keeps its own names). */
 private fun ivanaFinLibraryDisplayName(name: String?): String =

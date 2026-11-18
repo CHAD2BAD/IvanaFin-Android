@@ -4,6 +4,7 @@ import android.content.Context
 import com.github.damontecres.wholphin.data.ServerPreferencesDao
 import com.github.damontecres.wholphin.data.ServerRepository
 import com.github.damontecres.wholphin.data.model.JellyfinUser
+import com.github.damontecres.wholphin.data.model.NavDrawerPinnedItem
 import com.github.damontecres.wholphin.data.model.NavPinType
 import com.github.damontecres.wholphin.data.model.ServerUserConfig
 import com.github.damontecres.wholphin.services.hilt.DefaultCoroutineScope
@@ -195,10 +196,33 @@ class NavDrawerService
                     }
             val allItems = builtins + libraries
 
-            val navDrawerPins =
+            var navDrawerPins =
                 withContext(WholphinDispatchers.IO) {
                     serverPreferencesDao.getNavDrawerPinnedItems(user).associateBy { it.itemId }
                 }
+            // IvanaFin: first sign-in on this device - the home screen starts with 4 tiles: the
+            // first Movies, Shows and Music library (+ the Other tile); every other library starts
+            // unticked (reachable from Other, can be ticked in Settings > Home Screen Libraries)
+            if (navDrawerPins.isEmpty() && libraries.isNotEmpty()) {
+                val firstOfType =
+                    listOf(CollectionType.MOVIES, CollectionType.TVSHOWS, CollectionType.MUSIC)
+                        .mapNotNull { type -> libraries.firstOrNull { it.type == type }?.id }
+                        .toSet()
+                val defaults =
+                    allItems.mapIndexed { index, item ->
+                        val pinned = item !is ServerNavDrawerItem || item.id in firstOfType
+                        NavDrawerPinnedItem(
+                            user.rowId,
+                            item.id,
+                            if (pinned) NavPinType.PINNED else NavPinType.UNPINNED,
+                            index,
+                        )
+                    }
+                withContext(WholphinDispatchers.IO) {
+                    serverPreferencesDao.saveNavDrawerPinnedItems(*defaults.toTypedArray())
+                }
+                navDrawerPins = defaults.associateBy { it.itemId }
+            }
 
             val items = mutableListOf<NavDrawerItem>()
             val moreItems = mutableListOf<NavDrawerItem>()
@@ -208,8 +232,10 @@ class NavDrawerService
                 // Items the user doesn't have access to anymore will be skipped
                 .sortedBy { navDrawerPins[it.id]?.order?.takeIf { it >= 0 } ?: Int.MAX_VALUE }
                 .forEach {
-                    // Assume pinned if unknown
-                    val pinned = navDrawerPins[it.id]?.type ?: NavPinType.PINNED
+                    // IvanaFin: a library added on the server later starts unticked (it shows under Other)
+                    val pinned =
+                        navDrawerPins[it.id]?.type
+                            ?: if (it is ServerNavDrawerItem) NavPinType.UNPINNED else NavPinType.PINNED
                     if (pinned == NavPinType.PINNED) {
                         items.add(it)
                     } else {

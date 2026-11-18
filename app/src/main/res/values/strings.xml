@@ -354,8 +354,12 @@
     <string name="install_update">Install update</string>
     <string name="installed_version">Installed version</string>
     <string name="max_homepage_items">Max items on home page rows</string>
-    <string name="nav_drawer_pins_summary">Choose the default items to show, others will be hidden</string>
-    <string name="nav_drawer_pins">Customize Navigation Drawer Items</string>
+    <string name="nav_drawer_pins_summary">Order of the libraries on the home screen; untick one to hide it</string>
+    <string name="nav_drawer_pins">Home Screen Libraries</string>
+    <string name="ivf_games_tile">Games Tile</string>
+    <string name="ivf_other_tile">Other Tile</string>
+    <string name="ivf_other_tile_on">Home shows an Other tile with the libraries that have no tile of their own</string>
+    <string name="ivf_games_tile_on">Home shows a Games tile that opens Moonlight</string>
     <string name="nav_drawer_switch_on_focus_summary_off">Click to switch pages</string>
     <string name="nav_drawer_switch_on_focus">Switch nav drawer pages on focus</string>
     <string name="pass_out_protection">Passout Protection</string>

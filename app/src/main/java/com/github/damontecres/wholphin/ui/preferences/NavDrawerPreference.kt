@@ -55,6 +55,7 @@ import com.github.damontecres.wholphin.ui.launchDefault
 import com.github.damontecres.wholphin.ui.launchIO
 import com.github.damontecres.wholphin.ui.main.settings.MoveDirection
 import com.github.damontecres.wholphin.ui.nav.NavDrawerItem
+import com.github.damontecres.wholphin.ui.nav.ServerNavDrawerItem
 import com.github.damontecres.wholphin.ui.theme.WholphinTheme
 import com.github.damontecres.wholphin.util.ExceptionHandler
 import com.github.damontecres.wholphin.util.WholphinDispatchers
@@ -328,11 +329,14 @@ class NavDrawerPreferencesViewModel
                         .sortedBy {
                             navDrawerPins[it.id]?.order?.takeIf { it >= 0 } ?: Int.MAX_VALUE
                         }.mapNotNull {
-                            if (!seerr && it is NavDrawerItem.Discover) {
+                            // IvanaFin: this list is "Home Screen Libraries" - only libraries (no side menu)
+                            if (it is NavDrawerItem.Discover || it is NavDrawerItem.Favorites ||
+                                (it as? ServerNavDrawerItem)?.type == org.jellyfin.sdk.model.api.CollectionType.PLAYLISTS
+                            ) {
                                 null
                             } else {
-                                // Assume pinned if unknown
-                                val pinned = navDrawerPins[it.id]?.type ?: NavPinType.PINNED
+                                // IvanaFin: unknown = what the home screen does (ticked only if it has a tile)
+                                val pinned = navDrawerPins[it.id]?.type ?: if (it in state.items) NavPinType.PINNED else NavPinType.UNPINNED
                                 NavDrawerPin(
                                     it.id,
                                     it.name(context),

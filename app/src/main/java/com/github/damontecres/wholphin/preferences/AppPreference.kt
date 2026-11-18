@@ -860,6 +860,32 @@ sealed interface AppPreference<Pref, T> {
                 summaryOff = R.string.disabled,
             )
 
+        /** IvanaFin: the Games home tile (Moonlight into the owner's Sunshine PC) - off unless switched on. */
+        val GamesTile =
+            AppSwitchPreference<AppPreferences>(
+                title = R.string.ivf_games_tile,
+                defaultValue = false,
+                getter = { it.interfacePreferences.ivfGamesTile },
+                setter = { prefs, value ->
+                    prefs.updateInterfacePreferences { ivfGamesTile = value }
+                },
+                summaryOn = R.string.ivf_games_tile_on,
+                summaryOff = R.string.disabled,
+            )
+
+        /** IvanaFin: the "Other" home tile (opens the libraries without their own tile) - on by default. */
+        val OtherTile =
+            AppSwitchPreference<AppPreferences>(
+                title = R.string.ivf_other_tile,
+                defaultValue = true,
+                getter = { !it.interfacePreferences.ivfHideOtherTile },
+                setter = { prefs, value ->
+                    prefs.updateInterfacePreferences { ivfHideOtherTile = !value }
+                },
+                summaryOn = R.string.ivf_other_tile_on,
+                summaryOff = R.string.disabled,
+            )
+
         val BackdropStylePref =
             AppChoicePreference<AppPreferences, BackdropStyle>(
                 title = R.string.backdrop_display,
@@ -1135,6 +1161,8 @@ val basicPreferences =
                     AppPreference.SubtitleStyle,
                     AppPreference.ThemeColors,
                     AppPreference.ScreensaverSettings,
+                    AppPreference.OtherTile, // IvanaFin
+                    AppPreference.GamesTile, // IvanaFin
                 ),
         ),
         PreferenceGroup(
