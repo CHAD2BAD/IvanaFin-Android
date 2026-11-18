@@ -225,7 +225,10 @@ class CollectionFolderViewModel
                             swTimeline = isStarWars && IvanaFinSwTimeline.isTimeline(context),
                         )
                     }
-                    loadResults(true, sortAndDirection, recursive, filterToUse, useSeriesForPrimary)
+                    // IvanaFin: a Star Wars library in release mode = release date order. Friends usually keep
+                    // Star Wars in a plain Movies library, whose saved / default sort is A-Z (2026-11-18)
+                    val sortToUse = if (isStarWars) SW_RELEASE_ORDER else sortAndDirection
+                    loadResults(true, sortToUse, recursive, filterToUse, useSeriesForPrimary)
                         .join()
 //                    onResumePage()
                 } catch (ex: Exception) {
@@ -441,7 +444,7 @@ class CollectionFolderViewModel
 
         /**
          * IvanaFin: a library counts as a Star Wars library by what is in it, not by its name: at least
-         * half of a sample of its films and shows are Star Wars titles (this library's SwTimeline ids, or
+         * three quarters (and 3+) of a sample of its films and shows are Star Wars titles (this library's SwTimeline ids, or
          * a TMDB id the Star Wars data knows - any server).
          */
         private suspend fun isStarWarsLibrary(item: BaseItem?): Boolean {
@@ -463,7 +466,9 @@ class CollectionFolderViewModel
                             ),
                         ).content.items
                 val sw = sample.count { IvanaFinSwTimeline.key(BaseItem(it, false)) != null }
-                sw >= 3 && sw * 2 >= sample.size
+                // 3/4 or more: a Movies library where a few of the films are Star Wars is not a Star Wars
+                // library (test server: 3 of 5 counted before). The owner's own library is ~86%+ (2026-11-18)
+                sw >= 3 && sw * 4 >= sample.size * 3
             }.getOrDefault(false)
         }
 
@@ -498,13 +503,15 @@ class CollectionFolderViewModel
             )
         }
 
+        private val SW_RELEASE_ORDER = SortAndDirection(ItemSortBy.PREMIERE_DATE, SortOrder.ASCENDING)
+
         /** IvanaFin: the Star Wars Sort button - switch order and remember it on this device */
         override fun toggleSwTimeline() {
             val timeline = !state.value.swTimeline
             IvanaFinSwTimeline.setTimeline(context, timeline)
             position = 0
             _state.update { it.copy(swTimeline = timeline) }
-            loadResults(true, state.value.sortAndDirection, recursive, state.value.filter, useSeriesForPrimary)
+            loadResults(true, if (timeline) state.value.sortAndDirection else SW_RELEASE_ORDER, recursive, state.value.filter, useSeriesForPrimary)
         }
 
         private fun createPager(
