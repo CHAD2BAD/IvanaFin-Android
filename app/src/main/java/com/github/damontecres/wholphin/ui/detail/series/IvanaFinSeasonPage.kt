@@ -108,7 +108,8 @@ fun IvanaFinSeasonPage(
     // IvanaFin: Star Wars shows - per season (they change with the Season button): era line, Featured
     // Planets, Characters, Starships & Vehicles and In Story Order above Cast & Crew (SwPlanets.kt)
     val swContext = LocalContext.current
-    val sw = remember(season?.id) { season?.let { com.github.damontecres.wholphin.ui.detail.movie.SwPlanets.season(swContext, it.id) } }
+    // (other servers: the whole show's extras on every season, found by the show's TMDB id)
+    val sw = remember(season?.id) { season?.let { com.github.damontecres.wholphin.ui.detail.movie.SwPlanets.season(swContext, it.id, series.data.providerIds?.get("Tmdb")) } }
     val swRows =
         remember(sw) {
             if (sw == null) emptyList() else listOf("Featured Planets" to sw.planets, "Characters" to sw.chars, "Starships & Vehicles" to sw.ships).filter { it.second.isNotEmpty() }

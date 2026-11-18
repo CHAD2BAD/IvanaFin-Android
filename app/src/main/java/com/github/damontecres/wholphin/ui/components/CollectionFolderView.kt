@@ -217,7 +217,7 @@ class CollectionFolderViewModel
                         }
 
                     // IvanaFin: Star Wars library - release date or in-universe timeline order
-                    val isStarWars = item?.name == IvanaFinSwTimeline.LIBRARY_NAME
+                    val isStarWars = isStarWarsLibrary(item)
                     _state.update {
                         it.copy(
                             item = DataLoadingState.Success(item),
@@ -437,6 +437,34 @@ class CollectionFolderViewModel
                     )
                 }
             }
+        }
+
+        /**
+         * IvanaFin: a library counts as a Star Wars library by what is in it, not by its name: at least
+         * half of a sample of its films and shows are Star Wars titles (this library's SwTimeline ids, or
+         * a TMDB id the Star Wars data knows - any server).
+         */
+        private suspend fun isStarWarsLibrary(item: BaseItem?): Boolean {
+            if (item == null || item.type != BaseItemKind.COLLECTION_FOLDER) return false
+            com.github.damontecres.wholphin.ui.detail.movie.SwPlanets.load(context)
+            return runCatching {
+                val sample =
+                    api.libraryApi
+                        .getItems(
+                            GetItemsRequest(
+                                parentId = item.id,
+                                recursive = true,
+                                includeItemTypes = listOf(BaseItemKind.MOVIE, BaseItemKind.SERIES),
+                                fields = listOf(ItemFields.PROVIDER_IDS),
+                                enableImages = false,
+                                enableUserData = false,
+                                sortBy = listOf(ItemSortBy.RANDOM),
+                                limit = 60,
+                            ),
+                        ).content.items
+                val sw = sample.count { IvanaFinSwTimeline.key(BaseItem(it, false)) != null }
+                sw >= 3 && sw * 2 >= sample.size
+            }.getOrDefault(false)
         }
 
         /**

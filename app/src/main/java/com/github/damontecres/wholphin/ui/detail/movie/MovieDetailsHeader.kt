@@ -63,7 +63,15 @@ fun MovieDetailsHeader(
             // smaller info line (user request)
             // IvanaFin: Star Wars films start with the in-universe year ("19 BBY")
             val swContext = androidx.compose.ui.platform.LocalContext.current
-            val swYear = androidx.compose.runtime.remember(movie.id) { if (SwPlanets.film(swContext, movie.id) != null) movie.data.providerIds?.get("SwYear") else null }
+            // (other servers: the year comes from the data, by TMDB id)
+            val swYear =
+                androidx.compose.runtime.remember(movie.id) {
+                    if (SwPlanets.film(swContext, movie) == null) {
+                        null
+                    } else {
+                        movie.data.providerIds?.get("SwYear") ?: SwPlanets.timeline(movie.data.providerIds?.get("Tmdb"))?.second
+                    }
+                }
             QuickDetails(movie.ui.quickDetails, movie.timeRemainingOrRuntime, textStyle = MaterialTheme.typography.labelMedium, prefix = swYear)
         }
 

@@ -1,5 +1,6 @@
 package com.github.damontecres.wholphin.ui.detail.movie
 
+import com.github.damontecres.wholphin.util.successValue
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -273,7 +274,11 @@ class MovieViewModel
         }
 
         /** IvanaFin: before / after this film on the Star Wars timeline (null for other films) */
-        suspend fun swStory(): SwNeighbours? = if (SwPlanets.film(context, itemId) == null) null else swNeighbours(api, itemId)
+        suspend fun swStory(): SwNeighbours? {
+            val movie = state.value.loading.successValue
+            val sw = if (movie != null) SwPlanets.film(context, movie) else SwPlanets.film(context, itemId)
+            return if (sw == null) null else swNeighbours(api, itemId)
+        }
 
         fun navigateTo(destination: Destination) {
             release()

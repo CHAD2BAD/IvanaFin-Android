@@ -89,9 +89,9 @@ object IvanaFinLibraryCache {
  * Each Star Wars title carries hidden provider ids on the server: SwTimeline = in-universe sort key
  * in years (BBY negative), SwYear = label shown under the poster ("32 BBY", "22–19 BBY").
  * Titles without one (documentaries, Holiday Special, Visions) come last in release order.
+ * A library counts as Star Wars by what is in it, not its name (CollectionFolderViewModel).
  */
 object IvanaFinSwTimeline {
-    const val LIBRARY_NAME = "Star Wars"
     private const val PREFS = "ivanafin"
     private const val KEY = "sw_sort"
 
@@ -103,11 +103,14 @@ object IvanaFinSwTimeline {
             .putString(KEY, if (timeline) "timeline" else "release").apply()
     }
 
+    // (other servers have no SwTimeline / SwYear ids: the place comes from the Star Wars data, by TMDB id)
     fun key(item: com.github.damontecres.wholphin.data.model.BaseItem?): Double? =
         item?.data?.providerIds?.get("SwTimeline")?.toDoubleOrNull()
+            ?: com.github.damontecres.wholphin.ui.detail.movie.SwPlanets.timeline(item?.data?.providerIds?.get("Tmdb"))?.first
 
     fun label(item: com.github.damontecres.wholphin.data.model.BaseItem?): String? =
         item?.data?.providerIds?.get("SwYear")?.takeIf { it.isNotBlank() }
+            ?: com.github.damontecres.wholphin.ui.detail.movie.SwPlanets.timeline(item?.data?.providerIds?.get("Tmdb"))?.second?.takeIf { it.isNotBlank() }
 }
 
 /** True inside a Star Wars grid sorted by the timeline: posters show the in-universe year. */

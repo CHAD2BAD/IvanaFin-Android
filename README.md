@@ -8,9 +8,9 @@ It is a fork of [Wholphin](https://github.com/damontecres/Wholphin) by damontecr
 talking to Jellyfin and playing video comes from Wholphin. IvanaFin changes the design and adds features
 on top.
 
-> **Status:** early. Some extras (Star Wars rows, music album types and artist eras) were built around one
-> particular library and do not show up on other servers yet - making them work with any library is the
-> next piece of work.
+> **Status:** early. The Star Wars extras work on any server for the official films and shows (matched by
+> their TMDB id). The music extras (album types and artist eras) still only show up on one particular
+> library - making them work anywhere is the next piece of work.
 
 ## Install
 
@@ -43,7 +43,8 @@ Release builds are signed with the key configured in `~/.gradle/gradle.propertie
 - **Wholphin** - the app this is built on, by damontecres and contributors, GPL-2.0.
 - **Jellyfin** SDK and server - GPL-2.0.
 - **Star Wars facts** shown in the Planets / Characters / Starships rows are summarised from
-  [Wookieepedia](https://starwars.fandom.com) (text under CC BY-SA 3.0); pictures come from Wookieepedia.
+  [Wookieepedia](https://starwars.fandom.com) (text under CC BY-SA 3.0). The pictures are copies from Wookieepedia, kept in
+  [extras/star-wars](extras/star-wars) so the app can show them on any server; they belong to their owners.
   Star Wars is a trademark of Lucasfilm Ltd. This project is not affiliated with Lucasfilm or Disney.
 - Icons: Material Icons (Apache 2.0), Font Awesome Free (fonts SIL OFL 1.1, icons CC BY 4.0).
 

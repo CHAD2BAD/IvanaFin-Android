@@ -383,7 +383,7 @@ fun MovieDetailsContent(
     val focusRequesters = remember { List(STORY_ROW + 1) { FocusRequester() } }
     // IvanaFin: Star Wars extras (rows above Cast & Crew); the card open (kind, index), and the card to
     // select in each row after it
-    val sw = remember(movie.id) { SwPlanets.film(context, movie.id) }
+    val sw = remember(movie.id) { SwPlanets.film(context, movie) }
     val planets = sw?.planets.orEmpty()
     val swRows = remember(sw) { listOfNotNull(sw?.planets?.takeIf { it.isNotEmpty() }?.let { Triple("Featured Planets", it, PLANET_ROW) }, sw?.chars?.takeIf { it.isNotEmpty() }?.let { Triple("Characters", it, CHAR_ROW) }, sw?.ships?.takeIf { it.isNotEmpty() }?.let { Triple("Starships & Vehicles", it, SHIP_ROW) }) }
     var swOpen by remember { mutableStateOf<Pair<Int, Int>?>(null) } // (row constant, index)

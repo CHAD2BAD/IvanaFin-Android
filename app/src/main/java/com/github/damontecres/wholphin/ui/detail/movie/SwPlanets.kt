@@ -87,13 +87,14 @@ import kotlin.random.Random
  * Data: assets/sw_planets.json, generated from jellyfin-web-custom/data/sw-planets-src (build.ts); the
  * pictures are stored on the Jellyfin server.
  */
-data class SwLink(val name: String, val id: UUID?, val series: Boolean)
+/** A title something is "seen in". On another server [id] is unknown and [tmdb] finds it (swResolve). */
+data class SwLink(val name: String, val id: UUID?, val series: Boolean, val tmdb: String? = null)
 
 data class SwEntry(
     val kind: String, // planet | char | ship
     val slug: String,
     val name: String,
-    /** "Items/<id>/Images/Backdrop/<n>" on the Jellyfin server */
+    /** a picture: https URL (GitHub copy, Android) or "Items/<id>/Images/Backdrop/<n>" on the Jellyfin server */
     val image: String,
     val sub: String,
     val facts: List<Pair<String, String>>,
@@ -154,7 +155,7 @@ object SwPlanets {
             seenIn =
                 List(seen.length()) {
                     val s = seen.getJSONObject(it)
-                    SwLink(s.optString("name"), hexToUuid(s.optString("id")), s.optBoolean("series"))
+                    SwLink(s.optString("name"), hexToUuid(s.optString("id")), s.optBoolean("series"), s.optString("tmdb").ifBlank { null })
                 },
         )
     }
@@ -165,13 +166,37 @@ object SwPlanets {
         arr: JSONArray?,
     ): List<SwEntry> = if (arr == null) emptyList() else List(arr.length()) { arr.get(it) }.mapNotNull { entry(d, kind, it) }
 
-    /** The film's extras, or null for anything that isn't a Star Wars film. */
+    /** Load the data now (so [timeline] works where there is no context to hand). */
+    fun load(context: Context) {
+        data(context)
+    }
+
+    /**
+     * In-universe place of a title by TMDB id ([k] = years, BBY negative; [year] = "32 BBY"), from the data -
+     * for servers whose items don't carry this library's SwTimeline / SwYear ids. Null until [load] ran.
+     */
+    fun timeline(tmdb: String?): Pair<Double, String>? {
+        val t = root?.optJSONObject("timeline")?.optJSONObject(tmdb ?: return null) ?: return null
+        return t.optDouble("k") to t.optString("year")
+    }
+
+    /** The film's extras: by this server's item id, else by its TMDB id (any server); null if not Star Wars. */
+    fun film(
+        context: Context,
+        item: com.github.damontecres.wholphin.data.model.BaseItem,
+    ): SwFilm? = film(context, item.id, item.data.providerIds?.get("Tmdb"))
+
     fun film(
         context: Context,
         id: UUID,
+        tmdb: String? = null,
     ): SwFilm? {
         val d = data(context) ?: return null
-        val f = d.optJSONObject("films")?.optJSONObject(id.hex()) ?: return null
+        val films = d.optJSONObject("films") ?: return null
+        val f =
+            films.optJSONObject(id.hex())
+                ?: tmdb?.let { t -> d.optJSONObject("tmdbFilms")?.optString(t)?.ifBlank { null }?.let { films.optJSONObject(it) } }
+                ?: return null
         val c = f.optJSONObject("crawl")
         return SwFilm(
             planets = list(d, "planet", f.optJSONArray("planets")),
@@ -185,13 +210,21 @@ object SwPlanets {
         )
     }
 
-    /** A Star Wars show season's extras (planets, characters, starships, its place in the story), or null. */
+    /**
+     * A Star Wars show season's extras (planets, characters, starships, its place in the story), or null.
+     * Other servers have the official seasons, not this library's re-cuts: there every season of the show
+     * (found by the show's TMDB id, [seriesTmdb]) gets the whole show's extras.
+     */
     fun season(
         context: Context,
         id: UUID,
+        seriesTmdb: String? = null,
     ): SwSeason? {
         val d = data(context) ?: return null
-        val s = d.optJSONObject("seasons")?.optJSONObject(id.hex()) ?: return null
+        val s =
+            d.optJSONObject("seasons")?.optJSONObject(id.hex())
+                ?: seriesTmdb?.let { d.optJSONObject("shows")?.optJSONObject(it) }
+                ?: return null
         return SwSeason(
             k = s.optDouble("k"),
             year = s.optString("year"),
@@ -224,7 +257,6 @@ data class SwTimelineItem(val id: UUID, val name: String, val key: Double, val y
 
 data class SwNeighbours(val before: SwTimelineItem?, val after: SwTimelineItem?)
 
-private val SW_LIBRARY = hexToUuid("ddb2bb02ef627bc7aba27c2133fa15a0")
 
 suspend fun swNeighbours(
     api: ApiClient,
@@ -247,29 +279,59 @@ suspend fun swNeighboursAt(
         SwNeighbours(groups.lastOrNull { it[0].key <= k }?.first(), groups.firstOrNull { it[0].key > k }?.first())
     }.getOrNull()
 
+/**
+ * IvanaFin: every Star Wars title on THIS server (any library), once per app run: its place from the item's
+ * SwTimeline / SwYear ids (this library) or, on any other server, from the data by its TMDB id. Also used to
+ * find "Also in" titles by TMDB id (swResolve).
+ */
+private var swIndex by mutableStateOf<List<Pair<SwTimelineItem, String?>>?>(null)
+
+private suspend fun swLoadIndex(api: ApiClient): List<Pair<SwTimelineItem, String?>> {
+    swIndex?.let { return it }
+    val items =
+        api.libraryApi
+            .getItems(
+                GetItemsRequest(
+                    recursive = true,
+                    includeItemTypes = listOf(BaseItemKind.MOVIE, BaseItemKind.SERIES),
+                    fields = listOf(ItemFields.PROVIDER_IDS),
+                    enableImages = false,
+                    enableUserData = false,
+                ),
+            ).content.items
+    val list =
+        items.mapNotNull { x ->
+            val tmdb = x.providerIds?.get("Tmdb")
+            val own = x.providerIds?.get("SwTimeline")?.toDoubleOrNull()
+            val (k, year) =
+                if (own != null) {
+                    own to (x.providerIds?.get("SwYear") ?: "")
+                } else {
+                    SwPlanets.timeline(tmdb) ?: return@mapNotNull null
+                }
+            SwTimelineItem(x.id, x.name ?: "", k, year, x.type == BaseItemKind.SERIES) to tmdb
+        }
+    swIndex = list
+    return list
+}
+
+/** The id of an "Also in" title on this server (its own id, else the same TMDB title), or null if it isn't here. */
+fun swResolve(link: SwLink): UUID? {
+    val index = swIndex ?: return link.id
+    if (link.id != null && index.any { it.first.id == link.id }) return link.id
+    val t = link.tmdb ?: return null
+    return index.firstOrNull { it.second == t && it.first.series == link.series }?.first?.id
+}
+
 private suspend fun swTimelineGroups(
     api: ApiClient,
     except: UUID? = null,
 ): List<List<SwTimelineItem>> {
         swLoadPlaces(api)
-        val items =
-            api.libraryApi
-                .getItems(
-                    GetItemsRequest(
-                        parentId = SW_LIBRARY,
-                        recursive = true,
-                        includeItemTypes = listOf(BaseItemKind.MOVIE, BaseItemKind.SERIES),
-                        fields = listOf(ItemFields.PROVIDER_IDS),
-                        enableImageTypes = listOf(ImageType.PRIMARY),
-                        imageTypeLimit = 1,
-                    ),
-                ).content.items
         val tl =
-            items
-                .mapNotNull { x ->
-                    val k = x.providerIds?.get("SwTimeline")?.toDoubleOrNull() ?: return@mapNotNull null
-                    SwTimelineItem(x.id, x.name ?: "", k, x.providerIds?.get("SwYear") ?: "", x.type == BaseItemKind.SERIES)
-                }.filter { it.id != except }
+            swLoadIndex(api)
+                .map { it.first }
+                .filter { it.id != except }
                 .sortedBy { it.key }
         // copies of one film (35mm, extended, novel-named edits) sit within 0.05 of each other: one entry each
         val groups = mutableListOf<MutableList<SwTimelineItem>>()
@@ -308,6 +370,8 @@ private fun swImageUrl(
     val service = com.github.damontecres.wholphin.ui.LocalImageUrlService.current
     val places = swPlaces
     return remember(path, width, places) {
+        // IvanaFin: GitHub copies (Android data) need nothing from the server
+        if (path.startsWith("https://")) return@remember path
         if (places == null) return@remember null
         // "?tag=": the picture's own tag, so a picture saved earlier for the same place is never shown instead
         val m = Regex("""Items/([0-9a-fA-F]{32})/Images/Backdrop/(\d+)(?:\?tag=(\w+))?""").find(path) ?: return@remember null
@@ -427,7 +491,9 @@ fun SwCardDialog(
 ) {
     var index by remember { mutableIntStateOf(startIndex.coerceIn(0, entries.lastIndex)) }
     val e = entries[index]
-    val links = remember(e) { e.seenIn.filter { it.id != currentId } }
+    // IvanaFin: only titles on this server (found by id, or by TMDB id on any other server)
+    val swIdx = swIndex
+    val links = remember(e, swIdx) { e.seenIn.mapNotNull { l -> swResolve(l)?.let { l.copy(id = it) } }.filter { it.id != currentId } }
     val focus = remember { FocusRequester() }
     val firstLink = remember { FocusRequester() }
     val more = mapOf("planet" to "planets", "char" to "characters", "ship" to "starships")[e.kind]
