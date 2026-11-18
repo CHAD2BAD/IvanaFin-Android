@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install IvanaFin</title>
+<meta name="description" content="IvanaFin - a Jellyfin app for Fire TV, Google TV and Android TV. Install it in a few steps.">
+<style>
+  :root {
+    --bg: #0b0b0c; --card: #161618; --line: #2a2a2e; --text: #e6e7ea; --muted: #a2a6ad;
+    --accent: #2563eb; --accent-text: #ffffff; --focus: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 18px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 40px 16px 64px; }
+  h1 { font-size: clamp(36px, 6vw, 56px); line-height: 1.05; margin: 0 0 8px; letter-spacing: -0.02em; }
+  .lead { color: var(--muted); margin: 0 0 32px; font-size: 20px; max-width: 46em; }
+  .devices { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .device { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 24px; }
+  .device.mine { border-color: var(--accent); }
+  .device h2 { margin: 0 0 4px; font-size: 26px; }
+  .device .what { color: var(--muted); margin: 0 0 18px; font-size: 16px; }
+  .btn { display: inline-block; background: var(--accent); color: var(--accent-text); text-decoration: none;
+         font-weight: 700; font-size: 20px; padding: 14px 26px; border-radius: 999px; outline: none;
+         border: 3px solid transparent; }
+  .btn:focus, .btn:hover { border-color: var(--focus); }
+  .small { font-size: 15px; color: var(--muted); margin-top: 12px; }
+  .small a { color: var(--text); }
+  ol { padding-left: 1.3em; margin: 18px 0 0; }
+  li { margin: 6px 0; }
+  code { background: #232327; border-radius: 6px; padding: 2px 8px; font-size: 0.95em; white-space: nowrap; }
+  h3 { margin: 40px 0 8px; font-size: 22px; }
+  p { margin: 8px 0; }
+  .note { color: var(--muted); font-size: 16px; }
+  footer { margin-top: 48px; color: var(--muted); font-size: 15px; border-top: 1px solid var(--line); padding-top: 16px; }
+  footer a { color: var(--text); }
+</style>
+</head>
+<body>
+<main>
+  <h1>IvanaFin</h1>
+  <p class="lead">A Jellyfin app for your TV, with big-tile home screen, full-screen film and show pages and a TV-style music
+    library. You need a Jellyfin server to use it.</p>
+
+  <div class="devices">
+    <section class="device" id="fire">
+      <h2>Fire TV</h2>
+      <p class="what">Fire TV Stick, Fire TV Cube, Fire TV televisions</p>
+      <a class="btn" href="https://github.com/CHAD2BAD/IvanaFin/releases/latest/download/IvanaFin-release-armeabi-v7a.apk">Download for Fire TV</a>
+      <ol>
+        <li>Install <b>Downloader</b> from the Amazon Appstore (search "Downloader").</li>
+        <li>Settings &rsaquo; My Fire TV &rsaquo; About: press OK on the device name 7 times. Then
+          Settings &rsaquo; My Fire TV &rsaquo; Developer options &rsaquo; Install unknown apps &rsaquo; turn on <b>Downloader</b>.</li>
+        <li>Open Downloader and type <code>chad2bad.github.io/IvanaFin/fire</code> - the download starts by itself.</li>
+        <li>Choose <b>Install</b>, then <b>Open</b>. Pick your server, sign in, done.</li>
+      </ol>
+    </section>
+
+    <section class="device" id="tv">
+      <h2>Google TV / Android TV</h2>
+      <p class="what">Google TV Streamer, Chromecast with Google TV, Nvidia Shield, Sony / TCL / Philips TVs</p>
+      <a class="btn" href="https://github.com/CHAD2BAD/IvanaFin/releases/latest/download/IvanaFin-release.apk">Download for Google TV</a>
+      <ol>
+        <li>Install <b>Downloader</b> (by AFTVnews) from the Google Play Store on the TV.</li>
+        <li>Settings &rsaquo; System &rsaquo; About: press OK on <b>Android TV OS build</b> 7 times. Then
+          Settings &rsaquo; Apps &rsaquo; Security &amp; restrictions &rsaquo; Unknown sources &rsaquo; turn on <b>Downloader</b>.</li>
+        <li>Open Downloader and type <code>chad2bad.github.io/IvanaFin/tv</code> - the download starts by itself.</li>
+        <li>Choose <b>Install</b>, then <b>Open</b>. Pick your server, sign in, done.</li>
+      </ol>
+      <p class="small">Smaller download for 64-bit boxes (Shield, Google TV Streamer):
+        <a href="https://github.com/CHAD2BAD/IvanaFin/releases/latest/download/IvanaFin-release-arm64-v8a.apk">64-bit version</a>.</p>
+    </section>
+  </div>
+
+  <h3>Updates</h3>
+  <p>IvanaFin checks for new versions itself and tells you when one is out - install it the same way.</p>
+
+  <h3>Good to know</h3>
+  <p class="note">The menu names above can differ a little between TV models. Phones and tablets are not supported -
+    IvanaFin is made for a TV remote. Artist pages ask Deezer for each artist's popular songs (the artist's name is sent to
+    Deezer); Star Wars pictures and update checks come from GitHub.</p>
+
+  <footer>
+    IvanaFin is free software (GPL-2.0), built on <a href="https://github.com/damontecres/Wholphin">Wholphin</a> and
+    <a href="https://jellyfin.org">Jellyfin</a>. Source code and all versions:
+    <a href="https://github.com/CHAD2BAD/IvanaFin">github.com/CHAD2BAD/IvanaFin</a>.
+  </footer>
+</main>
+<script>
+  // On a Fire TV (Downloader's browser says "AFT..."), mark the Fire TV box
+  try {
+    var ua = navigator.userAgent || "";
+    var id = /AFT|Silk/.test(ua) ? "fire" : (/Android/.test(ua) && /TV|BRAVIA|AndroidTV|GoogleTV/i.test(ua) ? "tv" : null);
+    if (id) {
+      var box = document.getElementById(id);
+      box.classList.add("mine");
+      if (box.parentNode.firstElementChild !== box) box.parentNode.insertBefore(box, box.parentNode.firstElementChild);
+      box.querySelector(".btn").focus();
+    }
+  } catch (e) {}
+</script>
+</body>
+</html>
