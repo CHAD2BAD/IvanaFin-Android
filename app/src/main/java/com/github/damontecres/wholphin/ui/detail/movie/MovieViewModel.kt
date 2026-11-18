@@ -125,7 +125,9 @@ class MovieViewModel
                         chapters = chapters,
                     )
                 }
-                backdropService.submit(movie)
+                // IvanaFin: the film page draws its own full-screen picture - the app backdrop underneath was
+                // a hidden second copy drawn every frame (Fire TV smoothness 2026-11-18)
+                backdropService.clearBackdrop()
                 viewModelScope.launchIO {
                     trailerService.getLocalTrailers(movie).letNotEmpty { localTrailers ->
                         _state.update {

@@ -140,7 +140,8 @@ class SeriesViewModel
                         _state.update { it.copy(canDeleteSeries = canDelete) }
                     }
                 }
-                backdropService.submit(series)
+                // IvanaFin: the show page draws its own full-screen picture (no hidden second copy underneath)
+                backdropService.clearBackdrop()
 
                 // IvanaFin: opening a show goes straight to a season (Prime-style)
                 val startIds =
@@ -347,7 +348,7 @@ class SeriesViewModel
 
         fun onResumePage() {
             state.value.series.successValue?.let { item ->
-                viewModelScope.launchDefault { backdropService.submit(item) }
+                viewModelScope.launchDefault { backdropService.clearBackdrop() } // IvanaFin: page draws its own
                 viewModelScope.launchDefault {
                     themeSongPlayer.playThemeFor(seriesId)
                 }
@@ -560,9 +561,9 @@ class SeriesViewModel
                 eps.episodes.refreshItem(listIndex, itemId)
                 _state.update { it.copy(episodes = eps) }
             }
-            // Kind of hack to ensure the backdrop is reloaded if needed
+            // IvanaFin: no app backdrop on the show page (it draws its own picture)
             state.value.series.successValue
-                ?.let { backdropService.submit(it) }
+                ?.let { backdropService.clearBackdrop() }
         }
 
         /**

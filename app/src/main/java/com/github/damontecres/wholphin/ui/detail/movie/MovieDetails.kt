@@ -15,6 +15,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.background
 import androidx.compose.ui.layout.layout
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -434,35 +435,36 @@ fun MovieDetailsContent(
                 modifier = Modifier.fillMaxSize().bleedToScreenEdges(),
             )
         }
+        // scrolled down to the rows: the picture darkens behind them so cast names read on bright
+        // pictures (beta round 5: 2001, Alien - user 2026-11-13: yes, darker; same as the show page)
+        // (derivedStateOf: only crossing the threshold re-checks, not every scrolled pixel - before, the
+        // whole page was rebuilt on every frame of a scroll; Fire TV smoothness 2026-11-18)
+        val scrolled by remember(listState) {
+            androidx.compose.runtime.derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 40 }
+        }
+        val dim by androidx.compose.animation.core.animateFloatAsState(
+            if (scrolled) .55f else 0f,
+            androidx.compose.animation.core.tween(800, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+            label = "filmDim",
+        )
+        // gradient and scroll darkening drawn as ONE layer (dim read while drawing only)
         Box(
             Modifier
                 .fillMaxSize()
                 .bleedToScreenEdges()
-                .background(
-                    androidx.compose.ui.graphics.Brush.verticalGradient(
-                        0f to androidx.compose.ui.graphics.Color.Transparent,
-                        .2f to androidx.compose.ui.graphics.Color.Transparent,
-                        .4f to androidx.compose.ui.graphics.Color.Black.copy(alpha = .18f),
-                        .7f to androidx.compose.ui.graphics.Color.Black.copy(alpha = .72f),
-                        1f to androidx.compose.ui.graphics.Color.Black.copy(alpha = .94f),
-                    ),
-                ),
+                .drawBehind {
+                    val k = androidx.compose.ui.graphics.Color.Black
+                    drawRect(
+                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                            0f to k.copy(alpha = ivfDarken(0f, dim)),
+                            .2f to k.copy(alpha = ivfDarken(0f, dim)),
+                            .4f to k.copy(alpha = ivfDarken(.18f, dim)),
+                            .7f to k.copy(alpha = ivfDarken(.72f, dim)),
+                            1f to k.copy(alpha = ivfDarken(.94f, dim)),
+                        ),
+                    )
+                },
         )
-        // scrolled down to the rows: the picture darkens behind them so cast names read on bright
-        // pictures (beta round 5: 2001, Alien - user 2026-11-13: yes, darker; same as the show page)
-        val dim by androidx.compose.animation.core.animateFloatAsState(
-            if (listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 40) .55f else 0f,
-            androidx.compose.animation.core.tween(800, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-            label = "filmDim",
-        )
-        if (dim > 0f) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .bleedToScreenEdges()
-                    .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = dim)),
-            )
-        }
         swOpen?.let { (row, start) ->
             val r = swRows.firstOrNull { it.third == row }
             if (r != null) {
@@ -716,3 +718,8 @@ private fun Modifier.bleedToScreenEdges(): Modifier =
         val placeable = measurable.measure(constraints.copy(minWidth = w, maxWidth = w))
         layout(constraints.maxWidth, placeable.height) { placeable.place(-left, 0) }
     }
+/** IvanaFin: black at [a] with the scroll darkening [dim] on top, as one alpha (one layer instead of two). */
+private fun ivfDarken(
+    a: Float,
+    dim: Float,
+): Float = 1f - (1f - a) * (1f - dim)

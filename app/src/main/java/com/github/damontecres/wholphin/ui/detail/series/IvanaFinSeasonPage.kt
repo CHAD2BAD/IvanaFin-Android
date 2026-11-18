@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -150,29 +151,32 @@ fun IvanaFinSeasonPage(
         }
         // the picture shows clearly behind the logo at the top and darkens where the episodes start (about a
         // third of the way down), so their text reads on any picture (2026-11-14 layout)
-        Box(
-            Modifier
-                .fillMaxSize()
-                .bleedToScreenEdges()
-                .background(
-                    androidx.compose.ui.graphics.Brush.verticalGradient(
-                        0f to Color.Black.copy(alpha = .1f),
-                        .25f to Color.Black.copy(alpha = .3f),
-                        .45f to Color.Black.copy(alpha = .72f),
-                        1f to Color.Black.copy(alpha = .9f),
-                    ),
-                ),
-        )
         // scrolled down to the episodes: the picture darkens a little so their text reads easily
-        // (user 2026-11-13; the film page keeps no extra darkening - user's earlier choice)
+        // (user 2026-11-13; .55 since beta round 5: episode text was still hard to read on bright pictures)
+        // (derivedStateOf: only crossing the top re-checks, not every scrolled pixel - Fire TV smoothness 2026-11-18)
+        val scrolled by remember { androidx.compose.runtime.derivedStateOf { scroll.value > 0 } }
         val dim by androidx.compose.animation.core.animateFloatAsState(
-            // (.55 since beta round 5: episode text was still hard to read on bright pictures)
-            if (scroll.value > 0) .55f else 0f,
+            if (scrolled) .55f else 0f,
             // (a slow, eased fade - 0.3 s felt harsh, user 2026-11-13)
             androidx.compose.animation.core.tween(800, easing = androidx.compose.animation.core.FastOutSlowInEasing),
             label = "showDim",
         )
-        if (dim > 0f) Box(Modifier.fillMaxSize().bleedToScreenEdges().background(Color.Black.copy(alpha = dim)))
+        // gradient and scroll darkening drawn as ONE layer (dim read while drawing only)
+        Box(
+            Modifier
+                .fillMaxSize()
+                .bleedToScreenEdges()
+                .drawBehind {
+                    drawRect(
+                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                            0f to Color.Black.copy(alpha = ivfDarken(.1f, dim)),
+                            .25f to Color.Black.copy(alpha = ivfDarken(.3f, dim)),
+                            .45f to Color.Black.copy(alpha = ivfDarken(.72f, dim)),
+                            1f to Color.Black.copy(alpha = ivfDarken(.9f, dim)),
+                        ),
+                    )
+                },
+        )
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier =
@@ -527,3 +531,9 @@ private fun Modifier.bleedToScreenEdges(): Modifier =
         val placeable = measurable.measure(constraints.copy(minWidth = w, maxWidth = w))
         layout(constraints.maxWidth, placeable.height) { placeable.place(-left, 0) }
     }
+
+/** IvanaFin: black at [a] with the scroll darkening [dim] on top, as one alpha (one layer instead of two). */
+private fun ivfDarken(
+    a: Float,
+    dim: Float,
+): Float = 1f - (1f - a) * (1f - dim)

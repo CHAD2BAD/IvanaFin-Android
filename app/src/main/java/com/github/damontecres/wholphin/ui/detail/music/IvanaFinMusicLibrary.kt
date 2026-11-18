@@ -2473,7 +2473,7 @@ private fun NowPlayingView(
                 }
             },
     ) {
-        NpMovingBackground(item.albumId?.let { viewModel.imageUrl(it, maxWidth = 64) } ?: item.imageUrl, npPal)
+        NpMovingBackground(item.albumId?.let { viewModel.imageUrl(it, maxWidth = 320) } ?: item.imageUrl, npPal)
 
         run {
             Column(
@@ -2701,7 +2701,7 @@ private fun NowPlayingView(
 }
 
 /**
- * Now Playing background (Apple Music style, user 2026-11-13: colour blur only): a tiny copy of the
+ * Now Playing background (Apple Music style, user 2026-11-13: colour blur only): a small (320 px) copy of the
  * cover stretched over the screen (it blurs by itself - the Fire TV Stick has no blur filter) that
  * slowly turns and drifts, with three soft colour blobs from the cover's colours moving under it.
  */
@@ -2715,7 +2715,21 @@ private fun NpMovingBackground(
     val edge by animateColorAsState(pal?.edge?.takeIf { it != Color.Black } ?: Color(0xFF1A1A1A), tween(900), label = "npe")
     val acc by animateColorAsState(pal?.acc ?: MuPink, tween(900), label = "npa")
     val wash by animateColorAsState(pal?.wash?.copy(alpha = 1f) ?: Color(0xFF3C3C3C), tween(900), label = "npw")
-    Box(Modifier.fillMaxSize().drawBehind { drawRect(edge) }) {
+    // Drawn at HALF the screen size into its own layer, then stretched up 2x: ~4x less drawing. Full
+    // size it was ~8 screens of pixels every frame - 53 ms frames (~19 fps) on the Fire TV Stick 4K Max
+    // (2026-11-18 measurement). The cover is a 320 px copy (was 64 px: too blurry, user 2026-11-18).
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+    Box(
+        Modifier
+            .align(Alignment.TopStart)
+            .size(maxWidth / NP_BG_SCALE, maxHeight / NP_BG_SCALE)
+            .graphicsLayer {
+                scaleX = NP_BG_SCALE.toFloat()
+                scaleY = NP_BG_SCALE.toFloat()
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
+                compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
+            }.drawBehind { drawRect(edge) },
+    ) {
         Crossfade(targetState = tinyCover, animationSpec = tween(900), label = "npTiny") { u ->
             if (u != null) {
                 AsyncImage(
@@ -2750,7 +2764,11 @@ private fun NpMovingBackground(
             },
         )
     }
+    }
 }
+
+/** IvanaFin: Now Playing background drawn at 1/NP_BG_SCALE size and stretched up (see NpMovingBackground). */
+private const val NP_BG_SCALE = 2 // 4 looked too blurry (user 2026-11-18)
 
 /** Screensaver: big cover, title, artist and time, drifting so nothing stays in one place */
 @Composable
