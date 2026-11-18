@@ -299,51 +299,10 @@ fun HomePage(
             val navDrawer by viewModel.navDrawerState.collectAsState()
             val homeLibraries =
                 remember(libraries, navDrawer) { ivanaFinHomeLibraries(libraries.orEmpty(), navDrawer) }
-            // IvanaFin: libraries without a tile of their own - on the Other page
-            val otherLibraries =
-                remember(libraries, homeLibraries) {
-                    libraries.orEmpty().filter {
-                        it !in homeLibraries && it.data.collectionType != org.jellyfin.sdk.model.api.CollectionType.PLAYLISTS
-                    }
-                }
-            val showOther = !preferences.appPreferences.interfacePreferences.ivfHideOtherTile && otherLibraries.isNotEmpty()
-            val otherOpen = showOther && viewModel.otherOpen.value
-            if (useLibraryGridHome() && !libraries.isNullOrEmpty() && otherOpen) {
-                androidx.activity.compose.BackHandler { viewModel.closeOther() }
-                androidx.compose.runtime.key("ivf-other") {
-                    IvanaFinLibraryHome(
-                        libraries = otherLibraries,
-                        lastOpenedIndex = viewModel.otherLastOpenedIndex.intValue,
-                        onClickLibrary = { index, item ->
-                            viewModel.otherLastOpenedIndex.intValue = index
-                            viewModel.swapTileBackdropsAfterLeaving()
-                            viewModel.navigationManager.navigateTo(item.destination())
-                        },
-                        header = { IvanaFinOtherHeader() },
-                        backdrops = tileBackdrops,
-                        onShown = { viewModel.clearBackdrop() },
-                        modifier = modifier,
-                    )
-                }
-            } else if (useLibraryGridHome() && !libraries.isNullOrEmpty()) {
+            if (useLibraryGridHome() && !libraries.isNullOrEmpty()) {
                 IvanaFinLibraryHome(
                     libraries = homeLibraries,
                     showGames = preferences.appPreferences.interfacePreferences.ivfGamesTile,
-                    otherTile =
-                        if (showOther) {
-                            OtherTileInfo(
-                                backdropUrl =
-                                    otherLibraries
-                                        .firstNotNullOfOrNull { tileBackdrops[it.id] }
-                                        ?.let { tileBackdropUrl(imageUrlService, it) },
-                                onClick = {
-                                    viewModel.otherLastOpenedIndex.intValue = -1
-                                    viewModel.otherOpen.value = true
-                                },
-                            )
-                        } else {
-                            null
-                        },
                     lastOpenedIndex = viewModel.homeLastOpenedIndex.intValue,
                     onExtraOpened = { viewModel.homeLastOpenedIndex.intValue = it }, // come back to Discover / Games
                     consumeSelectionRestore = viewModel::consumeHomeSelectionRestore,

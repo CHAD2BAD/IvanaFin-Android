@@ -873,19 +873,6 @@ sealed interface AppPreference<Pref, T> {
                 summaryOff = R.string.disabled,
             )
 
-        /** IvanaFin: the "Other" home tile (opens the libraries without their own tile) - on by default. */
-        val OtherTile =
-            AppSwitchPreference<AppPreferences>(
-                title = R.string.ivf_other_tile,
-                defaultValue = true,
-                getter = { !it.interfacePreferences.ivfHideOtherTile },
-                setter = { prefs, value ->
-                    prefs.updateInterfacePreferences { ivfHideOtherTile = !value }
-                },
-                summaryOn = R.string.ivf_other_tile_on,
-                summaryOff = R.string.disabled,
-            )
-
         val BackdropStylePref =
             AppChoicePreference<AppPreferences, BackdropStyle>(
                 title = R.string.backdrop_display,
@@ -1161,7 +1148,6 @@ val basicPreferences =
                     AppPreference.SubtitleStyle,
                     AppPreference.ThemeColors,
                     AppPreference.ScreensaverSettings,
-                    AppPreference.OtherTile, // IvanaFin
                     AppPreference.GamesTile, // IvanaFin
                 ),
         ),

@@ -200,14 +200,16 @@ class NavDrawerService
                 withContext(WholphinDispatchers.IO) {
                     serverPreferencesDao.getNavDrawerPinnedItems(user).associateBy { it.itemId }
                 }
-            // IvanaFin: first sign-in on this device - the home screen starts with 4 tiles: the
-            // first Movies, Shows and Music library (+ the Other tile); every other library starts
-            // unticked (reachable from Other, can be ticked in Settings > Home Screen Libraries)
+            // IvanaFin: first sign-in on this device - the home screen starts with up to 4 tiles: the
+            // first Movies, Shows and Music library and a mixed (movies and shows) library named
+            // "Other". Every other library starts off; Settings > Home Screen Libraries turns it on.
             if (navDrawerPins.isEmpty() && libraries.isNotEmpty()) {
                 val firstOfType =
-                    listOf(CollectionType.MOVIES, CollectionType.TVSHOWS, CollectionType.MUSIC)
-                        .mapNotNull { type -> libraries.firstOrNull { it.type == type }?.id }
-                        .toSet()
+                    (
+                        listOf(CollectionType.MOVIES, CollectionType.TVSHOWS, CollectionType.MUSIC)
+                            .mapNotNull { type -> libraries.firstOrNull { it.type == type }?.id } +
+                            listOfNotNull(libraries.firstOrNull { isOtherLibrary(it) }?.id)
+                    ).toSet()
                 val defaults =
                     allItems.mapIndexed { index, item ->
                         val pinned = item !is ServerNavDrawerItem || item.id in firstOfType
@@ -232,7 +234,7 @@ class NavDrawerService
                 // Items the user doesn't have access to anymore will be skipped
                 .sortedBy { navDrawerPins[it.id]?.order?.takeIf { it >= 0 } ?: Int.MAX_VALUE }
                 .forEach {
-                    // IvanaFin: a library added on the server later starts unticked (it shows under Other)
+                    // IvanaFin: a library added on the server later starts unticked (Settings turns it on)
                     val pinned =
                         navDrawerPins[it.id]?.type
                             ?: if (it is ServerNavDrawerItem) NavPinType.UNPINNED else NavPinType.PINNED
@@ -262,3 +264,10 @@ data class NavDrawerItemState(
 )
 
 val UserDto.tvAccess: Boolean get() = policy?.enableLiveTvAccess == true
+
+/**
+ * IvanaFin: the library behind the default "Other" home tile - a mixed (movies and shows) library
+ * named "Other" (any case). It may be empty; it is the place for anything that isn't a film, show or music.
+ */
+fun isOtherLibrary(item: ServerNavDrawerItem): Boolean =
+    item.type == CollectionType.UNKNOWN && item.name.trim().equals("Other", ignoreCase = true)

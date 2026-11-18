@@ -56,23 +56,6 @@ import com.github.damontecres.wholphin.ui.tryRequestFocus
 import org.jellyfin.sdk.model.api.ImageType
 
 /** IvanaFin: the extra "Discover" (Seerr) tile shown after the libraries on Home. */
-/** IvanaFin: the "Other" home tile - its picture (one of the libraries inside) and what it opens. */
-class OtherTileInfo(
-    val backdropUrl: String?,
-    val onClick: () -> Unit,
-)
-
-/** IvanaFin: header of the Other page - its name where Home has its buttons. */
-@Composable
-fun IvanaFinOtherHeader() {
-    Text(
-        text = "Other",
-        style = MaterialTheme.typography.headlineMedium,
-        color = Color.White,
-        textAlign = TextAlign.Center,
-        modifier = Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 16.dp),
-    )
-}
 
 class DiscoverTile(
     val name: String,
@@ -156,8 +139,6 @@ fun IvanaFinLibraryHome(
     consumeSelectionRestore: () -> Boolean = { true },
     // Settings > Games Tile (off by default: it opens Moonlight into the owner's PC)
     showGames: Boolean = false,
-    // the "Other" tile (libraries without a tile of their own), null = none
-    otherTile: OtherTileInfo? = null,
 ) {
     // Tile after the libraries: Games
     val context = LocalContext.current
@@ -179,14 +160,7 @@ fun IvanaFinLibraryHome(
         remember(context, gamesArt) {
             DiscoverTile(name = "Games", backdropUrl = gamesArt, onClick = { launchGames(context) })
         }
-    val currentOtherTile by rememberUpdatedState(otherTile)
-    val otherDiscoverTile =
-        otherTile?.let { info ->
-            remember(info.backdropUrl) {
-                DiscoverTile(name = "Other", backdropUrl = info.backdropUrl, onClick = { currentOtherTile?.onClick?.invoke() })
-            }
-        }
-    val extraTiles = listOfNotNull(otherDiscoverTile, gamesTile.takeIf { showGames })
+    val extraTiles = listOfNotNull(gamesTile.takeIf { showGames })
     val shownLibraries = libraries
     val tileCount = shownLibraries.size + extraTiles.size
     val currentOnShown by rememberUpdatedState(onShown)
@@ -509,8 +483,8 @@ private object GamesArt {
 /** IvanaFin: names shown on the home tiles (the server keeps its own names). */
 private fun ivanaFinLibraryDisplayName(name: String?): String =
     when (name) {
-        // (renamed on the server instead: "Movies (Alternative Format)" is now "Movies (Special)")
-        else -> name ?: ""
+        // the default Other tile always reads "Other", whatever case the library was named in
+        else -> if (name?.trim().equals("Other", ignoreCase = true)) "Other" else name ?: ""
     }
 
 /**

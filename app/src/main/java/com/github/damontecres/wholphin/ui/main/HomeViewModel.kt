@@ -98,18 +98,6 @@ class HomeViewModel
 
         fun consumeHomeSelectionRestore(): Boolean = restoreHomeSelection.also { restoreHomeSelection = false }
 
-        /** IvanaFin: the "Other" page (libraries without a tile of their own) is showing instead of Home. */
-        val otherOpen = androidx.compose.runtime.mutableStateOf(false)
-
-        /** IvanaFin: tile last opened on the Other page (-1 = none yet). */
-        val otherLastOpenedIndex = androidx.compose.runtime.mutableIntStateOf(-1)
-
-        /** IvanaFin: Back from Other - select the Other tile on Home again. */
-        fun closeOther() {
-            otherOpen.value = false
-            restoreHomeSelection = true
-        }
-
         /** IvanaFin: last library list, so the tiles stay on screen while Home reloads its rows. */
         var lastHomeLibraries: List<BaseItem>? = null
         private var nextTileBackdrops: Map<java.util.UUID, BaseItem?>? = null
@@ -165,7 +153,7 @@ class HomeViewModel
                 randomLibraryBackdrop(library.id)
             }
 
-        /** IvanaFin: picture libraries (Ivana) - a random photo (tileBackdropUrl shows the photo itself). */
+        /** IvanaFin: home video / photo libraries - a random photo (tileBackdropUrl shows the photo itself). */
         private suspend fun randomPhoto(libraryId: java.util.UUID): BaseItem? =
             try {
                 api.libraryApi
