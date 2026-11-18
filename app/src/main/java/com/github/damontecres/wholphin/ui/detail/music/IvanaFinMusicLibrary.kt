@@ -317,9 +317,12 @@ data class MusicArtistData(
     val songCount: Int = 0,
 )
 
-/** Discography row of an album: server ProviderIds.IvfType (album/compile/ep/single/mixtape), unknown = album */
+/**
+ * Discography row of an album: server ProviderIds.IvfType (album/compile/ep/single/mixtape); on other servers
+ * Deezer's release type, else its length (IvfMusicExtras); unknown = album
+ */
 internal fun discographyRow(album: BaseItem): Int =
-    when (album.data.providerIds?.get("IvfType")) {
+    when (album.data.providerIds?.get("IvfType") ?: IvfMusicExtras.albumTypes[album.id] ?: IvfMusicExtras.guessType(album)) {
         "ep", "single" -> 1
         "mixtape" -> 2
         else -> 0
@@ -696,9 +699,26 @@ class IvanaFinMusicViewModel
                             ?.split(',')
                             ?.mapNotNull { it.trim().toUUIDOrNull() }
                             .orEmpty()
+                    // IvanaFin: other servers have no IvfPopular / IvfType ids - ask Deezer (IvfMusicExtras)
+                    val needDeezer = popularIds.isEmpty() || albums.any { it.data.providerIds?.get("IvfType") == null }
+                    val dz = if (needDeezer) IvfMusicExtras.artist(a.name) else null
+                    if (dz != null) IvfMusicExtras.learnTypes(albums, dz)
                     val popular =
                         if (popularIds.isEmpty()) {
-                            emptyList()
+                            if (dz == null || dz.top.isEmpty()) {
+                                emptyList()
+                            } else {
+                                val songs =
+                                    request(
+                                        GetItemsRequest(
+                                            artistIds = listOf(id),
+                                            includeItemTypes = listOf(BaseItemKind.AUDIO),
+                                            recursive = true,
+                                            enableImages = false,
+                                        ),
+                                    ).toBaseItems(api, false)
+                                IvfMusicExtras.popular(songs, dz)
+                            }
                         } else {
                             val found = request(GetItemsRequest(ids = popularIds, enableImages = false)).toBaseItems(api, false).associateBy { it.id }
                             popularIds.mapNotNull { found[it] } // keep Deezer's order

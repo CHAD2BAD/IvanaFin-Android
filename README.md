@@ -9,8 +9,8 @@ talking to Jellyfin and playing video comes from Wholphin. IvanaFin changes the 
 on top.
 
 > **Status:** early. The Star Wars extras work on any server for the official films and shows (matched by
-> their TMDB id). The music extras (album types and artist eras) still only show up on one particular
-> library - making them work anywhere is the next piece of work.
+> their TMDB id). On artist pages, Popular songs and the Albums / EPs & Singles / Mixtapes rows come from
+> [Deezer](https://www.deezer.com) (the artist's name is sent to Deezer's free public API when the page opens).
 
 ## Install
 
