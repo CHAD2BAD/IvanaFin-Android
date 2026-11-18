@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.userViewApi
+import org.jellyfin.sdk.api.client.extensions.libraryApi
 import org.jellyfin.sdk.model.api.CollectionType
 import org.jellyfin.sdk.model.api.UserDto
 import timber.log.Timber
@@ -164,6 +165,24 @@ class NavDrawerService
             return libraries
         }
 
+        /** IvanaFin: the library holding the most items (one library: that one; none: null) */
+        private suspend fun biggest(list: List<ServerNavDrawerItem>): ServerNavDrawerItem? {
+            if (list.size <= 1) return list.firstOrNull()
+            return list.maxByOrNull { lib ->
+                runCatching {
+                    api.libraryApi
+                        .getItems(
+                            org.jellyfin.sdk.model.api.request.GetItemsRequest(
+                                parentId = lib.itemId,
+                                recursive = true,
+                                limit = 0,
+                                enableTotalRecordCount = true,
+                            ),
+                        ).content.totalRecordCount
+                }.getOrDefault(0)
+            }
+        }
+
         /**
          * Update the current state of the nav drawer items
          */
@@ -200,19 +219,21 @@ class NavDrawerService
                 withContext(WholphinDispatchers.IO) {
                     serverPreferencesDao.getNavDrawerPinnedItems(user).associateBy { it.itemId }
                 }
-            // IvanaFin: first sign-in on this device - the home screen starts with up to 4 tiles: the
-            // first Movies, Shows and Music library and a mixed (movies and shows) library named
-            // "Other". Every other library starts off; Settings > Home Screen Libraries turns it on.
+            // IvanaFin: first sign-in on this device - the home screen starts with up to 4 tiles, in this
+            // order: the BIGGEST Movies, Shows and Music library (a small second one, e.g. a few classics,
+            // must not win just by coming first in the server's A-Z list - test server 2026-11-18) and a mixed
+            // (movies and shows) library named "Other". Every other library starts off, after them;
+            // Settings > Home Screen Libraries turns it on.
             if (navDrawerPins.isEmpty() && libraries.isNotEmpty()) {
-                val firstOfType =
-                    (
-                        listOf(CollectionType.MOVIES, CollectionType.TVSHOWS, CollectionType.MUSIC)
-                            .mapNotNull { type -> libraries.firstOrNull { it.type == type }?.id } +
-                            listOfNotNull(libraries.firstOrNull { isOtherLibrary(it) }?.id)
-                    ).toSet()
+                val picks =
+                    listOf(CollectionType.MOVIES, CollectionType.TVSHOWS, CollectionType.MUSIC)
+                        .mapNotNull { type -> biggest(libraries.filter { it.type == type }) } +
+                        listOfNotNull(libraries.firstOrNull { isOtherLibrary(it) })
+                val pickIds = picks.map { it.id }
+                val ordered = allItems.filter { it !is ServerNavDrawerItem } + picks + allItems.filter { it is ServerNavDrawerItem && it.id !in pickIds }
                 val defaults =
-                    allItems.mapIndexed { index, item ->
-                        val pinned = item !is ServerNavDrawerItem || item.id in firstOfType
+                    ordered.mapIndexed { index, item ->
+                        val pinned = item !is ServerNavDrawerItem || item.id in pickIds
                         NavDrawerPinnedItem(
                             user.rowId,
                             item.id,

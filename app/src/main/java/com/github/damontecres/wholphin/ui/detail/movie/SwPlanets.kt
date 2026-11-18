@@ -307,7 +307,8 @@ private suspend fun swLoadIndex(api: ApiClient): List<Pair<SwTimelineItem, Strin
                 if (own != null) {
                     own to (x.providerIds?.get("SwYear") ?: "")
                 } else {
-                    SwPlanets.timeline(tmdb) ?: return@mapNotNull null
+                    // (no place: still listed, so "Also in" links can find it; left out of the story order)
+                    SwPlanets.timeline(tmdb) ?: (Double.NaN to "")
                 }
             SwTimelineItem(x.id, x.name ?: "", k, year, x.type == BaseItemKind.SERIES) to tmdb
         }
@@ -315,12 +316,16 @@ private suspend fun swLoadIndex(api: ApiClient): List<Pair<SwTimelineItem, Strin
     return list
 }
 
-/** The id of an "Also in" title on this server (its own id, else the same TMDB title), or null if it isn't here. */
-fun swResolve(link: SwLink): UUID? {
-    val index = swIndex ?: return link.id
-    if (link.id != null && index.any { it.first.id == link.id }) return link.id
+/**
+ * An "Also in" title as it is on this server (its own id, else the same TMDB title - with THIS server's name for
+ * it, not the original library's), or null if it isn't here.
+ */
+fun swResolve(link: SwLink): SwLink? {
+    val index = swIndex ?: return link.takeIf { it.id != null }
+    if (link.id != null) index.firstOrNull { it.first.id == link.id }?.let { return link }
     val t = link.tmdb ?: return null
-    return index.firstOrNull { it.second == t && it.first.series == link.series }?.first?.id
+    val x = index.firstOrNull { it.second == t && it.first.series == link.series }?.first ?: return null
+    return link.copy(id = x.id, name = x.name)
 }
 
 private suspend fun swTimelineGroups(
@@ -331,7 +336,7 @@ private suspend fun swTimelineGroups(
         val tl =
             swLoadIndex(api)
                 .map { it.first }
-                .filter { it.id != except }
+                .filter { it.id != except && !it.key.isNaN() }
                 .sortedBy { it.key }
         // copies of one film (35mm, extended, novel-named edits) sit within 0.05 of each other: one entry each
         val groups = mutableListOf<MutableList<SwTimelineItem>>()
@@ -493,7 +498,7 @@ fun SwCardDialog(
     val e = entries[index]
     // IvanaFin: only titles on this server (found by id, or by TMDB id on any other server)
     val swIdx = swIndex
-    val links = remember(e, swIdx) { e.seenIn.mapNotNull { l -> swResolve(l)?.let { l.copy(id = it) } }.filter { it.id != currentId } }
+    val links = remember(e, swIdx) { e.seenIn.mapNotNull { swResolve(it) }.filter { it.id != currentId } }
     val focus = remember { FocusRequester() }
     val firstLink = remember { FocusRequester() }
     val more = mapOf("planet" to "planets", "char" to "characters", "ship" to "starships")[e.kind]
