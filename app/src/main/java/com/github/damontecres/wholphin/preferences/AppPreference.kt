@@ -627,7 +627,7 @@ sealed interface AppPreference<Pref, T> {
         val UpdateUrl =
             AppStringPreference<AppPreferences>(
                 title = R.string.update_url,
-                defaultValue = "https://api.github.com/repos/CHAD2BAD/IvanaFin/releases/latest", // IvanaFin releases, not Wholphin
+                defaultValue = "https://api.github.com/repos/CHAD2BAD/IvanaFin-Android/releases/latest", // IvanaFin releases, not Wholphin
                 getter = { it.updateUrl },
                 setter = { prefs, value ->
                     prefs.update { updateUrl = value }
