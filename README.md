@@ -16,6 +16,18 @@ on top.
 > their TMDB id). On artist pages, Popular songs and the Albums / EPs & Singles / Mixtapes rows come from
 > [Deezer](https://www.deezer.com) (the artist's name is sent to Deezer's free public API when the page opens).
 
+## What you get
+
+<p align="center"><img src="home.jpg" width="720" alt="IvanaFin home screen with Search, Discover and Settings above four big tiles: Movies, TV, Songs and Other"><br><sub>The home screen on Android TV / Fire TV</sub></p>
+
+- **Home:** big tiles for your libraries. The first time, IvanaFin shows your biggest Movies, Shows and
+  Music library, plus a library named **Other** if you have one. Choose and order them yourself in
+  **Settings > Home Screen Libraries**.
+- **Film and show pages** in full screen, and a player laid out like Jellyfin's web player.
+- **Music** in the style of a TV music app, with Popular songs and Albums / EPs & Singles / Mixtapes on artist pages.
+- **Star Wars extras** for the official films and shows: Featured Planets, Characters and Starships, the
+  in-universe year, the opening crawl and "In Story Order".
+- **Discover** (browse and request films and shows) - **needs Seerr set up first** (see below).
 ## Install
 
 1. On the TV, allow installing apps from unknown sources (Fire TV: *Settings > My Fire TV > Developer
