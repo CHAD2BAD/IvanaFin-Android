@@ -26,6 +26,18 @@ on top.
 
 The app checks this page for new versions and tells you when one is out.
 
+## Discover needs Seerr
+
+Everything else works with a plain Jellyfin server, but **Discover (browse and request films and shows)
+only appears once [Seerr](https://github.com/seerr-team/seerr) is set up**. Without it, Discover is hidden.
+To turn it on:
+
+1. Install and set up Seerr, connected to your Jellyfin server (and to Radarr / Sonarr so requests
+   are downloaded).
+2. In IvanaFin open **Settings > Seerr integration**, enter your Seerr address and sign in (your
+   Jellyfin user works).
+3. Discover then appears in IvanaFin.
+
 ## Build it yourself
 
 Requirements: JDK 21 and the Android SDK.
