@@ -18,6 +18,7 @@ import com.github.damontecres.wholphin.data.model.SeerrPermission
 import com.github.damontecres.wholphin.data.model.Trailer
 import com.github.damontecres.wholphin.data.model.hasPermission
 import com.github.damontecres.wholphin.services.BackdropService
+import com.github.damontecres.wholphin.services.IvfSeerrHelper
 import com.github.damontecres.wholphin.services.NavigationManager
 import com.github.damontecres.wholphin.services.SeerrServerRepository
 import com.github.damontecres.wholphin.services.SeerrService
@@ -236,9 +237,14 @@ class DiscoverMovieViewModel
         fun cancelRequest(id: Int) {
             viewModelScope.launchIO {
                 state.value.movie.successValue?.mediaInfo?.requests?.firstOrNull()?.let {
-                    // TODO handle multiple requests? Or just delete self's request?
+                    // IvanaFin: the server's Seerr helper also stops the download (Radarr/Sonarr); without
+                    // one (another server), Seerr's own request delete as before
                     try {
-                        seerrService.api.requestApi.requestRequestIdDelete(it.id.toString())
+                        when (IvfSeerrHelper.cancel(api, "movie", id)) {
+                            true -> {}
+                            false -> showToast(context, "Couldn't cancel this request")
+                            null -> seerrService.api.requestApi.requestRequestIdDelete(it.id.toString())
+                        }
                     } catch (ex: kotlinx.coroutines.CancellationException) {
                         throw ex
                     } catch (ex: Exception) {
