@@ -1,5 +1,7 @@
 # IvanaFin for Android
 
+<p align="center"><img src="cat.jpg" width="240" alt="The cat from IvanaFin's welcome screen"><br><sub>The cat from IvanaFin's welcome screen (Samsung and web)</sub></p>
+
 IvanaFin is a [Jellyfin](https://jellyfin.org) app for Android TV, Google TV and Fire TV, with its own look:
 a big-tile home screen, full-screen film and show pages, a music library in the style of a TV music app,
 a player laid out like Jellyfin's web player, and extras for Star Wars films and shows.
