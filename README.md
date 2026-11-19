@@ -39,11 +39,28 @@ To turn it on:
      indexers to search. Without it, requests are accepted but nothing is ever found.
    - [Cleanuparr](https://github.com/Cleanuparr/Cleanuparr), connected to Radarr and Sonarr: it removes
      stuck or stalled downloads and searches again. Without it, a request can sit at "Downloading" forever.
+
+   Also recommended:
+   - [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr), added to Prowlarr: lets Prowlarr use
+     indexers that sit behind Cloudflare's "checking your browser" page. Without it, those indexers fail.
+   - [Recyclarr](https://github.com/recyclarr/recyclarr): keeps Radarr's and Sonarr's quality profiles in
+     line with the [TRaSH Guides](https://trash-guides.info), so requests download in a sensible quality and size.
+   - [Bazarr](https://github.com/morpheus65535/bazarr), connected to Radarr and Sonarr: downloads subtitles
+     for what they bring in.
 2. Install and set up [Seerr](https://github.com/seerr-team/seerr), connected to your Jellyfin server and to
-   Radarr / Sonarr.
+   Radarr / Sonarr. In Seerr's settings:
+   - **Users:** import your Jellyfin users (*Users > Import Jellyfin Users*). Every person who should
+     request needs a Seerr user with the **Request** permission - without it Discover still opens, but
+     requests are refused. Give **Auto-Approve** too if requests should download straight away instead of
+     waiting for you to approve them.
+   - **Services:** pick the default Radarr and Sonarr server, with a root folder and quality profile that
+     really exist there (a wrong root folder makes every request fail).
 3. In IvanaFin open **Settings > Seerr integration**, enter your Seerr address and sign in (your
    Jellyfin user works).
-4. Discover then appears in IvanaFin.
+4. **Cancel button (recommended):** run the small [IvanaFin Seerr helper](https://github.com/CHAD2BAD/IvanaFin-Samsung/tree/main/seerr-helper) with Docker
+   on the same machine as Jellyfin. It gives Discover a real **Cancel**: the request is removed in Seerr
+   *and* the download is stopped in Radarr / Sonarr. Without it, Cancel only removes the request in Seerr and the download carries on.
+5. Discover then appears in IvanaFin.
 
 ## Build it yourself
 
