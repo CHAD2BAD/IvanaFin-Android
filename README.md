@@ -6,7 +6,7 @@ IvanaFin is a [Jellyfin](https://jellyfin.org) app for Android TV, Google TV and
 a big-tile home screen, full-screen film and show pages, a music library in the style of a TV music app,
 a player laid out like Jellyfin's web player, and extras for Star Wars films and shows.
 Also available: [IvanaFin for Samsung](https://github.com/CHAD2BAD/IvanaFin-Samsung) and
-[IvanaFin for Jellyfin web](https://github.com/CHAD2BAD/IvanaFin-Samsung#jellyfin-web) (same repo).
+[IvanaFin for Jellyfin web](#jellyfin-web) (steps below).
 
 It is a fork of [Wholphin](https://github.com/damontecres/Wholphin) by damontecres - all the hard work of
 talking to Jellyfin and playing video comes from Wholphin. IvanaFin changes the design and adds features
@@ -41,6 +41,62 @@ on top.
 3. Open IvanaFin and sign in to your Jellyfin server.
 
 The app checks this page for new versions and tells you when one is out.
+
+## Jellyfin web
+
+You will manage your server from Jellyfin in a **browser**, so give it the same IvanaFin look as the app. It is added once, through the
+[JavaScript Injector](https://github.com/n00bcodr/Jellyfin-JavaScript-Injector) plugin; your server then loads
+IvanaFin from the [IvanaFin-Samsung](https://github.com/CHAD2BAD/IvanaFin-Samsung) repository (where the web version lives), so it stays up to date by itself. It changes Jellyfin web for **everyone** who
+uses your server in a browser, and brings the ElegantFin theme with IvanaFin's colours - if you already use a
+theme in *Dashboard > General > Custom CSS*, remove it. Tested with Jellyfin 12.4.
+
+> **Important:** IvanaFin web needs the **Desktop (Legacy)** display mode. After installing, each person opens
+> Jellyfin in their browser, goes to **Settings > Display**, sets **Display mode** to **Desktop (Legacy)**, saves and
+> reloads the page. This is remembered per browser, so do it once on every computer / browser.
+
+**With the installer** (Windows, macOS, Linux)
+
+1. In Jellyfin: **Dashboard > API Keys > +**, name it "IvanaFin", and copy the key.
+2. Download [web/install.ps1](https://github.com/CHAD2BAD/IvanaFin-Samsung/blob/main/web/install.ps1) (*Download raw file* button) and run it with your server's address:
+
+   ```
+   powershell -ExecutionPolicy Bypass -File install.ps1 -Server http://<your-server>:8096
+   ```
+
+   On macOS / Linux use [PowerShell](https://learn.microsoft.com/powershell/scripting/install/installing-powershell):
+   `pwsh -File install.ps1 -Server http://<your-server>:8096`
+
+   It asks for the API key. If the JavaScript Injector plugin isn't there yet, it installs it and asks
+   to restart Jellyfin once (in Docker, start the container again if it stops instead of restarting).
+3. Open Jellyfin in your browser, set **Settings > Display > Display mode** to **Desktop (Legacy)**, and reload the
+   page (**Ctrl+F5**).
+
+**By hand**
+
+1. **Dashboard > Plugins > Repositories** (or *Catalog* > the settings icon): add a repository named
+   `n00bcodr Plugins` with the URL
+   `https://raw.githubusercontent.com/n00bcodr/jellyfin-plugins/main/manifest.json`
+2. **Dashboard > Plugins > Catalog**: install **JavaScript Injector**, then restart Jellyfin.
+3. **Dashboard > Plugins > JavaScript Injector**: add a script named `IvanaFin`, paste this, make sure it is
+   enabled, and save:
+
+   ```js
+   // IvanaFin for Jellyfin web - https://github.com/CHAD2BAD/IvanaFin-Samsung#jellyfin-web
+   (function () {
+     if (window.IvfWebLoader) return; window.IvfWebLoader = true;
+     var s = document.createElement('script');
+     s.src = 'https://cdn.jsdelivr.net/gh/CHAD2BAD/IvanaFin-Samsung@main/web/ivanafin.js';
+     s.onerror = function () { console.error('IvanaFin could not be loaded from ' + s.src); };
+     (document.head || document.documentElement).appendChild(s);
+   })();
+   ```
+4. In Jellyfin, set **Settings > Display > Display mode** to **Desktop (Legacy)**, then reload the page (**Ctrl+F5**).
+
+Updates arrive by themselves within about 12 hours of a new version in IvanaFin-Samsung (that's how long the
+[jsDelivr](https://www.jsdelivr.com) copy is kept).
+
+**To remove it:** run the installer again with `-Uninstall` at the end, or delete the `IvanaFin` script under
+**Dashboard > Plugins > JavaScript Injector**, then reload the page.
 
 ## Discover needs Seerr
 
