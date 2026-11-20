@@ -44,6 +44,8 @@ The app checks this page for new versions and tells you when one is out.
 
 ## Discover needs Seerr
 
+<p align="center"><img src="discover.jpg" width="720" alt="IvanaFin Discover page: a featured film at the top and a Trending row of posters"><br><sub>Discover on Android TV / Fire TV</sub></p>
+
 Everything else works with a plain Jellyfin server, but **Discover (browse and request films and shows)
 only appears once [Seerr](https://github.com/seerr-team/seerr) is set up**. Without it, Discover is hidden.
 To turn it on:
