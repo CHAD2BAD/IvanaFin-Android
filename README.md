@@ -5,7 +5,8 @@
 IvanaFin is a [Jellyfin](https://jellyfin.org) app for Android TV, Google TV and Fire TV, with its own look:
 a big-tile home screen, full-screen film and show pages, a music library in the style of a TV music app,
 a player laid out like Jellyfin's web player, and extras for Star Wars films and shows.
-Also available: [IvanaFin for Samsung](https://github.com/CHAD2BAD/IvanaFin-Samsung) and
+Also available: [IvanaFin for Samsung](https://github.com/CHAD2BAD/IvanaFin-Samsung),
+[IvanaFin for LG](https://github.com/CHAD2BAD/IvanaFin-webOS) and
 [IvanaFin for Jellyfin web](#jellyfin-web) (steps below).
 
 It is a fork of [Wholphin](https://github.com/damontecres/Wholphin) by damontecres - all the hard work of
