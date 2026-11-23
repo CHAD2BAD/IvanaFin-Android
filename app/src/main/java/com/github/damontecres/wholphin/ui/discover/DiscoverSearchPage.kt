@@ -57,6 +57,7 @@ import com.github.damontecres.wholphin.ui.search.SearchResult
 import com.github.damontecres.wholphin.ui.tryRequestFocus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -179,6 +180,7 @@ fun DiscoverSearchPage(
         ) {
             var isSearchActive by remember { mutableStateOf(false) }
             var isTextFieldFocused by remember { mutableStateOf(false) }
+            val searchScope = androidx.compose.runtime.rememberCoroutineScope()
 
             BackHandler(isTextFieldFocused) {
                 when {
@@ -224,7 +226,18 @@ fun DiscoverSearchPage(
                         isSearchActive = true
                         query = it
                     },
-                    onSearchClick = { triggerImmediateSearch(query) },
+                    onSearchClick = {
+                        triggerImmediateSearch(query)
+                        // IvanaFin: the keyboard's search key closes it and goes to the results once they load
+                        isSearchActive = false
+                        keyboardController?.hide()
+                        searchScope.launch {
+                            repeat(20) {
+                                kotlinx.coroutines.delay(150)
+                                if (runCatching { gridFocusRequester.requestFocus(FocusDirection.Enter) }.getOrDefault(false)) return@launch
+                            }
+                        }
+                    },
                     readOnly = !isSearchActive,
                     modifier =
                         Modifier
@@ -239,6 +252,12 @@ fun DiscoverSearchPage(
                                     keyboardController?.hide()
                                     runCatching { tabFocusRequester.requestFocus() }
                                     true
+                                } else if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionDown) {
+                                    // IvanaFin (round-8 beta): Down goes to the results - the text box kept
+                                    // Down after the keyboard was closed, so no result could be reached
+                                    isSearchActive = false
+                                    keyboardController?.hide()
+                                    runCatching { gridFocusRequester.requestFocus(FocusDirection.Enter) }.getOrDefault(false)
                                 } else if (event.type == KeyEventType.KeyUp && isActivationKey && !isSearchActive) {
                                     isSearchActive = true
                                     keyboardController?.show()

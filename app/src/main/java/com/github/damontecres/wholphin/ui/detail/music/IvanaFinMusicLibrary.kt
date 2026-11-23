@@ -362,7 +362,7 @@ private fun buildMixes(
         }
     }
     val tapes = all.filter { discographyRow(it) == 2 }
-    if (tapes.size >= 2) out.add(MusicMix("tapes", "Mixtapes & More Mix", "${tapes.size} mixtapes", tapes.shuffled().take(4).map { it.id }, albumIds = tapes.map { it.id }))
+    if (tapes.size >= 2) out.add(MusicMix("tapes", "Mixtapes Mix", "${tapes.size} mixtapes", tapes.shuffled().take(4).map { it.id }, albumIds = tapes.map { it.id }))
     return out
 }
 
@@ -1187,6 +1187,23 @@ fun IvanaFinMusicLibrary(
                 viewModel.startRadio(s.id)
                 menuSong = null
             },
+            // (round-8 beta: no way from a song to its artist or album - web's menu has View album / artist)
+            onGoAlbum =
+                s.data.albumId?.let { aid ->
+                    {
+                        menuSong = null
+                        npOpen = false
+                        go(MusicView.Album(aid))
+                    }
+                },
+            onGoArtist =
+                (s.data.albumArtists?.firstOrNull()?.id ?: s.data.artistItems?.firstOrNull()?.id)?.let { arid ->
+                    {
+                        menuSong = null
+                        npOpen = false
+                        go(MusicView.Artist(arid))
+                    }
+                },
             onDismiss = { menuSong = null },
         )
     }
@@ -1392,9 +1409,9 @@ fun IvanaFinMusicLibrary(
                     shuffle = shuffle,
                     repeat = repeat,
                     onShuffle = { player.shuffleModeEnabled = !player.shuffleModeEnabled },
-                    onPrev = { player.seekToPrevious() },
+                    onPrev = { player.seekToPrevious(); player.play() }, // (round 8: like web - skipping while paused starts the song)
                     onPlayPause = { if (player.isPlaying) player.pause() else if (player.mediaItemCount > 0) player.play() },
-                    onNext = { player.seekToNext() },
+                    onNext = { player.seekToNext(); player.play() },
                     onRepeat = {
                         player.repeatMode =
                             when (player.repeatMode) {
@@ -2877,7 +2894,8 @@ private fun NpUpNext(
     }
     Text("Up next", fontSize = MuType.rowTitle, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(top = 30.dp, bottom = 6.dp))
     // (rows pulled left so the song names line up with the page text)
-    Column(Modifier.offset(x = (-84).dp).width(640.dp)) {
+    // (round 8: full width, times at the right like the album lists - they sat mid-screen)
+    Column(Modifier.offset(x = (-84).dp).fillMaxWidth()) {
         next.forEach { (index, song) ->
             key(song.id, index) {
               // focus leaving the row and its menu closes the menu; Left/Right on a row stay put
@@ -3249,6 +3267,8 @@ private fun MuSongMenuDialog(
     onAddToQueue: () -> Unit,
     onAddToPlaylist: () -> Unit,
     onRadio: () -> Unit,
+    onGoAlbum: (() -> Unit)?,
+    onGoArtist: (() -> Unit)?,
     onDismiss: () -> Unit,
 ) {
     val first = remember { FocusRequester() }
@@ -3267,6 +3287,8 @@ private fun MuSongMenuDialog(
             MuPill(Fa.MUSIC, text = "Add to queue", onClick = onAddToQueue, modifier = Modifier.fillMaxWidth())
             MuPill(Fa.PLUS, text = "Add to playlist", onClick = onAddToPlaylist, modifier = Modifier.fillMaxWidth())
             MuPill(Fa.RADIO, text = "Start radio", onClick = onRadio, modifier = Modifier.fillMaxWidth())
+            if (onGoAlbum != null) MuPill(Fa.DISC, text = "Go to album", onClick = onGoAlbum, modifier = Modifier.fillMaxWidth())
+            if (onGoArtist != null) MuPill(Fa.USER, text = "Go to artist", onClick = onGoArtist, modifier = Modifier.fillMaxWidth())
         }
     }
     LaunchedEffect(Unit) {

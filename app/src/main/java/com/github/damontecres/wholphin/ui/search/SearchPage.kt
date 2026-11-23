@@ -279,7 +279,7 @@ fun SearchPage(
                     kotlinx.coroutines.delay(200)
                     isSearchActive = false
                     val rows = listOf(COMBINED_ROW, SEERR_ROW) + (RESULTS_START until focusRequesters.size)
-                    rows.any { focusRequesters.getOrNull(it)?.tryRequestFocus() == true }
+                    rows.any { focusRequesters.getOrNull(it)?.let { fr -> runCatching { fr.requestFocus(androidx.compose.ui.focus.FocusDirection.Enter) }.getOrDefault(false) } == true }
                 }
             }
 
@@ -324,7 +324,7 @@ fun SearchPage(
                             repeat(20) {
                                 kotlinx.coroutines.delay(150)
                                 val rows = listOf(COMBINED_ROW, SEERR_ROW) + (RESULTS_START until focusRequesters.size)
-                                if (rows.any { r -> focusRequesters.getOrNull(r)?.tryRequestFocus() == true }) return@launch
+                                if (rows.any { r -> focusRequesters.getOrNull(r)?.let { fr -> runCatching { fr.requestFocus(androidx.compose.ui.focus.FocusDirection.Enter) }.getOrDefault(false) } == true }) return@launch
                             }
                         }
                     },
@@ -348,7 +348,7 @@ fun SearchPage(
                                     isSearchActive = false
                                     keyboardController?.hide()
                                     val rows = listOf(COMBINED_ROW, SEERR_ROW) + (RESULTS_START until focusRequesters.size)
-                                    rows.any { focusRequesters.getOrNull(it)?.tryRequestFocus() == true }
+                                    rows.any { focusRequesters.getOrNull(it)?.let { fr -> runCatching { fr.requestFocus(androidx.compose.ui.focus.FocusDirection.Enter) }.getOrDefault(false) } == true }
                                 } else {
                                     false
                                 }

@@ -160,6 +160,7 @@ internal object Fa {
     const val PLUS = ""
     const val RADIO = ""
     const val REMOVE = ""
+    const val USER = "\uf007"
 }
 
 /**

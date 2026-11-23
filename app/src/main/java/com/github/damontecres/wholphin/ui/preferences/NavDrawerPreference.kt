@@ -248,6 +248,8 @@ fun NavDrawerPreferenceListItem(
                     )
                 },
                 onClick = onClick,
+                // IvanaFin (round-8 beta): no grow on focus - the selected row ran under the arrow buttons
+                scale = androidx.tv.material3.ListItemDefaults.scale(focusedScale = 1f),
                 modifier = Modifier.weight(1f),
             )
             Row(
