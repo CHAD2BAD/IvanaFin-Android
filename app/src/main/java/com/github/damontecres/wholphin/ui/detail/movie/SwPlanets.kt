@@ -473,7 +473,7 @@ fun SwStoryRow(
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
-                    Text(x.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                    Text(x.name, fontSize = 14.sp, lineHeight = 18.sp /* round 7: two-line titles had a wide gap */, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
                     Text(label + if (x.year.isNotBlank()) " · " + x.year else "", fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                 }
             }

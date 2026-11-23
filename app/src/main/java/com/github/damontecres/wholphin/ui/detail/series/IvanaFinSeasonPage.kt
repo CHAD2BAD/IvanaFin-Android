@@ -3,6 +3,7 @@ package com.github.damontecres.wholphin.ui.detail.series
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -349,7 +350,8 @@ fun IvanaFinSeasonPage(
                 startCardFocusRequester = castCardFocusRequester,
                 // IvanaFin: Back from a person page returns to the person you opened (the row's own
                 // focusRestorer picks the remembered card)
-                modifier = Modifier.fillMaxWidth().padding(top = 24.dp).focusRequester(castFocusRequester),
+                // (round-7 beta: heading and cards sat 8dp right of the episodes - the row has its own 8dp padding)
+                modifier = Modifier.fillMaxWidth().padding(top = 24.dp).offset(x = (-8).dp).focusRequester(castFocusRequester),
             )
         }
     }
@@ -437,7 +439,7 @@ private fun WebEpisodeDetailsLine(episode: BaseItem) {
                 Icon(
                     Icons.Default.Star,
                     contentDescription = null,
-                    tint = Color(0xFF00A4DC),
+                    tint = Color(0xFFF5C518), // IvanaFin (round 7): gold like the show rating (was Jellyfin blue)
                     modifier = Modifier.padding(end = 4.dp).size(14.dp),
                 )
                 Text(text = "%.1f".format(rating), style = style, color = color, maxLines = 1)

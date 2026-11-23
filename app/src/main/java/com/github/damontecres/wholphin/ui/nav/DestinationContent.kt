@@ -141,7 +141,7 @@ fun DestinationContent(
             )
         }
 
-        is Destination.MediaItem -> {
+        is Destination.MediaItem -> DiscoverItemGuard(destination) {
             when (destination.type) {
                 BaseItemKind.SERIES -> {
                     // IvanaFin: Prime-style - opening a show goes straight to its season page

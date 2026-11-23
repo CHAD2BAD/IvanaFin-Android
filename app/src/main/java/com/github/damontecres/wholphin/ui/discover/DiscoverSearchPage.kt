@@ -112,6 +112,8 @@ fun DiscoverSearchPage(
     preferences: UserPreferences,
     positionCallback: (columns: Int, position: Int) -> Unit,
     modifier: Modifier = Modifier,
+    // IvanaFin (round-7 beta): Up from the search box goes to the tabs (it did nothing - only Back got out)
+    tabFocusRequester: FocusRequester? = null,
     viewModel: DiscoverSearchViewModel = hiltViewModel(),
 ) {
     val focusManager = LocalFocusManager.current
@@ -232,7 +234,12 @@ fun DiscoverSearchPage(
                             }.onPreviewKeyEvent { event ->
                                 val isActivationKey =
                                     event.key in listOf(Key.DirectionCenter, Key.Enter)
-                                if (event.type == KeyEventType.KeyUp && isActivationKey && !isSearchActive) {
+                                if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp && tabFocusRequester != null) {
+                                    isSearchActive = false
+                                    keyboardController?.hide()
+                                    runCatching { tabFocusRequester.requestFocus() }
+                                    true
+                                } else if (event.type == KeyEventType.KeyUp && isActivationKey && !isSearchActive) {
                                     isSearchActive = true
                                     keyboardController?.show()
                                     true

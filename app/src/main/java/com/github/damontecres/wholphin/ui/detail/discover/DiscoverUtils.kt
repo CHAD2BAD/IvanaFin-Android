@@ -141,3 +141,14 @@ private fun formatSecondsLeft(seconds: Long): String {
         else -> "<1 min"
     }
 }
+
+
+/** IvanaFin (round-7 beta): Seerr dates ("2026-11-20") as "20 Nov 2026", like web/Samsung (was the raw date). */
+fun ivfSeerrDate(raw: String?): String? {
+    if (raw.isNullOrBlank()) return null
+    return try {
+        java.time.LocalDate.parse(raw.take(10)).format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.UK))
+    } catch (e: Exception) {
+        raw
+    }
+}

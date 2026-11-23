@@ -117,6 +117,7 @@ data class DiscoverItem(
                 Destination.MediaItem(
                     itemId = jellyfinItemId,
                     type = jfType,
+                    discover = this,
                 )
             } else {
                 Destination.DiscoveredItem(this)

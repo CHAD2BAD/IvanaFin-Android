@@ -75,6 +75,8 @@ sealed class Destination(
         val type: BaseItemKind,
         val collectionType: CollectionType? = null,
         val initialSongId: UUID? = null,
+        // IvanaFin: opened from Discover - shown instead if the library item no longer exists
+        val discover: DiscoverItem? = null,
     ) : Destination() {
         constructor(item: BaseItem) : this(item.id, item.type, item.data.collectionType)
     }

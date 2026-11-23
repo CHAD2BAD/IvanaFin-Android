@@ -1660,7 +1660,7 @@ private fun MusicHomeView(
                     Column {
                         MuSectionTitle("Made for you")
                         MuLazyRow(state = rowState("mixes")) {
-                            itemsIndexed(data.mixes, key = { _, m -> m.key }) { _, m ->
+                            itemsIndexed(data.mixes, key = { _, m -> m.key }) { i, m ->
                                 val k = "mix:${m.key}"
                                 MixCard(
                                     name = m.name,
@@ -1668,7 +1668,8 @@ private fun MusicHomeView(
                                     covers = m.covers.map { viewModel.imageUrl(it) },
                                     onClick = { viewModel.playMix(m) },
                                     onFocus = { onFocusKey(k) },
-                                    modifier = keyMod(k),
+                                    // (round-7 beta: Right on the last mix jumped up to the album cards)
+                                    modifier = keyMod(k).then(if (i == data.mixes.lastIndex) Modifier.focusProperties { right = FocusRequester.Cancel } else Modifier),
                                 )
                             }
                         }
@@ -2019,7 +2020,8 @@ private fun MusicSearchView(
     browseFocus: String? = null,
 ) {
     val results by viewModel.search.collectAsState()
-    var text by remember { mutableStateOf("") }
+    // (round-7 beta: Back from a result came back to an empty box and no results - kept with the page now)
+    var text by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
     val boxFocus = remember { FocusRequester() }
     // the box only types (keyboard up) after OK on it: passing through it with the remote brought the
     // keyboard up over the Browse tiles (round-4 beta)
@@ -2034,7 +2036,11 @@ private fun MusicSearchView(
     // Up from the tiles reaches the box; OK on it types.
     LaunchedEffect(Unit) {
         delay(120)
-        if (text.isNotBlank() || !(tileFocus.tryRequestFocus() || firstResult.tryRequestFocus())) boxFocus.tryRequestFocus()
+        // (coming back with a search typed: run it again if needed and select the first result)
+        if (text.isNotBlank()) {
+            if (results.artists.isEmpty() && results.albums.isEmpty() && results.songs.isEmpty()) viewModel.search(text)
+            if (!firstResult.tryRequestFocus()) boxFocus.tryRequestFocus()
+        } else if (!(tileFocus.tryRequestFocus() || firstResult.tryRequestFocus())) boxFocus.tryRequestFocus()
     }
     LaunchedEffect(listState) {
         snapshotFlow { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else 100000f }.collect { onScrolled(it) }
@@ -2062,6 +2068,8 @@ private fun MusicSearchView(
                     }),
                 readOnly = !typing,
                 leadingIcon = { Text(Fa.SEARCH, fontFamily = FontAwesome, fontSize = 16.sp, color = MuDim) },
+                // (round-7 beta: an empty dark box said nothing about what it was for - same words as web)
+                placeholder = { Text("What do you want to listen to?", color = MuDim) },
                 modifier =
                     Modifier
                         .padding(start = 40.dp, top = 110.dp, bottom = 6.dp)
@@ -2645,7 +2653,10 @@ private fun NowPlayingView(
                                 .fillMaxHeight()
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(Color(0xFF282828).copy(alpha = .72f))
-                                .padding(horizontal = 26.dp),
+                                .padding(horizontal = 26.dp)
+                                // (round-7 beta: Up from Up next landed on Shuffle - the controls are entered at Play/Pause)
+                                .focusGroup()
+                                .focusProperties { enter = { if (it == androidx.compose.ui.focus.FocusDirection.Up) ppFocus else FocusRequester.Default } },
                     ) {
                         NpButton(Fa.SHUFFLE, active = shuffle, dot = true, onClick = onShuffle)
                         NpButton(Fa.PREV, onClick = onPrev)

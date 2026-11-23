@@ -73,6 +73,7 @@ fun DiscoverPage(
             1 -> {
                 DiscoverSearchPage(
                     preferences = preferences,
+                    tabFocusRequester = tabDetails.tabFocusRequester,
                     positionCallback = { columns, index -> showHeader = index < columns },
                     modifier =
                         Modifier

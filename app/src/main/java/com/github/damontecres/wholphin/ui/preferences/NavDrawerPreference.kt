@@ -243,6 +243,8 @@ fun NavDrawerPreferenceListItem(
                         onCheckedChange = {
                             onClick.invoke()
                         },
+                        // IvanaFin (round-7 beta): the theme switch colours that stay readable on a selected row
+                        colors = SwitchColors(),
                     )
                 },
                 onClick = onClick,

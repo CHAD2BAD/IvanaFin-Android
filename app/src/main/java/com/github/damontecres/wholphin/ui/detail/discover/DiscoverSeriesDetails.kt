@@ -464,7 +464,7 @@ fun DiscoverSeriesDetailsHeader(
             val details =
                 remember(series, rating, resources) {
                     buildList {
-                        series.firstAirDate?.let(::add)
+                        ivfSeerrDate(series.firstAirDate)?.let(::add)
                         series.episodeRunTime
                             ?.average()
                             ?.takeIf { !it.isNaN() && it > 0 }

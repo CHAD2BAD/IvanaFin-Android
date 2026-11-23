@@ -95,6 +95,8 @@ fun DiscoverPersonRow(
     onLongClick: ((Int, DiscoverItem) -> Unit)? = null,
 ) {
     val firstFocus = remember { FocusRequester() }
+    // IvanaFin (round-7 beta): Back from a person selected the card left of the one opened - remember it, like PersonRow
+    var position by rememberInt(0)
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier,
@@ -121,12 +123,19 @@ fun DiscoverPersonRow(
                     role = person.subtitle,
                     imageUrl = person.posterUrl,
                     favorite = false,
-                    onClick = { onClick.invoke(person) },
-                    onLongClick = { onLongClick?.invoke(index, person) },
+                    onClick = {
+                        position = index
+                        onClick.invoke(person)
+                    },
+                    onLongClick = {
+                        position = index
+                        onLongClick?.invoke(index, person)
+                    },
                     modifier =
                         Modifier
                             .width(personRowCardWidth)
-                            .ifElse(index == 0, Modifier.focusRequester(firstFocus))
+                            .ifElse(index == position, Modifier.focusRequester(firstFocus))
+                            .ifElse(index == people.lastIndex, Modifier.focusProperties { right = FocusRequester.Cancel })
                             .animateItem(),
                 )
             }

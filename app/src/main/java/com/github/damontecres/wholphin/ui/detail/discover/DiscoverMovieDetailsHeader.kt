@@ -82,7 +82,7 @@ fun DiscoverMovieDetailsHeader(
             val details =
                 remember(movie, rating, resources) {
                     buildList {
-                        movie.releaseDate?.let(::add)
+                        ivfSeerrDate(movie.releaseDate)?.let(::add)
                         movie.runtime
                             ?.toDouble()
                             ?.minutes
