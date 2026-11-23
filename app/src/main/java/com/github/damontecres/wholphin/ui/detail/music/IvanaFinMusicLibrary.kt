@@ -2430,6 +2430,7 @@ private fun MusicArtistView(
 
 // ---- Now Playing -----------------------------------------------------------------------------------
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 private fun NowPlayingView(
     viewModel: IvanaFinMusicViewModel,
