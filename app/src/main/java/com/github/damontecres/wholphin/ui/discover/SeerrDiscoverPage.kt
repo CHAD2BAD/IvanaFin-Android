@@ -280,14 +280,14 @@ class SeerrDiscoverViewModel
                             }
 
                             SeerrItemType.PERSON -> {
-                                DiscoverRating(null, null)
+                                DiscoverRating(criticRating = null, audienceRating = null)
                             }
 
                             SeerrItemType.UNKNOWN -> {
-                                DiscoverRating(null, null)
+                                DiscoverRating(criticRating = null, audienceRating = null)
                             }
                         }
-                    } ?: DiscoverRating(null, null)
+                    } ?: DiscoverRating(criticRating = null, audienceRating = null)
 
                 ratingCache.put(id, result)
                 rating.update {
