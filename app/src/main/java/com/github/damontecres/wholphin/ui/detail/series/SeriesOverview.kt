@@ -112,6 +112,7 @@ fun SeriesOverview(
     var castIndex by rememberInt(0)
     val castCardFocusRequester = remember { FocusRequester() }
     val playNextFocusRequester = remember { FocusRequester() }
+    var seasonJustChanged by remember { androidx.compose.runtime.mutableStateOf(false) }
 
     val contextActions =
         remember {
@@ -202,6 +203,12 @@ fun SeriesOverview(
             val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
             LaunchedEffect(episodesReady) {
                 if (!episodesReady) return@LaunchedEffect
+                // a season was just chosen: the page keeps the Season button selected itself (round-9
+                // beta: this loop moved the selection to Play Next Episode)
+                if (seasonJustChanged) {
+                    seasonJustChanged = false
+                    return@LaunchedEffect
+                }
                 // back from playing an episode: that episode, even if the list was reset while reloading
                 val target = playedIndex
                 if (target >= 0) rowFocused = EPISODE_ROW
@@ -254,8 +261,10 @@ fun SeriesOverview(
                 castCardFocusRequester = castCardFocusRequester,
                 onOpenItem = { id, isSeries -> viewModel.navigateTo(Destination.MediaItem(id, if (isSeries) org.jellyfin.sdk.model.api.BaseItemKind.SERIES else org.jellyfin.sdk.model.api.BaseItemKind.MOVIE)) },
                 swStory = { k -> viewModel.swSeasonStory(st.data.id, k) },
+                criticPercent = androidx.compose.runtime.produceState<Int?>(null, st.data.id) { value = viewModel.seriesCritic(st.data) }.value,
                 onChangeSeason = { index ->
                     if (index != position.seasonTabIndex) {
+                        seasonJustChanged = true
                         state.seasons.getOrNull(index)?.let { season ->
                             viewModel.loadEpisodes(season.id, season.indexNumber)
                             viewModel.position.update { SeriesOverviewPosition(index, 0) }

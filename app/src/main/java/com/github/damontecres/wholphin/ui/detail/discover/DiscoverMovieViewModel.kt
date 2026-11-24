@@ -120,12 +120,11 @@ class DiscoverMovieViewModel
                     updateCanCancel()
 
                     viewModelScope.launchIO {
-                        val rating =
+                        val rt =
                             getDiscoverRating(item.id) {
-                                DiscoverRating(
-                                    seerrService.api.moviesApi.movieMovieIdRatingsGet(movieId = item.id),
-                                )
+                                DiscoverRating(seerrService.api.moviesApi.movieMovieIdRatingsGet(movieId = item.id), null)
                             }
+                        val rating = DiscoverRating(rt?.criticRating, movie.voteAverage?.toFloat()?.takeIf { it > 0f })
                         _state.update { it.copy(rating = rating) }
                     }
                     if (state.value.similar.isEmpty()) {

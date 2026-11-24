@@ -41,6 +41,8 @@ fun QuickDetails(
     endsAt: DateTime? = null,
     /** IvanaFin: shown first, before the release year (Star Wars: the in-universe year, "19 BBY") */
     prefix: String? = null,
+    /** IvanaFin: Rotten Tomatoes % fetched separately (shows - Jellyfin has none for series) */
+    criticPercent: Int? = null,
 ) {
     val enabled = LocalInterfaceCustomization.current.enabledDisplayToggles
     val inlineContentMap = rememberQuickDetailsContentMap(textStyle)
@@ -57,7 +59,18 @@ fun QuickDetails(
                 QuickDetailsText(details.communityRating, Modifier, textStyle, inlineContentMap)
             }
             if (DisplayToggle.CRITIC_RATING in enabled) {
-                QuickDetailsText(details.criticRating, Modifier, textStyle, inlineContentMap)
+                if (details.criticRating == null && criticPercent != null) {
+                    QuickDetailsText(
+                        androidx.compose.ui.text.buildAnnotatedString {
+                            dot()
+                            append("$criticPercent%")
+                            appendInlineContent(id = if (criticPercent >= 60) "fresh" else "rotten")
+                        },
+                        Modifier, textStyle, inlineContentMap,
+                    )
+                } else {
+                    QuickDetailsText(details.criticRating, Modifier, textStyle, inlineContentMap)
+                }
             }
         }
         if (timeRemaining != null) {

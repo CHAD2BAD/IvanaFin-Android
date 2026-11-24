@@ -89,6 +89,10 @@ fun DiscoverSeriesDetails(
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+        viewModel.onResumePage()
+        onPauseOrDispose { }
+    }
     val state by viewModel.state.collectAsState()
     val requestEnabled by viewModel.requestEnabled.collectAsState()
     val request4kEnabled by viewModel.request4kEnabled.collectAsState()

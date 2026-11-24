@@ -126,6 +126,8 @@ fun IvanaFinLibraryHome(
     header: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     launchFocus: FocusRequester? = null,
+    /** used when [launchFocus] never appears (the Discover button when Seerr is off) */
+    launchFallback: FocusRequester? = null,
     firstTileFocus: FocusRequester = remember { FocusRequester() },
     // Backdrop per library (missing key = still loading; null = none, use the library image).
     backdrops: Map<java.util.UUID, BaseItem?> = emptyMap(),
@@ -188,8 +190,15 @@ fun IvanaFinLibraryHome(
         val tile = focusRequesters.getOrNull(currentLastOpened)
         if (tile != null) {
             tile.tryRequestFocus()
-        } else if (launchFocus?.tryRequestFocus() != true) {
-            focusRequesters.firstOrNull()?.tryRequestFocus()
+        } else {
+            // (requestFocus(Enter) is false while the button isn't on screen yet; tryRequestFocus says true anyway)
+            var ok = false
+            for (wait in listOf(0L, 150L, 300L, 600L)) {
+                kotlinx.coroutines.delay(wait)
+                ok = launchFocus?.let { runCatching { it.requestFocus(androidx.compose.ui.focus.FocusDirection.Enter) }.getOrDefault(false) } == true
+                if (ok) break
+            }
+            if (!ok && launchFallback?.tryRequestFocus() != true) focusRequesters.firstOrNull()?.tryRequestFocus()
         }
     }
     Column(modifier = modifier.fillMaxSize()) {

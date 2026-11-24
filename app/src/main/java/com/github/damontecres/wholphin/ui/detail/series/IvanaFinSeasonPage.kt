@@ -104,6 +104,8 @@ fun IvanaFinSeasonPage(
     modifier: Modifier = Modifier,
     onOpenItem: (java.util.UUID, Boolean) -> Unit = { _, _ -> },
     swStory: suspend (Double) -> com.github.damontecres.wholphin.ui.detail.movie.SwNeighbours? = { null },
+    /** Rotten Tomatoes % for the info line (fetched from Seerr; Jellyfin has none for shows) */
+    criticPercent: Int? = null,
 ) {
     val season = seasons.getOrNull(selectedSeasonIndex)
     // IvanaFin: Star Wars shows - per season (they change with the Season button): era line, Featured
@@ -207,6 +209,7 @@ fun IvanaFinSeasonPage(
                     textStyle = MaterialTheme.typography.labelMedium,
                     // Star Wars: the season's in-universe year first ("22 BBY")
                     prefix = sw?.year,
+                    criticPercent = criticPercent,
                 )
             }
             // User choice: just the season dropdown and "Play next episode", centred under the logo

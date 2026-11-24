@@ -94,6 +94,9 @@ internal val LocalMuToTop = compositionLocalOf { 0 }
  */
 internal val LocalMuLastClicked = compositionLocalOf<androidx.compose.runtime.MutableState<androidx.compose.ui.focus.FocusRequester?>?> { null }
 
+/** The song row of the song playing now, while one is on screen: Back from Now Playing selects it (round-9 beta) */
+internal val LocalMuPlayingRow = compositionLocalOf<androidx.compose.runtime.MutableState<androidx.compose.ui.focus.FocusRequester?>?> { null }
+
 @Composable
 internal fun rememberClickMark(): Pair<androidx.compose.ui.focus.FocusRequester, () -> Unit> {
     val fr = remember { androidx.compose.ui.focus.FocusRequester() }
@@ -592,6 +595,13 @@ internal fun MuTrackRow(
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     val (markFocus, mark) = rememberClickMark()
+    val playingRow = LocalMuPlayingRow.current
+    if (playing && playingRow != null) {
+        androidx.compose.runtime.DisposableEffect(markFocus) {
+            playingRow.value = markFocus
+            onDispose { if (playingRow.value === markFocus) playingRow.value = null }
+        }
+    }
     Surface(
         onClick = {
             mark()

@@ -126,18 +126,20 @@ data class DiscoverItem(
 }
 
 /**
- * A rating for a discovered item which is usually fetched separately from the item
+ * A rating for a discovered item which is usually fetched separately from the item.
+ * IvanaFin (round-9 beta): the star is the TMDB rating everywhere (as on the library pages), the Rotten
+ * Tomatoes critics score is the tomato %. [audienceRating] holds the TMDB rating (it was RT's audience score).
  */
 data class DiscoverRating(
     val criticRating: Int?,
     val audienceRating: Float?,
 ) {
-    constructor(rating: MovieMovieIdRatingsGet200Response) : this(
-        criticRating = rating.criticsScore,
-        audienceRating = rating.audienceScore?.div(10f),
+    constructor(rating: MovieMovieIdRatingsGet200Response?, tmdbVote: Number?) : this(
+        criticRating = rating?.criticsScore,
+        audienceRating = tmdbVote?.toFloat()?.takeIf { it > 0f },
     )
-    constructor(rating: TvTvIdRatingsGet200Response) : this(
-        criticRating = rating.criticsScore,
-        audienceRating = null,
+    constructor(rating: TvTvIdRatingsGet200Response?, tmdbVote: Number?) : this(
+        criticRating = rating?.criticsScore,
+        audienceRating = tmdbVote?.toFloat()?.takeIf { it > 0f },
     )
 }

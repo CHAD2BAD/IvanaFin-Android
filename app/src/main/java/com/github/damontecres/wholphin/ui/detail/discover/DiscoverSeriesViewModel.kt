@@ -114,6 +114,13 @@ class DiscoverSeriesViewModel
                 }
             }
 
+        /** IvanaFin (round-9 beta): back on this page from another title - put this title's backdrop back */
+        private var shownBackdrop: DiscoverItem? = null
+
+        fun onResumePage() {
+            shownBackdrop?.let { viewModelScope.launchIO { backdropService.submit(it) } }
+        }
+
         fun init(): Job =
             viewModelScope.launchIO {
                 Timber.v("Init for tv %s", item.id)
@@ -121,16 +128,18 @@ class DiscoverSeriesViewModel
                     val tv = seerrService.api.tvApi.tvTvIdGet(tvId = item.id)
                     _state.update { it.copy(tvSeries = DataLoadingState.Success(tv)) }
                     val discoveredItem = seerrService.createDiscoverItem(tv)
+                    shownBackdrop = discoveredItem
                     backdropService.submit(discoveredItem)
 
                     updateSeasonStatus(tv)
                     updateAvailability()
 
                     viewModelScope.launchIO {
-                        val rating =
+                        val rt =
                             getDiscoverRating(item.id) {
-                                DiscoverRating(seerrService.api.tvApi.tvTvIdRatingsGet(tvId = item.id))
+                                DiscoverRating(seerrService.api.tvApi.tvTvIdRatingsGet(tvId = item.id), null)
                             }
+                        val rating = DiscoverRating(rt?.criticRating, tv.voteAverage?.toFloat()?.takeIf { it > 0f })
                         _state.update { it.copy(rating = rating) }
                     }
                     if (state.value.similar.isEmpty()) {

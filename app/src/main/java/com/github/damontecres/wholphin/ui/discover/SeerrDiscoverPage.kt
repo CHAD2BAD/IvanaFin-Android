@@ -265,14 +265,18 @@ class SeerrDiscoverViewModel
                 val result =
                     getDiscoverRating(id) {
                         when (type) {
+                            // TMDB rating from the title's own details (Discover's lists carry an older
+                            // copy: Hexed 6.8 there vs 8.2 on its page) + the Rotten Tomatoes critics score
                             SeerrItemType.MOVIE -> {
-                                DiscoverRating(
-                                    seerrService.api.moviesApi.movieMovieIdRatingsGet(movieId = id),
-                                )
+                                val vote = runCatching { seerrService.api.moviesApi.movieMovieIdGet(movieId = id).voteAverage }.getOrNull()
+                                val rt = runCatching { seerrService.api.moviesApi.movieMovieIdRatingsGet(movieId = id) }.getOrNull()
+                                DiscoverRating(rt, vote)
                             }
 
                             SeerrItemType.TV -> {
-                                DiscoverRating(seerrService.api.tvApi.tvTvIdRatingsGet(tvId = id))
+                                val vote = runCatching { seerrService.api.tvApi.tvTvIdGet(tvId = id).voteAverage }.getOrNull()
+                                val rt = runCatching { seerrService.api.tvApi.tvTvIdRatingsGet(tvId = id) }.getOrNull()
+                                DiscoverRating(rt, vote)
                             }
 
                             SeerrItemType.PERSON -> {

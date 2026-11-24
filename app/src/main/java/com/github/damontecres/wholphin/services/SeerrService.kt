@@ -102,6 +102,16 @@ class SeerrService
          *
          * @return the discovered items or null if no Seerr server configured
          */
+        /** IvanaFin (round-9 beta): a show's Rotten Tomatoes critics score (Jellyfin has none for series) */
+        suspend fun seriesCriticScore(item: BaseItem): Int? =
+            if (active.first()) {
+                item.data.providerIds?.get("Tmdb")?.toIntOrNull()?.let { id ->
+                    runCatching { api.tvApi.tvTvIdRatingsGet(tvId = id).criticsScore }.getOrNull()
+                }
+            } else {
+                null
+            }
+
         suspend fun similar(item: BaseItem): List<DiscoverItem>? =
             if (active.first()) {
                 item.data.providerIds

@@ -315,10 +315,13 @@ fun HomePage(
                     launchFocus =
                         when (viewModel.homeLastOpenedIndex.intValue) {
                             -2 -> settingsFocus
-                            -3 -> if (discoverActive) discoverFocus else searchFocus
+                            // (round-9 beta: Back from Discover selected Search - the Discover button isn't
+                            // there until Seerr reports in; IvanaFinLibraryHome waits for it, then falls back)
+                            -3 -> discoverFocus
                             else -> searchFocus
                         },
                     firstTileFocus = firstTileFocus,
+                    launchFallback = searchFocus,
                     backdrops = tileBackdrops,
                     onShown = {
                         viewModel.clearBackdrop() // IvanaFin: no Discover picture behind the tiles

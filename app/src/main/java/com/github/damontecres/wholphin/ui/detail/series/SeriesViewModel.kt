@@ -340,6 +340,9 @@ class SeriesViewModel
                 null
             }
 
+        /** IvanaFin: the show's Rotten Tomatoes % for the info line (null when Seerr has none) */
+        suspend fun seriesCritic(item: BaseItem): Int? = seerrService.seriesCriticScore(item)
+
         /** IvanaFin: Star Wars - what comes before / after a season of this show on the timeline (SwPlanets.kt) */
         suspend fun swSeasonStory(
             seriesId: java.util.UUID,

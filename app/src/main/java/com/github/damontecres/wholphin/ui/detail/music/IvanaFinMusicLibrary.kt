@@ -390,6 +390,9 @@ class IvanaFinMusicViewModel
         val playlist = MutableStateFlow<Pair<BaseItem, List<BaseItem>>?>(null)
         val sort = MutableStateFlow(prefs.getInt("music_sort", 0).coerceIn(0, MusicSorts.size - 1))
         val search = MutableStateFlow(MusicSearchResults())
+
+        /** the Music search box's text, kept with the results (MusicSearchView) */
+        var searchText: String = ""
         val liked = MutableStateFlow<List<BaseItem>?>(null)
         val artist = MutableStateFlow<MusicArtistData?>(null)
 
@@ -639,7 +642,35 @@ class IvanaFinMusicViewModel
                                 ),
                             ).toBaseItems(api, false)
                         val albums = request(albumsRequest(listOf(ItemSortBy.SORT_NAME), SortOrder.ASCENDING, 30, term)).toBaseItems(api, false)
-                        search.value = MusicSearchResults(songs, albums, loadArtists(term))
+                        val artists = loadArtists(term)
+                        // Jellyfin only matches names: "tyler" found the artist but none of their albums
+                        // (round-9 beta). Add the matched artists' own albums and songs after the name
+                        // matches, like web.
+                        val ids = artists.take(3).map { it.id }
+                        var allAlbums = albums
+                        var allSongs = songs
+                        if (ids.isNotEmpty()) {
+                            runCatching {
+                                val more = request(albumsRequest(listOf(ItemSortBy.PRODUCTION_YEAR, ItemSortBy.SORT_NAME), SortOrder.DESCENDING, 30).copy(albumArtistIds = ids)).toBaseItems(api, false)
+                                allAlbums = (albums + more.filter { m -> albums.none { it.id == m.id } }).take(30)
+                            }
+                            runCatching {
+                                val more =
+                                    request(
+                                        GetItemsRequest(
+                                            parentId = libraryId,
+                                            includeItemTypes = listOf(BaseItemKind.AUDIO),
+                                            recursive = true,
+                                            artistIds = ids,
+                                            sortBy = listOf(ItemSortBy.PLAY_COUNT, ItemSortBy.SORT_NAME),
+                                            sortOrder = listOf(SortOrder.DESCENDING),
+                                            limit = 30,
+                                        ),
+                                    ).toBaseItems(api, false)
+                                allSongs = (songs + more.filter { m -> songs.none { it.id == m.id } }).take(30)
+                            }
+                        }
+                        search.value = MusicSearchResults(allSongs, allAlbums, artists)
                     } catch (ex: Exception) {
                         Timber.w(ex, "Music search failed")
                     }
@@ -1050,6 +1081,7 @@ fun IvanaFinMusicLibrary(
     // to the page it was started from. A song ending and the next one starting does not.
     var npAuto by remember { mutableStateOf(false) }
     val lastClicked = remember { mutableStateOf<FocusRequester?>(null) }
+    val playingRow = remember { mutableStateOf<FocusRequester?>(null) }
     DisposableEffect(player) {
         val listener =
             object : Player.Listener {
@@ -1146,7 +1178,11 @@ fun IvanaFinMusicLibrary(
             val auto = npAuto
             scope.launch {
                 delay(50)
-                if (!auto || lastClicked.value?.tryRequestFocus() != true) miniFocus.tryRequestFocus()
+                // (round-9 beta: the song playing now if its row is on the page - Next in Now Playing moved on
+                // from the row that started it)
+                val now = playingRow.value
+                val onNow = auto && now != null && runCatching { now.requestFocus(androidx.compose.ui.focus.FocusDirection.Enter) }.getOrDefault(false)
+                if (!onNow && (!auto || lastClicked.value?.tryRequestFocus() != true)) miniFocus.tryRequestFocus()
             }
             npAuto = false
         } else {
@@ -1243,6 +1279,7 @@ fun IvanaFinMusicLibrary(
             val onScrolled: (Float) -> Unit = { scrolled = it }
             CompositionLocalProvider(
                 LocalMuLastClicked provides lastClicked,
+                LocalMuPlayingRow provides playingRow,
                 LocalMuPlaying provides playing,
                 LocalMuSongMenu provides { menuSong = it },
                 LocalMuRadio provides { viewModel.startRadio(it) },
@@ -1548,9 +1585,11 @@ private fun NavPill(
         modifier = modifier.height(36.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxHeight().padding(horizontal = 10.dp)) {
-            Text(glyph, fontFamily = FontAwesome, fontSize = 14.sp, color = c)
+            // (a soft shadow when not selected: "Your Library" vanished over a bright artist photo - round-9 beta)
+            val sh = if (focused) null else androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = .8f), androidx.compose.ui.geometry.Offset(0f, 1f), 8f)
+            Text(glyph, fontFamily = FontAwesome, fontSize = 14.sp, color = c, style = androidx.compose.ui.text.TextStyle(shadow = sh))
             Spacer(Modifier.width(7.dp))
-            Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = c)
+            Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = c, style = androidx.compose.ui.text.TextStyle(shadow = sh))
         }
     }
 }
@@ -2038,7 +2077,9 @@ private fun MusicSearchView(
 ) {
     val results by viewModel.search.collectAsState()
     // (round-7 beta: Back from a result came back to an empty box and no results - kept with the page now)
-    var text by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("") }
+    // (round-9 beta: the saved text was lost on Back while the results stayed - both live in the view model now)
+    var text by remember { mutableStateOf(viewModel.searchText) }
+    LaunchedEffect(text) { viewModel.searchText = text }
     val boxFocus = remember { FocusRequester() }
     // the box only types (keyboard up) after OK on it: passing through it with the remote brought the
     // keyboard up over the Browse tiles (round-4 beta)
@@ -2682,7 +2723,8 @@ private fun NowPlayingView(
                         NpButton(Fa.NEXT, onClick = onNext)
                         NpButton(Fa.REPEAT, active = repeat != Player.REPEAT_MODE_OFF, dot = true, badge = if (repeat == Player.REPEAT_MODE_ONE) "1" else null, onClick = onRepeat)
                     }
-                    NpButton(Fa.LYRICS, active = showLyrics, onClick = { showLyrics = !showLyrics }, modifier = Modifier.align(Alignment.CenterEnd))
+                    // (dot = on, like web: the accent follows the cover and can be nearly white - round-9 beta)
+                    NpButton(Fa.LYRICS, active = showLyrics, dot = true, onClick = { showLyrics = !showLyrics }, modifier = Modifier.align(Alignment.CenterEnd))
                 }
                 // Up Next: the coming songs (OK plays one, hold OK to move or remove it)
                 NpUpNext(viewModel, scroll)

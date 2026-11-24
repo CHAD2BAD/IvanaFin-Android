@@ -788,7 +788,7 @@ fun buildContextForMusic(
         add(
             DialogItem(
                 resources.getString(R.string.play_next),
-                Icons.Default.PlayArrow,
+                Icons.AutoMirrored.Filled.ArrowForward,
                 dismissOnClick = true,
             ) {
                 actions.onClickPlayNext(index, item)
@@ -930,7 +930,7 @@ fun buildContextForMusicQueue(
         add(
             DialogItem(
                 resources.getString(R.string.play_next),
-                Icons.Default.PlayArrow,
+                Icons.AutoMirrored.Filled.ArrowForward,
                 dismissOnClick = true,
             ) {
                 actions.onClickPlayNext(index, item)
