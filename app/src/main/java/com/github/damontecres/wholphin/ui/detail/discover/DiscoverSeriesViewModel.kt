@@ -125,8 +125,22 @@ class DiscoverSeriesViewModel
             viewModelScope.launchIO {
                 Timber.v("Init for tv %s", item.id)
                 try {
+                    // IvanaFin: Rotten Tomatoes asked at the same time; the page waits briefly so the line appears whole
+                    val rtJob =
+                        viewModelScope.async(kotlinx.coroutines.Dispatchers.IO) {
+                            getDiscoverRating(item.id) {
+                                DiscoverRating(seerrService.api.tvApi.tvTvIdRatingsGet(tvId = item.id), null)
+                            }
+                        }
                     val tv = seerrService.api.tvApi.tvTvIdGet(tvId = item.id)
-                    _state.update { it.copy(tvSeries = DataLoadingState.Success(tv)) }
+                    val early = kotlinx.coroutines.withTimeoutOrNull(1200) { rtJob.await() }
+                    val vote = tv.voteAverage?.toFloat()?.takeIf { it > 0f }
+                    _state.update {
+                        it.copy(
+                            tvSeries = DataLoadingState.Success(tv),
+                            rating = if (early != null || rtJob.isCompleted) DiscoverRating(early?.criticRating, vote) else it.rating,
+                        )
+                    }
                     val discoveredItem = seerrService.createDiscoverItem(tv)
                     shownBackdrop = discoveredItem
                     backdropService.submit(discoveredItem)
@@ -135,12 +149,8 @@ class DiscoverSeriesViewModel
                     updateAvailability()
 
                     viewModelScope.launchIO {
-                        val rt =
-                            getDiscoverRating(item.id) {
-                                DiscoverRating(seerrService.api.tvApi.tvTvIdRatingsGet(tvId = item.id), null)
-                            }
-                        val rating = DiscoverRating(rt?.criticRating, tv.voteAverage?.toFloat()?.takeIf { it > 0f })
-                        _state.update { it.copy(rating = rating) }
+                        val rt = rtJob.await()
+                        _state.update { it.copy(rating = DiscoverRating(rt?.criticRating, vote)) }
                     }
                     if (state.value.similar.isEmpty()) {
                         viewModelScope.launchIO {

@@ -60,6 +60,7 @@ import com.github.damontecres.wholphin.util.successValue
 import com.google.common.cache.CacheBuilder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import org.jellyfin.sdk.model.UUID
@@ -257,26 +258,29 @@ class SeerrDiscoverViewModel
             id: Int,
             type: SeerrItemType,
         ) {
+            // (one request set per title at a time: focus and the neighbour prefetch below ask for the same ones)
+            if (ratingCache.getIfPresent(id) != null || !ratingsInFlight.add(id)) return
             viewModelScope.launchIO {
-                val cachedResult = ratingCache.getIfPresent(id)
-                if (cachedResult != null) {
-                    return@launchIO
-                }
                 val result =
                     getDiscoverRating(id) {
                         when (type) {
                             // TMDB rating from the title's own details (Discover's lists carry an older
                             // copy: Hexed 6.8 there vs 8.2 on its page) + the Rotten Tomatoes critics score
+                            // (both asked at the same time - one after the other made the line late)
                             SeerrItemType.MOVIE -> {
-                                val vote = runCatching { seerrService.api.moviesApi.movieMovieIdGet(movieId = id).voteAverage }.getOrNull()
-                                val rt = runCatching { seerrService.api.moviesApi.movieMovieIdRatingsGet(movieId = id) }.getOrNull()
-                                DiscoverRating(rt, vote)
+                                kotlinx.coroutines.coroutineScope {
+                                    val vote = async { runCatching { seerrService.api.moviesApi.movieMovieIdGet(movieId = id).voteAverage }.getOrNull() }
+                                    val rt = async { runCatching { seerrService.api.moviesApi.movieMovieIdRatingsGet(movieId = id) }.getOrNull() }
+                                    DiscoverRating(rt.await(), vote.await())
+                                }
                             }
 
                             SeerrItemType.TV -> {
-                                val vote = runCatching { seerrService.api.tvApi.tvTvIdGet(tvId = id).voteAverage }.getOrNull()
-                                val rt = runCatching { seerrService.api.tvApi.tvTvIdRatingsGet(tvId = id) }.getOrNull()
-                                DiscoverRating(rt, vote)
+                                kotlinx.coroutines.coroutineScope {
+                                    val vote = async { runCatching { seerrService.api.tvApi.tvTvIdGet(tvId = id).voteAverage }.getOrNull() }
+                                    val rt = async { runCatching { seerrService.api.tvApi.tvTvIdRatingsGet(tvId = id) }.getOrNull() }
+                                    DiscoverRating(rt.await(), vote.await())
+                                }
                             }
 
                             SeerrItemType.PERSON -> {
@@ -290,10 +294,21 @@ class SeerrDiscoverViewModel
                     } ?: DiscoverRating(criticRating = null, audienceRating = null)
 
                 ratingCache.put(id, result)
+                ratingsInFlight.remove(id)
                 rating.update {
                     ratingCache.asMap().toMap()
                 }
             }
+        }
+
+        private val ratingsInFlight = java.util.concurrent.ConcurrentHashMap.newKeySet<Int>()
+
+        /**
+         * IvanaFin: fetch the ratings of the titles next to the selected one, so the header's
+         * "7.7★ • 94%🍅" is ready when the remote gets there (it appeared a moment after the rest of the text)
+         */
+        fun prefetchRatings(items: List<DiscoverItem>) {
+            items.forEach { fetchRating(it.id, it.type) }
         }
     }
 
@@ -405,6 +420,12 @@ fun SeerrDiscoverPage(
         }
     LaunchedEffect(focusedItem) {
         viewModel.updateBackdrop(focusedItem)
+        // the neighbours in the row (and the start of each row once loaded), so their ratings are ready
+        listOf(ROW_TRENDING to state.trending, ROW_MOVIES to state.movies, ROW_UPCOMING_MOVIES to state.upcomingMovies, ROW_TV to state.tv, ROW_UPCOMING_TV to state.upcomingTv).forEach { (r, row) ->
+            val items = (row.items as? DataLoadingState.Success)?.data ?: return@forEach
+            val near = if (r == position.row) (position.column - 2..position.column + 3) else (0..2)
+            viewModel.prefetchRatings(near.mapNotNull { items.getOrNull(it) })
+        }
     }
     var firstFocused by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(state.trending) {
